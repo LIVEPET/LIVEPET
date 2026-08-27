@@ -1,0 +1,8 @@
+
+CREATE OR REPLACE FUNCTION public.set_updated_at()
+RETURNS TRIGGER LANGUAGE plpgsql
+SET search_path = public
+AS $$
+BEGIN NEW.updated_at = now(); RETURN NEW; END; $$;
+
+DROP POLICY IF EXISTS "Anyone can view pet photos" ON storage.objects;
