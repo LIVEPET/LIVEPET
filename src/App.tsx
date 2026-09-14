@@ -51,3 +51,12 @@ const App = () => (
 );
 
 export default App;
+import PetRegister from './pages/PetRegister';
+
+export default function App() {
+  return (
+    <div className="min-h-screen bg-slate-100 py-6">
+      <PetRegister />
+    </div>
+  );
+}
