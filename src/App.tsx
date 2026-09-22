@@ -12,7 +12,7 @@ import Partnerships from "./pages/Partnerships.tsx";
 import MedicalHistory from "./pages/MedicalHistory.tsx";
 import PetRegister from "./pages/PetRegister.tsx";
 import MatchPet from "./pages/MatchPet.tsx";
-
+import PetHealth from "./pages/PetHealth.tsx";
 import PetCard from "./pages/PetCard.tsx";
 import NotFound from "./pages/NotFound.tsx";
 import Layout from "./components/Layout";
@@ -28,7 +28,7 @@ const App = () => (
         <Routes>
           {/* Login fora do layout (sem menu) */}
           <Route path="/login" element={<Login />} />
-
+<Route path="/saude" element={<PetHealth />} />
           {/* Todas as outras telas compartilham o Header */}
           <Route element={<Layout />}>
             <Route path="/" element={<Index />} />
@@ -39,7 +39,7 @@ const App = () => (
             <Route path="/historico-medico" element={<MedicalHistory />} />
             <Route path="/pets/novo" element={<PetRegister />} />
             <Route path="/matchpet" element={<MatchPet />} />
-            
+            <Route path="/saude" element={<PetHealth />} />
             <Route path="/cartao" element={<PetCard />} />
             {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
             <Route path="*" element={<NotFound />} />
