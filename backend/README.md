@@ -4,6 +4,15 @@ API RESTful em Python com FastAPI, SQLAlchemy e PostgreSQL/SQLite para o ecossis
 
 ---
 
+## 🌐 Ambientes em Produção (Render)
+
+* **API Pública:** [https://livepet.onrender.com](https://livepet.onrender.com)
+* **Documentação Interativa (Swagger UI):** [https://livepet.onrender.com/docs](https://livepet.onrender.com/docs)
+* **Documentação ReDoc:** [https://livepet.onrender.com/redoc](https://livepet.onrender.com/redoc)
+* **Endpoint de Healthcheck:** [https://livepet.onrender.com/health](https://livepet.onrender.com/health)
+
+---
+
 ## 🚀 Como Executar Localmente
 
 ### 1. Criar e Ativar o Ambiente Virtual (venv)

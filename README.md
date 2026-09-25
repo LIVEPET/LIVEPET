@@ -13,20 +13,35 @@ Plataforma integrada para gestão de saúde, identificação e conexões de anim
 ![JavaScript](https://img.shields.io/badge/JavaScript-ES2022-0E2B1E?style=flat-square&logo=javascript&logoColor=F2643C)
 ![Vite](https://img.shields.io/badge/Vite-5-0E2B1E?style=flat-square&logo=vite&logoColor=F2643C)
 ![Tailwind](https://img.shields.io/badge/Tailwind-3-0E2B1E?style=flat-square&logo=tailwindcss&logoColor=1DA05A)
-![Supabase](https://img.shields.io/badge/Supabase-PostgreSQL-0E2B1E?style=flat-square&logo=supabase&logoColor=1DA05A)
-![Vitest](https://img.shields.io/badge/Vitest-passing-1DA05A?style=flat-square&logo=vitest&logoColor=white)
+![FastAPI](https://img.shields.io/badge/FastAPI-0.110-0E2B1E?style=flat-square&logo=fastapi&logoColor=1DA05A)
+![PostgreSQL](https://img.shields.io/badge/PostgreSQL-Neon-0E2B1E?style=flat-square&logo=postgresql&logoColor=1DA05A)
+![Render](https://img.shields.io/badge/Render-Deployed-46E3B7?style=flat-square&logo=render&logoColor=white)
+![Swagger](https://img.shields.io/badge/Swagger-OpenAPI-85EA2D?style=flat-square&logo=swagger&logoColor=black)
 
 <br>
 
+[Ambientes em Produção](#-ambientes-em-produção-cloud---render) ·
 [Funcionalidades](#funcionalidades) ·
 [Começando](#começando) ·
 [Estrutura](#estrutura-do-projeto) ·
-[Contribuindo](#padrões-de-contribuição) ·
-[Roadmap](#estado-atual)
+[Contribuindo](#padrões-de-contribuição)
 
 </div>
 
 <br>
+
+---
+
+## 🌐 Ambientes em Produção (Cloud - Render)
+
+O ecossistema LivePet está publicado e operando na nuvem:
+
+| Serviço | Descrição | Link de Acesso | Monitoramento / Status |
+| :--- | :--- | :--- | :--- |
+| **Front-end Web** | Interface do usuário em React / Vite (SPA) | [livepet-1.onrender.com](https://livepet-1.onrender.com/) | [![Front-end](https://img.shields.io/badge/Status-Online-brightgreen?style=flat-square)](https://livepet-1.onrender.com/) |
+| **Back-end API** | API RESTful em Python / FastAPI | [livepet.onrender.com](https://livepet.onrender.com/) | [![API](https://img.shields.io/badge/Status-Online-brightgreen?style=flat-square)](https://livepet.onrender.com/) |
+| **Documentação Interativa (Swagger)** | Teste e documentação interativa de endpoints | [livepet.onrender.com/docs](https://livepet.onrender.com/docs) | [![Swagger UI](https://img.shields.io/badge/Docs-Swagger%20UI-0E2B1E?style=flat-square&logo=swagger)](https://livepet.onrender.com/docs) |
+| **Healthcheck da API** | Verificação de integridade e conexão com banco Neon | [livepet.onrender.com/health](https://livepet.onrender.com/health) | [![Health](https://img.shields.io/badge/Healthcheck-200%20OK-brightgreen?style=flat-square)](https://livepet.onrender.com/health) |
 
 ---
 
@@ -45,9 +60,10 @@ Desenvolvido como Projeto Integrador, com foco em usabilidade e em um fluxo que 
 <tr><td><b>Estilização</b></td><td>Tailwind CSS · shadcn/ui (Radix) · Lucide React</td></tr>
 <tr><td><b>Roteamento</b></td><td>React Router DOM 6</td></tr>
 <tr><td><b>Dados assíncronos</b></td><td>TanStack React Query 5</td></tr>
-<tr><td><b>Backend</b></td><td>Supabase — PostgreSQL, Auth e Storage</td></tr>
+<tr><td><b>Backend API</b></td><td>FastAPI (Python) · SQLAlchemy · PostgreSQL (Neon) · Supabase Auth / Storage</td></tr>
+<tr><td><b>Cloud / Deploy</b></td><td>Render (Static Site para Front-end e Web Service para Back-end)</td></tr>
 <tr><td><b>Formulários</b></td><td>React Hook Form · Zod</td></tr>
-<tr><td><b>Testes</b></td><td>Vitest · Testing Library · jsdom</td></tr>
+<tr><td><b>Testes</b></td><td>Pytest / Unittest (Backend) · Vitest (Frontend)</td></tr>
 <tr><td><b>Documentos</b></td><td>jsPDF · qrcode.react · Recharts</td></tr>
 </table>
 
