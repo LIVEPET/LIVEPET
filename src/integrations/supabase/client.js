@@ -2,8 +2,11 @@
 import { createClient } from "@supabase/supabase-js";
 import { brokeredPreviewStorage } from "./previewAuthStorage";
 
-const SUPABASE_URL = import.meta.env.VITE_SUPABASE_URL;
-const SUPABASE_PUBLISHABLE_KEY = import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY;
+const SUPABASE_URL =
+  import.meta.env.VITE_SUPABASE_URL || "https://tziwagmcnpneenjywcnc.supabase.co";
+const SUPABASE_PUBLISHABLE_KEY =
+  import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY ||
+  "sb_publishable_M9hKM5pH-3ZMfUp5333B4w_wt7lkv4r";
 
 // Import the supabase client like this:
 // import { supabase } from "@/integrations/supabase/client";
