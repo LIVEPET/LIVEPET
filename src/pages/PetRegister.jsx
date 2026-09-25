@@ -13,12 +13,16 @@ import {
   Loader2,
   X,
   CheckCircle2,
+  Phone,
+  Cake,
+  Stethoscope,
 } from "lucide-react";
 import { toast } from "sonner";
 import { z } from "zod";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { Textarea } from "@/components/ui/textarea";
 import { Card } from "@/components/ui/card";
 import {
   Select,
@@ -39,6 +43,21 @@ const petSchema = z.object({
   gender: z.enum(["Macho", "Fêmea"], {
     errorMap: () => ({ message: "Selecione o sexo" }),
   }),
+  age: z
+    .string()
+    .trim()
+    .min(1, "Informe a idade do pet")
+    .refine((v) => /^\d+$/.test(v) && Number(v) <= 40, {
+      message: "Idade inválida (use anos inteiros, de 0 a 40)",
+    }),
+  tutorPhone: z
+    .string()
+    .trim()
+    .min(1, "Informe o telefone do tutor")
+    .refine((v) => [10, 11].includes(v.replace(/\D/g, "").length), {
+      message: "Telefone inválido. Use DDD + número, ex.: (62) 91234-5678",
+    }),
+  allergies: z.string().trim().max(500, "Máximo de 500 caracteres").optional().or(z.literal("")),
   weight: z
     .string()
     .trim()
@@ -57,6 +76,23 @@ const petSchema = z.object({
 
 const SPECIES = ["Cachorro", "Gato", "Ave", "Roedor", "Réptil", "Outro"];
 
+// Máscara de telefone brasileiro: (62) 91234-5678 ou (62) 1234-5678
+const formatPhone = (value) => {
+  const d = value.replace(/\D/g, "").slice(0, 11);
+  if (d.length <= 2) return d;
+  if (d.length <= 6) return `(${d.slice(0, 2)}) ${d.slice(2)}`;
+  if (d.length <= 10) return `(${d.slice(0, 2)}) ${d.slice(2, 6)}-${d.slice(6)}`;
+  return `(${d.slice(0, 2)}) ${d.slice(2, 7)}-${d.slice(7)}`;
+};
+
+// Simula o envio do payload JSON para a API do backend.
+// TODO: quando a API (FastAPI) estiver pronta, trocar o corpo por um fetch/axios POST.
+const enviarParaApi = async (payload) => {
+  console.log("Payload JSON (simulação de envio para a API):", JSON.stringify(payload, null, 2));
+  await new Promise((resolve) => setTimeout(resolve, 600));
+  return { ok: true };
+};
+
 const PetRegister = () => {
   const navigate = useNavigate();
   const fileInputRef = useRef(null);
@@ -71,10 +107,13 @@ const PetRegister = () => {
     name: "",
     species: "Cachorro",
     breed: "",
+    age: "",
     size: "",
     gender: "",
     weight: "",
     status: "Ativo",
+    tutorPhone: "",
+    allergies: "",
   });
   const [errors, setErrors] = useState({});
 
@@ -117,10 +156,13 @@ const PetRegister = () => {
       name: "",
       species: "Cachorro",
       breed: "",
+      age: "",
       size: "",
       gender: "",
       weight: "",
       status: "Ativo",
+      tutorPhone: "",
+      allergies: "",
     });
     setPhotoFile(null);
     setPhotoPreview("");
@@ -149,6 +191,25 @@ const PetRegister = () => {
     setSaving(true);
 
     try {
+      // Payload completo do cadastro (pet + tutor), simulando o envio para a API
+      const payload = {
+        pet: {
+          nome: parsed.data.name,
+          especie: parsed.data.species,
+          raca: parsed.data.breed || null,
+          idade: Number(parsed.data.age),
+          sexo: parsed.data.gender,
+          porte: parsed.data.size,
+          peso: parsed.data.weight ? Number(parsed.data.weight.replace(",", ".")) : null,
+          status: parsed.data.status,
+          alergiasCuidados: parsed.data.allergies || null,
+        },
+        tutor: {
+          telefone: parsed.data.tutorPhone.replace(/\D/g, ""),
+        },
+      };
+      await enviarParaApi(payload);
+
       let photo_url = null;
       if (photoFile) {
         const ext = photoFile.name.split(".").pop() || "jpg";
@@ -345,6 +406,14 @@ const PetRegister = () => {
             <Card className="border-border/60 p-6 shadow-card sm:p-8">
               <SectionTitle icon={Activity} title="Características físicas" />
               <div className="mt-4 grid gap-4 sm:grid-cols-2">
+                <Field label="Idade (anos) *" error={errors.age} icon={Cake}>
+                  <Input
+                    value={form.age}
+                    onChange={(e) => setForm({ ...form, age: e.target.value.replace(/\D/g, "").slice(0, 2) })}
+                    placeholder="Ex.: 3"
+                    inputMode="numeric"
+                  />
+                </Field>
                 <Field label="Porte *" error={errors.size} icon={Ruler}>
                   <Select
                     value={form.size}
@@ -394,6 +463,36 @@ const PetRegister = () => {
                       <SelectItem value="Inativo">Inativo</SelectItem>
                     </SelectContent>
                   </Select>
+                </Field>
+              </div>
+            </Card>
+
+            <Card className="border-border/60 p-6 shadow-card sm:p-8">
+              <SectionTitle icon={Phone} title="Contato do tutor" />
+              <div className="mt-4 grid gap-4 sm:grid-cols-2">
+                <Field label="Telefone do tutor (emergência) *" error={errors.tutorPhone} icon={Phone}>
+                  <Input
+                    value={form.tutorPhone}
+                    onChange={(e) => setForm({ ...form, tutorPhone: formatPhone(e.target.value) })}
+                    placeholder="(62) 91234-5678"
+                    inputMode="tel"
+                    maxLength={15}
+                  />
+                </Field>
+              </div>
+            </Card>
+
+            <Card className="border-border/60 p-6 shadow-card sm:p-8">
+              <SectionTitle icon={Stethoscope} title="Saúde e cuidados" />
+              <div className="mt-4">
+                <Field label="Alergias / Cuidados médicos" error={errors.allergies} icon={Stethoscope}>
+                  <Textarea
+                    value={form.allergies}
+                    onChange={(e) => setForm({ ...form, allergies: e.target.value })}
+                    placeholder="Ex.: alérgico a frango, toma medicação diária, evitar ração X..."
+                    rows={4}
+                    maxLength={500}
+                  />
                 </Field>
               </div>
             </Card>
