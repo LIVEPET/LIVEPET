@@ -3,19 +3,27 @@ import { BrowserRouter, Route, Routes } from "react-router-dom";
 import { Toaster as Sonner } from "@/components/ui/sonner";
 import { Toaster } from "@/components/ui/toaster";
 import { TooltipProvider } from "@/components/ui/tooltip";
-import Index from "./pages/Index.tsx";
-import Login from "./pages/Login.tsx";
-import Pets from "./pages/Pets.tsx";
-import Pedigree from "./pages/Pedigree.tsx";
-import Tasks from "./pages/Tasks.tsx";
-import Partnerships from "./pages/Partnerships.tsx";
-import MedicalHistory from "./pages/MedicalHistory.tsx";
-import PetRegister from "./pages/PetRegister.tsx";
-import MatchPet from "./pages/MatchPet.tsx";
 
-import PetCard from "./pages/PetCard.tsx";
-import NotFound from "./pages/NotFound.tsx";
 import Layout from "./components/Layout";
+import Index from "./pages/Index";
+import Login from "./pages/Login";
+import Pets from "./pages/Pets";
+import Pedigree from "./pages/Pedigree";
+import Tasks from "./pages/Tasks";
+import Partnerships from "./pages/Partnerships";
+import MedicalHistory from "./pages/MedicalHistory";
+import PetRegister from "./pages/PetRegister";
+import MatchPet from "./pages/MatchPet";
+import PetCard from "./pages/PetCard";
+import NotFound from "./pages/NotFound";
+
+import ClinicLogin from "./pages/Clinic/ClinicLogin.jsx";
+import ClinicLayout from "./pages/Clinic/ClinicLayout.jsx";
+import ClinicDashboard from "./pages/Clinic/ClinicDashboard.jsx";
+import ClinicPatients from "./pages/Clinic/ClinicPatients.jsx";
+import ClinicProfile from "./pages/Clinic/ClinicProfile.jsx";
+import ClinicSchedule from "./pages/Clinic/ClinicSchedule.jsx";
+
 
 const queryClient = new QueryClient();
 
@@ -26,10 +34,16 @@ const App = () => (
       <Sonner />
       <BrowserRouter>
         <Routes>
-          {/* Login fora do layout (sem menu) */}
           <Route path="/login" element={<Login />} />
 
-          {/* Todas as outras telas compartilham o Header */}
+          <Route path="/clinica/entrar" element={<ClinicLogin />} />
+          <Route path="/clinica" element={<ClinicLayout />}>
+            <Route index element={<ClinicDashboard />} />
+            <Route path="agenda" element={<ClinicSchedule />} />
+            <Route path="pacientes" element={<ClinicPatients />} />
+            <Route path="perfil" element={<ClinicProfile />} />
+          </Route>
+
           <Route element={<Layout />}>
             <Route path="/" element={<Index />} />
             <Route path="/pets" element={<Pets />} />
@@ -39,9 +53,7 @@ const App = () => (
             <Route path="/historico-medico" element={<MedicalHistory />} />
             <Route path="/pets/novo" element={<PetRegister />} />
             <Route path="/matchpet" element={<MatchPet />} />
-            
             <Route path="/cartao" element={<PetCard />} />
-            {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
             <Route path="*" element={<NotFound />} />
           </Route>
         </Routes>
