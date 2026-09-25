@@ -12,7 +12,7 @@ import Partnerships from "./pages/Partnerships.jsx";
 import MedicalHistory from "./pages/MedicalHistory.jsx";
 import PetRegister from "./pages/PetRegister.jsx";
 import MatchPet from "./pages/MatchPet.jsx";
-
+import PetHealth from "./pages/PetHealth.jsx";
 import PetCard from "./pages/PetCard.jsx";
 import NotFound from "./pages/NotFound.jsx";
 import Layout from "./components/Layout";
@@ -39,9 +39,9 @@ const App = () => (
             <Route path="/historico-medico" element={<MedicalHistory />} />
             <Route path="/pets/novo" element={<PetRegister />} />
             <Route path="/matchpet" element={<MatchPet />} />
-
+            <Route path="/saude" element={<PetHealth />} />
             <Route path="/cartao" element={<PetCard />} />
-            {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
+            {/* Mantenha o coringa como última rota */}
             <Route path="*" element={<NotFound />} />
           </Route>
         </Routes>
