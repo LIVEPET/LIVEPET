@@ -1,4 +1,12 @@
+# ==============================================================================
+# LIVEPET - Render Blueprint Specification (render.yaml)
+# Serviços: Back-end (FastAPI Web Service) e Front-end (React/Vite Static Site)
+# ==============================================================================
+
 services:
+  # ----------------------------------------------------------------------------
+  # 1. Back-end API (Python / FastAPI)
+  # ----------------------------------------------------------------------------
   - type: web
     name: livepet-api
     runtime: python
@@ -10,7 +18,7 @@ services:
 
     envVars:
       - key: DATABASE_URL
-        sync: false          # Você preenche manualmente no painel do Render (seguro)
+        sync: false          # Configurado com o PostgreSQL do Neon
 
       - key: SECRET_KEY
         generateValue: true  # O Render gera uma chave segura automaticamente
@@ -30,7 +38,32 @@ services:
       - key: API_V1_STR
         value: /api/v1
 
-      # CORS: permite qualquer origem (ideal para testes com a equipe)
-      # Quando for para produção, substitua pelo domínio final do frontend
+      # CORS: permite qualquer origem (ideal para comunicação com o frontend)
       - key: BACKEND_CORS_ORIGINS
         value: "*"
+
+  # ----------------------------------------------------------------------------
+  # 2. Front-end Web (React / Vite)
+  # ----------------------------------------------------------------------------
+  - type: static
+    name: livepet-web
+    rootDir: .
+    buildCommand: npm install && npm run build
+    staticPublishPath: dist
+    plan: free
+    routes:
+      # Regra essencial para Single Page Applications (SPA):
+      # Evita erro 404 ao recarregar rotas no navegador (ex: /pets, /matchpet)
+      - type: rewrite
+        source: /*
+        destination: /index.html
+
+    envVars:
+      - key: VITE_SUPABASE_PROJECT_ID
+        value: "tziwagmcnpneenjywcnc"
+
+      - key: VITE_SUPABASE_PUBLISHABLE_KEY
+        value: "sb_publishable_M9hKM5pH-3ZMfUp5333B4w_wt7lkv4r"
+
+      - key: VITE_SUPABASE_URL
+        value: "https://tziwagmcnpneenjywcnc.supabase.co"
