@@ -28,3 +28,16 @@ dist-ssr
 .workspace
 *.tsbuildinfo
 
+migrar-para-js.sh
+
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+venv/
+.venv/
+env/
+*.db
+*.sqlite3
+.pytest_cache/
+
