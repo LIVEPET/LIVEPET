@@ -1,5 +1,5 @@
 import uuid
-from sqlalchemy import Column, Integer, String, Float, ForeignKey
+from sqlalchemy import Column, Integer, String, Float, Date, ForeignKey
 from sqlalchemy.orm import relationship
 from app.core.database import Base
 
@@ -19,8 +19,11 @@ class Pet(Base):
     )
     nome = Column(String(100), nullable=False)
     especie = Column(String(50), nullable=False)
-    raca = Column(String(50), nullable=True)
+    raca = Column(String(80), nullable=True)
     porte = Column(String(20), nullable=True)
+    sexo = Column(String(20), nullable=True)
+    data_nascimento = Column(Date, nullable=True)
+    cor = Column(String(80), nullable=True)
     peso = Column(Float, nullable=True)
     foto_url = Column(String(500), nullable=True)
     token_publico = Column(

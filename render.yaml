@@ -1,0 +1,36 @@
+services:
+  - type: web
+    name: livepet-api
+    runtime: python
+    rootDir: backend
+    buildCommand: pip install -r requirements.txt
+    startCommand: uvicorn app.main:app --host 0.0.0.0 --port $PORT
+    plan: free
+    region: oregon
+
+    envVars:
+      - key: DATABASE_URL
+        sync: false          # Você preenche manualmente no painel do Render (seguro)
+
+      - key: SECRET_KEY
+        generateValue: true  # O Render gera uma chave segura automaticamente
+
+      - key: ALGORITHM
+        value: HS256
+
+      - key: ACCESS_TOKEN_EXPIRE_MINUTES
+        value: 1440
+
+      - key: PROJECT_NAME
+        value: LivePet API
+
+      - key: VERSION
+        value: 1.0.0
+
+      - key: API_V1_STR
+        value: /api/v1
+
+      # CORS: permite qualquer origem (ideal para testes com a equipe)
+      # Quando for para produção, substitua pelo domínio final do frontend
+      - key: BACKEND_CORS_ORIGINS
+        value: "*"
