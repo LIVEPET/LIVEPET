@@ -41,3 +41,11 @@ Acesse no navegador:
 *   Documentação Swagger Interativa: 👉 **`http://127.0.0.1:8000/docs`**
 *   Documentação ReDoc: 👉 **`http://127.0.0.1:8000/redoc`**
 *   Healthcheck: 👉 **`http://127.0.0.1:8000/health`**
+
+---
+
+## 🧪 Como Executar os Testes
+Para rodar a suíte de testes unitários dos modelos ORM e schemas Pydantic:
+```bash
+pytest -v
+```

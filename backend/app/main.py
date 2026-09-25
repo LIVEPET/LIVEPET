@@ -4,6 +4,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from app.core.config import settings
 from app.core.database import Base, engine
 from app.api.routers import health
+import app.models  # noqa: F401
 
 
 @asynccontextmanager
