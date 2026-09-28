@@ -24,8 +24,21 @@ class UserUpdate(BaseModel):
 
 
 class UserResponse(UserBase):
-    """Schema de resposta pública do usuário (sem expor senha_hash)."""
+    """Schema de resposta do usuário (sem expor senha_hash)."""
     id: int
     criado_em: datetime
 
     model_config = ConfigDict(from_attributes=True)
+
+
+class Token(BaseModel):
+    """Schema do token JWT de autenticação."""
+    access_token: str
+    token_type: str = "bearer"
+    user: UserResponse
+
+
+class LoginRequest(BaseModel):
+    """Schema para login via JSON."""
+    email: EmailStr
+    senha: str = Field(..., min_length=1)

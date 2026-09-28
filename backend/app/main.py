@@ -3,7 +3,7 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from app.core.config import settings
 from app.core.database import Base, engine
-from app.api.routers import health
+from app.api.routers import health, auth, pets
 import app.models  # noqa: F401
 
 
@@ -37,6 +37,12 @@ app.add_middleware(
 
 # Inclusão dos roteadores da API
 app.include_router(health.router)
+app.include_router(auth.router, prefix=settings.API_V1_STR)
+app.include_router(pets.router, prefix=settings.API_V1_STR)
+
+# Disponibiliza também sem o prefixo /api/v1 para flexibilidade
+app.include_router(auth.router)
+app.include_router(pets.router)
 
 
 @app.get("/", tags=["Root"])
@@ -47,4 +53,9 @@ def root():
         "version": settings.VERSION,
         "docs_url": "/docs",
         "healthcheck_url": "/health",
+        "endpoints": {
+            "pets": f"{settings.API_V1_STR}/pets",
+            "auth": f"{settings.API_V1_STR}/auth",
+            "public_qr": f"{settings.API_V1_STR}/public/pet/{{token_publico}}",
+        },
     }
