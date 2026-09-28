@@ -178,6 +178,20 @@ const Login = () => {
         <section className="relative">
           <div className="absolute -inset-1 rounded-[2.25rem] gradient-primary opacity-30 blur-2xl" />
           <div className="relative rounded-[2rem] border border-border/60 bg-card/95 p-7 shadow-glow backdrop-blur-xl sm:p-9">
+            <div className="mb-5 grid grid-cols-2 gap-2">
+              <div className="flex items-center justify-center gap-2 rounded-2xl border border-primary/40 bg-primary-soft px-4 py-2.5 text-sm font-semibold text-primary">
+                <PawPrint className="h-4 w-4" />
+                Sou tutor
+              </div>
+              <Link
+                to="/clinica/entrar"
+                className="flex items-center justify-center gap-2 rounded-2xl border border-border bg-muted/40 px-4 py-2.5 text-sm font-medium text-muted-foreground transition-smooth hover:border-primary/40 hover:text-primary"
+              >
+                <Stethoscope className="h-4 w-4" />
+                Sou clínica
+              </Link>
+            </div>
+
             <div className="mb-7 inline-flex w-full rounded-full bg-muted p-1">
               <button
                 type="button"
