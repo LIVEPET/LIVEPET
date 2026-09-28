@@ -9,7 +9,7 @@ import {
   Settings,
 } from "lucide-react";
 import { toast } from "sonner";
-import { supabase } from "@/integrations/supabase/client";
+import { authService } from "@/services/api";
 import { Button } from "@/components/ui/button";
 import {
   DropdownMenu,
@@ -21,37 +21,49 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 
-const initialsFrom = (email) => {
-  if (!email) return "?";
-  const name = email.split("@")[0];
-  return name.slice(0, 2).toUpperCase();
+const initialsFrom = (nameOrEmail) => {
+  if (!nameOrEmail) return "?";
+  const str = nameOrEmail.trim();
+  if (str.includes(" ")) {
+    const parts = str.split(" ");
+    return (parts[0][0] + parts[1][0]).toUpperCase();
+  }
+  return str.slice(0, 2).toUpperCase();
 };
 
 const UserMenu = () => {
   const navigate = useNavigate();
-  const [email, setEmail] = useState(null);
+  const [currentUser, setCurrentUser] = useState(null);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    supabase.auth.getSession().then(({ data }) => {
-      setEmail(data.session?.user.email ?? null);
-      setLoading(false);
+    const user = authService.getCurrentUser();
+    setCurrentUser(user);
+    setLoading(false);
+
+    if (authService.isAuthenticated()) {
+      authService
+        .getMe()
+        .then((updated) => {
+          if (updated) setCurrentUser(updated);
+        })
+        .catch(() => {});
+    }
+
+    const unsubscribe = authService.onAuthStateChange((newUser) => {
+      setCurrentUser(newUser);
     });
-    const { data: sub } = supabase.auth.onAuthStateChange((_e, session) => {
-      setEmail(session?.user.email ?? null);
-    });
-    return () => sub.subscription.unsubscribe();
+    return unsubscribe;
   }, []);
 
-  const handleSignOut = async () => {
-    const { error } = await supabase.auth.signOut();
-    if (error) {
-      toast.error("Não foi possível sair", { description: error.message });
-      return;
-    }
+  const handleSignOut = () => {
+    authService.logout();
     toast.success("Sessão encerrada");
     navigate("/login");
   };
+
+  const email = currentUser?.email ?? null;
+  const displayName = currentUser?.nome || email;
 
   if (loading) {
     return <div className="h-10 w-10 animate-pulse rounded-full bg-muted" />;
@@ -86,11 +98,11 @@ const UserMenu = () => {
         >
           <Avatar className="h-8 w-8">
             <AvatarFallback className="bg-primary-soft text-xs font-bold text-primary">
-              {initialsFrom(email)}
+              {initialsFrom(displayName)}
             </AvatarFallback>
           </Avatar>
           <span className="hidden max-w-[140px] truncate text-sm font-medium text-foreground sm:block">
-            {email}
+            {displayName}
           </span>
         </button>
       </DropdownMenuTrigger>
@@ -102,7 +114,10 @@ const UserMenu = () => {
           <p className="text-xs font-normal text-muted-foreground">
             Conectado como
           </p>
-          <p className="truncate text-sm font-semibold">{email}</p>
+          <p className="truncate text-sm font-semibold">{displayName}</p>
+          {currentUser?.nome && email && (
+            <p className="truncate text-xs text-muted-foreground">{email}</p>
+          )}
         </DropdownMenuLabel>
         <DropdownMenuSeparator />
         <DropdownMenuItem asChild>
