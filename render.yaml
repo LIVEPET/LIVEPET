@@ -67,3 +67,7 @@ services:
 
       - key: VITE_SUPABASE_URL
         value: "https://tziwagmcnpneenjywcnc.supabase.co"
+
+      # URL da API Back-end FastAPI no Render
+      - key: VITE_API_URL
+        value: "https://livepet.onrender.com"

@@ -21,8 +21,7 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { toast } from "sonner";
 import { z } from "zod";
 import Logo from "@/components/Logo";
-import { supabase } from "@/integrations/supabase/client";
-import { lovable } from "@/integrations/lovable";
+import { authService } from "@/services/api";
 
 const credSchema = z.object({
   email: z.string().trim().email("E-mail inválido").max(255),
@@ -42,13 +41,17 @@ const Login = () => {
   const [loading, setLoading] = useState(false);
 
   useEffect(() => {
-    supabase.auth.getSession().then(({ data }) => {
-      if (data.session) navigate("/pets");
-    });
+    if (authService.isAuthenticated()) {
+      navigate("/pets");
+    }
   }, [navigate]);
 
   const handleSubmit = async (e) => {
     e.preventDefault();
+    if (tab === "signup" && (!name || name.trim().length < 2)) {
+      toast.error("Nome deve ter ao menos 2 caracteres.");
+      return;
+    }
     const parsed = credSchema.safeParse({ email, password });
     if (!parsed.success) {
       toast.error(parsed.error.errors[0].message);
@@ -57,25 +60,20 @@ const Login = () => {
     setLoading(true);
     try {
       if (tab === "signup") {
-        const redirectUrl = `${window.location.origin}/pets`;
-        const { error } = await supabase.auth.signUp({
+        await authService.register({
+          nome: name,
           email,
-          password,
-          options: {
-            emailRedirectTo: redirectUrl,
-            data: { full_name: name },
-          },
+          senha: password,
         });
-        if (error) throw error;
-        toast.success("Conta criada!", {
-          description: "Verifique seu e-mail para confirmar.",
+        toast.success("Conta criada com sucesso!", {
+          description: "Dados salvos no banco Neon e sessão iniciada.",
         });
+        navigate("/pets");
       } else {
-        const { error } = await supabase.auth.signInWithPassword({
+        await authService.login({
           email,
-          password,
+          senha: password,
         });
-        if (error) throw error;
         toast.success("Bem-vindo de volta!");
         navigate("/pets");
       }
@@ -87,21 +85,10 @@ const Login = () => {
     }
   };
 
-  const handleGoogle = async () => {
-    setLoading(true);
-    try {
-      const result = await lovable.auth.signInWithOAuth("google", {
-        redirect_uri: window.location.origin + "/pets",
-      });
-      if (result.error) throw result.error;
-      if (!result.redirected) {
-        navigate("/pets");
-      }
-    } catch (err) {
-      const msg = err instanceof Error ? err.message : "Erro";
-      toast.error("Falha ao entrar com Google", { description: msg });
-      setLoading(false);
-    }
+  const handleGoogle = () => {
+    toast.info("Login com Google em breve", {
+      description: "Por favor, utilize o cadastro direto com e-mail e senha.",
+    });
   };
 
   return (

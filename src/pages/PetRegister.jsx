@@ -31,7 +31,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { supabase } from "@/integrations/supabase/client";
+import { authService, petsService } from "@/services/api";
 
 const petSchema = z.object({
   name: z.string().trim().min(1, "Informe o nome do pet").max(60),
@@ -85,14 +85,6 @@ const formatPhone = (value) => {
   return `(${d.slice(0, 2)}) ${d.slice(2, 7)}-${d.slice(7)}`;
 };
 
-// Simula o envio do payload JSON para a API do backend.
-// TODO: quando a API (FastAPI) estiver pronta, trocar o corpo por um fetch/axios POST.
-const enviarParaApi = async (payload) => {
-  console.log("Payload JSON (simulação de envio para a API):", JSON.stringify(payload, null, 2));
-  await new Promise((resolve) => setTimeout(resolve, 600));
-  return { ok: true };
-};
-
 const PetRegister = () => {
   const navigate = useNavigate();
   const fileInputRef = useRef(null);
@@ -118,19 +110,24 @@ const PetRegister = () => {
   const [errors, setErrors] = useState({});
 
   useEffect(() => {
-    supabase.auth.getSession().then(({ data }) => {
-      const uid = data.session?.user?.id ?? null;
-      setUserId(uid);
-      setCheckingAuth(false);
-      if (!uid) {
-        toast.error("Você precisa estar logado para cadastrar um pet.");
+    const user = authService.getCurrentUser();
+    if (!authService.isAuthenticated() || !user) {
+      toast.error("Você precisa estar logado para cadastrar um pet.");
+      navigate("/login");
+      return;
+    }
+    setUserId(user.id);
+    setCheckingAuth(false);
+
+    const unsubscribe = authService.onAuthStateChange((newUser) => {
+      if (!newUser) {
+        toast.error("Sessão expirada. Faça login novamente.");
         navigate("/login");
+      } else {
+        setUserId(newUser.id);
       }
     });
-    const { data: sub } = supabase.auth.onAuthStateChange((_e, session) => {
-      setUserId(session?.user?.id ?? null);
-    });
-    return () => sub.subscription.unsubscribe();
+    return unsubscribe;
   }, [navigate]);
 
   const handlePhoto = (file) => {
@@ -191,59 +188,26 @@ const PetRegister = () => {
     setSaving(true);
 
     try {
-      // Payload completo do cadastro (pet + tutor), simulando o envio para a API
-      const payload = {
-        pet: {
-          nome: parsed.data.name,
-          especie: parsed.data.species,
-          raca: parsed.data.breed || null,
-          idade: Number(parsed.data.age),
-          sexo: parsed.data.gender,
-          porte: parsed.data.size,
-          peso: parsed.data.weight ? Number(parsed.data.weight.replace(",", ".")) : null,
-          status: parsed.data.status,
-          alergiasCuidados: parsed.data.allergies || null,
-        },
-        tutor: {
-          telefone: parsed.data.tutorPhone.replace(/\D/g, ""),
-        },
-      };
-      await enviarParaApi(payload);
-
       let photo_url = null;
-      if (photoFile) {
-        const ext = photoFile.name.split(".").pop() || "jpg";
-        const path = `${userId}/${crypto.randomUUID()}.${ext}`;
-        const { error: upErr } = await supabase.storage
-          .from("pet-photos")
-          .upload(path, photoFile, {
-            upsert: false,
-            contentType: photoFile.type,
-          });
-        if (upErr) throw upErr;
-        const { data: pub } = supabase.storage
-          .from("pet-photos")
-          .getPublicUrl(path);
-        photo_url = pub.publicUrl;
+      if (photoPreview && photoPreview.startsWith("http") && photoPreview.length < 500) {
+        photo_url = photoPreview;
       }
 
-      const { error: insErr } = await supabase.from("pets").insert({
-        user_id: userId,
-        name: parsed.data.name,
-        species: parsed.data.species,
-        breed: parsed.data.breed || null,
-        size: parsed.data.size,
-        gender: parsed.data.gender,
-        weight: parsed.data.weight
+      // Persiste o pet diretamente no PostgreSQL Neon via endpoint FastAPI
+      await petsService.create({
+        nome: parsed.data.name,
+        especie: parsed.data.species,
+        raca: parsed.data.breed || null,
+        porte: parsed.data.size,
+        sexo: parsed.data.gender,
+        peso: parsed.data.weight
           ? Number(parsed.data.weight.replace(",", "."))
           : null,
-        status: parsed.data.status,
-        photo_url,
+        foto_url,
       });
-      if (insErr) throw insErr;
 
       toast.success(`${parsed.data.name} foi cadastrado(a) com sucesso!`, {
-        description: "O pet já está disponível em Meus Pets.",
+        description: "Pet salvo com sucesso no banco de dados Neon.",
         icon: <CheckCircle2 className="h-4 w-4" />,
       });
       reset();
