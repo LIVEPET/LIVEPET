@@ -47,7 +47,6 @@ services:
   # ----------------------------------------------------------------------------
   - type: static
     name: livepet-web
-    rootDir: .
     buildCommand: npm install && npm run build
     staticPublishPath: dist
     plan: free
