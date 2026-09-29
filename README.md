@@ -115,6 +115,7 @@ Preencha com as credenciais do seu projeto Supabase, em **Project Settings › A
 VITE_SUPABASE_URL=
 VITE_SUPABASE_PUBLISHABLE_KEY=
 VITE_SUPABASE_PROJECT_ID=
+VITE_API_URL=http://localhost:8000
 ```
 
 > **Importante.** O `.env` não é versionado. A chave publicável é protegida pelas políticas de Row Level Security do banco — ela não substitui essas políticas.
