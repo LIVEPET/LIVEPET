@@ -1,6 +1,5 @@
-import os
 from typing import List, Union
-from pydantic import AnyHttpUrl, field_validator
+from pydantic import field_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
@@ -17,13 +16,8 @@ class Settings(BaseSettings):
     ALGORITHM: str = "HS256"
     ACCESS_TOKEN_EXPIRE_MINUTES: int = 60 * 24  # 1 dia
 
-    # Origens permitidas para CORS
-    BACKEND_CORS_ORIGINS: Union[str, List[str]] = [
-        "http://localhost:5173",
-        "http://localhost:8080",
-        "http://127.0.0.1:5173",
-        "http://127.0.0.1:8080",
-    ]
+    # Origens permitidas para CORS ("*" = qualquer origem, seguro para MVP)
+    BACKEND_CORS_ORIGINS: Union[str, List[str]] = "*"
 
     @field_validator("BACKEND_CORS_ORIGINS", mode="before")
     def assemble_cors_origins(cls, v: Union[str, List[str]]) -> List[str]:
