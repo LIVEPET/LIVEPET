@@ -58,15 +58,6 @@ services:
         destination: /index.html
 
     envVars:
-      - key: VITE_SUPABASE_PROJECT_ID
-        value: "tziwagmcnpneenjywcnc"
-
-      - key: VITE_SUPABASE_PUBLISHABLE_KEY
-        value: "sb_publishable_M9hKM5pH-3ZMfUp5333B4w_wt7lkv4r"
-
-      - key: VITE_SUPABASE_URL
-        value: "https://tziwagmcnpneenjywcnc.supabase.co"
-
       # URL da API Back-end FastAPI no Render
       - key: VITE_API_URL
         value: "https://livepet.onrender.com"

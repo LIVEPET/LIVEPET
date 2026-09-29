@@ -60,7 +60,7 @@ Desenvolvido como Projeto Integrador, com foco em usabilidade e em um fluxo que 
 <tr><td><b>Estilização</b></td><td>Tailwind CSS · shadcn/ui (Radix) · Lucide React</td></tr>
 <tr><td><b>Roteamento</b></td><td>React Router DOM 6</td></tr>
 <tr><td><b>Dados assíncronos</b></td><td>TanStack React Query 5</td></tr>
-<tr><td><b>Backend API</b></td><td>FastAPI (Python) · SQLAlchemy · PostgreSQL (Neon) · Supabase Auth / Storage</td></tr>
+<tr><td><b>Backend API</b></td><td>FastAPI (Python) · SQLAlchemy · PostgreSQL (Neon) · JWT Auth</td></tr>
 <tr><td><b>Cloud / Deploy</b></td><td>Render (Static Site para Front-end e Web Service para Back-end)</td></tr>
 <tr><td><b>Formulários</b></td><td>React Hook Form · Zod</td></tr>
 <tr><td><b>Testes</b></td><td>Pytest / Unittest (Backend) · Vitest (Frontend)</td></tr>
@@ -75,9 +75,9 @@ Desenvolvido como Projeto Integrador, com foco em usabilidade e em um fluxo que 
 
 | Rota | O que faz |
 | :--- | :--- |
-| `/login` | Autenticação e cadastro via Supabase Auth |
+| `/login` | Autenticação e cadastro de tutores via API FastAPI (JWT) |
 | `/pets` | Painel com os pets do tutor, alertas de vacina e acesso ao perfil |
-| `/pets/novo` | Cadastro de pet com upload de foto |
+| `/pets/novo` | Cadastro de pet conectado à API com persistência no Neon |
 | `/saude` | Carteira de vacinas — doses, prazos de reforço, status de pendência e avisos veterinários |
 | `/historico-medico` | Exames, consultas e controle de peso com gráficos de evolução |
 | `/matchpet` | Compatibilidade entre pets para cruzamento responsável ou adoção |
@@ -93,7 +93,8 @@ Desenvolvido como Projeto Integrador, com foco em usabilidade e em um fluxo que 
 ### Pré-requisitos
 
 - Node.js 18 ou superior
-- Um projeto criado no Supabase
+- Python 3.10+ (para executar o backend localmente)
+- PostgreSQL ou SQLite local
 
 ### Instalação
 
@@ -109,16 +110,11 @@ npm install
 cp .env.example .env
 ```
 
-Preencha com as credenciais do seu projeto Supabase, em **Project Settings › API**:
+Preencha a URL da API FastAPI (local ou em nuvem):
 
 ```env
-VITE_SUPABASE_URL=
-VITE_SUPABASE_PUBLISHABLE_KEY=
-VITE_SUPABASE_PROJECT_ID=
 VITE_API_URL=http://localhost:8000
 ```
-
-> **Importante.** O `.env` não é versionado. A chave publicável é protegida pelas políticas de Row Level Security do banco — ela não substitui essas políticas.
 
 ### Rodando
 
@@ -165,17 +161,17 @@ Abrir o `index.html` diretamente no navegador não funciona: ele referencia o c�
 
 ```text
 livepet/
-├── supabase/
-│   └── migrations/           Migrações SQL do banco
+├── backend/                  API RESTful em Python / FastAPI e banco Neon
+│   ├── app/                  Modelos, schemas, rotas e dependências
+│   └── tests/                Testes automatizados com Pytest
 ├── src/
 │   ├── assets/               Imagens e recursos estáticos
 │   ├── components/           Componentes reutilizáveis
 │   │   └── ui/               Componentes base do shadcn/ui
 │   ├── hooks/                Hooks customizados
-│   ├── integrations/
-│   │   └── supabase/         Cliente e configuração do Supabase
 │   ├── lib/                  Utilitários e regras de negócio
 │   ├── pages/                Páginas da aplicação
+│   ├── services/             Cliente HTTP (api.js) integrado à FastAPI
 │   ├── test/                 Configuração da suíte de testes
 │   ├── App.jsx               Roteador central e provedores de contexto
 │   ├── main.jsx              Ponto de entrada do React
@@ -249,7 +245,7 @@ A descrição deve trazer o resumo da alteração, o roteiro de teste para quem 
 
 ## Estado atual
 
-Parte das telas ainda opera com dados de demonstração definidos em código. A integração com o Supabase está implementada na autenticação e no cadastro de pets.
+Parte das telas ainda opera com dados de demonstração definidos em código. A autenticação e o cadastro de pets já estão conectados à API FastAPI e ao banco PostgreSQL (Neon).
 
 Em aberto, acompanhado pela equipe:
 
