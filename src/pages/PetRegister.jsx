@@ -188,9 +188,9 @@ const PetRegister = () => {
     setSaving(true);
 
     try {
-      let photo_url = null;
+      let foto_url = null;
       if (photoPreview && photoPreview.startsWith("http") && photoPreview.length < 500) {
-        photo_url = photoPreview;
+        foto_url = photoPreview;
       }
 
       // Persiste o pet diretamente no PostgreSQL Neon via endpoint FastAPI
