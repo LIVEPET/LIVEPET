@@ -7,6 +7,7 @@ import {
   Heart,
   Stethoscope,
   Settings,
+  ListChecks,
 } from "lucide-react";
 import { toast } from "sonner";
 import { authService } from "@/services/api";
@@ -133,6 +134,11 @@ const UserMenu = () => {
         <DropdownMenuItem asChild>
           <Link to="/historico-medico" className="cursor-pointer gap-2">
             <Stethoscope className="h-4 w-4" /> Histórico Veterinário
+          </Link>
+        </DropdownMenuItem>
+        <DropdownMenuItem asChild>
+          <Link to="/tasks" className="cursor-pointer gap-2">
+            <ListChecks className="h-4 w-4" /> Tarefas
           </Link>
         </DropdownMenuItem>
         <DropdownMenuSeparator />
