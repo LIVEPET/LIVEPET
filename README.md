@@ -256,7 +256,7 @@ Em aberto, acompanhado pela equipe:
 | :--- | :--- |
 | Integração das listagens com o banco | Em andamento |
 | Controle de acesso por papel — tutor, veterinário, administrador | Planejado |
-| Proteção de rotas autenticadas | Planejado |
+| Proteção de rotas autenticadas | Concluído |
 | Divisão do bundle por rota | Planejado |
 | Ampliação da cobertura de testes | Contínuo |
 
