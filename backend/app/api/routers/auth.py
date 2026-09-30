@@ -32,9 +32,16 @@ def register(user_in: UserCreate, db: Session = Depends(get_db)):
         senha_hash=get_password_hash(user_in.senha),
         telefone=user_in.telefone,
     )
-    db.add(user)
-    db.commit()
-    db.refresh(user)
+    try:
+        db.add(user)
+        db.commit()
+        db.refresh(user)
+    except Exception:
+        db.rollback()
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Já existe um usuário cadastrado com este e-mail.",
+        )
     return user
 
 

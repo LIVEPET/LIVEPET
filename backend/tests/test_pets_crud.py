@@ -33,17 +33,16 @@ def override_get_db():
         db.close()
 
 
-app.dependency_overrides[get_db] = override_get_db
-
-
 class TestPetsCRUD(unittest.TestCase):
     def setUp(self):
         """Cria as tabelas limpas para cada teste."""
         Base.metadata.create_all(bind=engine)
+        app.dependency_overrides[get_db] = override_get_db
         self.client = TestClient(app)
 
     def tearDown(self):
         """Limpa as tabelas após cada teste."""
+        app.dependency_overrides.pop(get_db, None)
         Base.metadata.drop_all(bind=engine)
 
     def test_full_pets_crud_and_public_qr_flow(self):
