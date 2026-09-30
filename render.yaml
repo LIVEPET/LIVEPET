@@ -38,9 +38,12 @@ services:
       - key: API_V1_STR
         value: /api/v1
 
-      # CORS: permite qualquer origem (ideal para comunicação com o frontend)
+      - key: ENVIRONMENT
+        value: production
+
+      # CORS: restringe exclusivamente às origens oficiais do frontend (LivePet Web e preview) e desenvolvimento local
       - key: BACKEND_CORS_ORIGINS
-        value: "*"
+        value: "https://livepet-1.onrender.com,https://livepet-web.onrender.com,https://livepet.onrender.com,http://localhost:5173,http://127.0.0.1:5173"
 
   # ----------------------------------------------------------------------------
   # 2. Front-end Web (React / Vite)

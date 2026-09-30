@@ -35,11 +35,21 @@ class PetUpdate(BaseModel):
     foto_url: Optional[str] = Field(None, max_length=500)
 
 
+from app.schemas.medical_record import MedicalRecordResponse
+from app.schemas.vaccine import VaccineResponse
+from app.schemas.care_contact import CareContactResponse
+from app.schemas.lineage import LineageResponse
+
+
 class PetResponse(PetBase):
     """Schema de resposta dos dados do pet para o tutor autenticado."""
     id: int
     user_id: int
     token_publico: str
+    vaccines: list[VaccineResponse] = []
+    medical_records: list[MedicalRecordResponse] = []
+    care_contacts: list[CareContactResponse] = []
+    lineage: Optional[LineageResponse] = None
 
     model_config = ConfigDict(from_attributes=True)
 

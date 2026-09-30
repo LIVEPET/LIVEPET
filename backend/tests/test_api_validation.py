@@ -6,10 +6,10 @@ from app.schemas.pet import PetCreate, PetResponse
 from app.schemas.vaccine import VaccineCreate, VaccineResponse
 from app.schemas.medical_record import MedicalRecordCreate, MedicalRecordResponse
 
-test_app = FastAPI()
+dummy_app = FastAPI()
 
 
-@test_app.post("/test/users", response_model=UserResponse, status_code=status.HTTP_201_CREATED)
+@dummy_app.post("/test/users", response_model=UserResponse, status_code=status.HTTP_201_CREATED)
 def create_user_route(payload: UserCreate):
     return {
         "id": 1,
@@ -20,7 +20,7 @@ def create_user_route(payload: UserCreate):
     }
 
 
-@test_app.post("/test/pets", response_model=PetResponse, status_code=status.HTTP_201_CREATED)
+@dummy_app.post("/test/pets", response_model=PetResponse, status_code=status.HTTP_201_CREATED)
 def create_pet_route(payload: PetCreate):
     return {
         "id": 1,
@@ -35,7 +35,7 @@ def create_pet_route(payload: PetCreate):
     }
 
 
-client = TestClient(test_app)
+client = TestClient(dummy_app)
 
 
 def test_api_rejects_missing_fields_with_422():

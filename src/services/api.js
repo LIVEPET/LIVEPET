@@ -256,6 +256,40 @@ export const petsService = {
       method: "DELETE",
     });
   },
+
+  /**
+   * Lista vacinas de um pet
+   */
+  async getVaccines(petId) {
+    return apiFetch(`/api/v1/pets/${petId}/vaccines`);
+  },
+
+  /**
+   * Adiciona dose de vacina ao pet
+   */
+  async addVaccine(petId, vaccineData) {
+    return apiFetch(`/api/v1/pets/${petId}/vaccines`, {
+      method: "POST",
+      body: vaccineData,
+    });
+  },
+
+  /**
+   * Lista prontuário médico de um pet
+   */
+  async getMedicalRecords(petId) {
+    return apiFetch(`/api/v1/pets/${petId}/medical-records`);
+  },
+
+  /**
+   * Adiciona registro médico ao pet
+   */
+  async addMedicalRecord(petId, recordData) {
+    return apiFetch(`/api/v1/pets/${petId}/medical-records`, {
+      method: "POST",
+      body: recordData,
+    });
+  },
 };
 
 export default {

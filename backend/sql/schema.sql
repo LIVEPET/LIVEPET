@@ -75,8 +75,55 @@ CREATE TABLE public.medical_records (
 
 CREATE INDEX idx_medical_records_pet_id ON public.medical_records(pet_id);
 
+-- 5. Tabela da Rede de Cuidados e Emergência
+CREATE TABLE public.care_contacts (
+    id SERIAL PRIMARY KEY,
+    pet_id INTEGER NOT NULL REFERENCES public.pets(id) ON DELETE CASCADE,
+    nome VARCHAR(150) NOT NULL,
+    funcao VARCHAR(100) NOT NULL,
+    categoria VARCHAR(50) NOT NULL DEFAULT 'emergency',
+    telefone VARCHAR(50) NOT NULL,
+    email VARCHAR(255),
+    foto_url VARCHAR(500),
+    relacao_tutor VARCHAR(100),
+    relacao_pet VARCHAR(100),
+    nivel_vinculo VARCHAR(50) DEFAULT 'Alto',
+    observacoes TEXT,
+    criado_em TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE INDEX idx_care_contacts_pet_id ON public.care_contacts(pet_id);
+
+-- 6. Tabela de Linhagem e Pedigree
+CREATE TABLE public.lineages (
+    id SERIAL PRIMARY KEY,
+    pet_id INTEGER NOT NULL UNIQUE REFERENCES public.pets(id) ON DELETE CASCADE,
+    registro VARCHAR(100),
+    generacoes INTEGER NOT NULL DEFAULT 3,
+    pai_nome VARCHAR(150),
+    pai_registro VARCHAR(100),
+    pai_titulos VARCHAR(200),
+    mae_nome VARCHAR(150),
+    mae_registro VARCHAR(100),
+    mae_titulos VARCHAR(200),
+    avo_pat_m_nome VARCHAR(150),
+    avo_pat_m_registro VARCHAR(100),
+    avo_pat_f_nome VARCHAR(150),
+    avo_pat_f_registro VARCHAR(100),
+    avo_mat_m_nome VARCHAR(150),
+    avo_mat_m_registro VARCHAR(100),
+    avo_mat_f_nome VARCHAR(150),
+    avo_mat_f_registro VARCHAR(100),
+    criado_em TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE INDEX idx_lineages_pet_id ON public.lineages(pet_id);
+
 -- Comentários de documentação
 COMMENT ON TABLE public.users IS 'Tabela de tutores e usuários do sistema LivePet';
 COMMENT ON TABLE public.pets IS 'Tabela de animais vinculados aos tutores';
 COMMENT ON TABLE public.vaccines IS 'Histórico de vacinas aplicadas';
 COMMENT ON TABLE public.medical_records IS 'Prontuário clínico e histórico médico dos animais';
+COMMENT ON TABLE public.care_contacts IS 'Rede de contatos de emergência e cuidadores dos pets';
+COMMENT ON TABLE public.lineages IS 'Registro de pedigree e linhagem ancestral dos pets';
+
