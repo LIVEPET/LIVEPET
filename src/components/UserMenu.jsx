@@ -11,6 +11,7 @@ import {
 } from "lucide-react";
 import { toast } from "sonner";
 import { authService } from "@/services/api";
+import { initialsFrom } from "@/lib/initials";
 import { Button } from "@/components/ui/button";
 import {
   DropdownMenu,
@@ -21,16 +22,6 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
-
-const initialsFrom = (nameOrEmail) => {
-  if (!nameOrEmail) return "?";
-  const str = nameOrEmail.trim();
-  if (str.includes(" ")) {
-    const parts = str.split(" ");
-    return (parts[0][0] + parts[1][0]).toUpperCase();
-  }
-  return str.slice(0, 2).toUpperCase();
-};
 
 const UserMenu = () => {
   const navigate = useNavigate();
