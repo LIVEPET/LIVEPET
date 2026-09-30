@@ -130,7 +130,7 @@ const PedigreeValidation = () => {
                 width={72}
                 height={72}
                 loading="lazy"
-                className="h-18 w-18 rounded-2xl object-cover ring-4 ring-warm/20"
+                className="h-[72px] w-[72px] rounded-2xl object-cover ring-4 ring-warm/20"
               />
 
               <div>
