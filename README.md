@@ -85,6 +85,7 @@ Desenvolvido como Projeto Integrador, com foco em usabilidade e em um fluxo que 
 | `/cartao` | Identificação digital com QR Code, exportável em imagem ou PDF |
 | `/tasks` | Lembretes e tarefas diárias de cuidado |
 | `/parcerias` | Clínicas, petshops e prestadores com cupons de desconto |
+| `/clinica/entrar`, `/clinica/*` | Portal da clínica: login, dashboard, agenda, pacientes e perfil |
 
 <br>
 
@@ -164,6 +165,7 @@ livepet/
 ├── backend/                  API RESTful em Python / FastAPI e banco Neon
 │   ├── app/                  Modelos, schemas, rotas e dependências
 │   └── tests/                Testes automatizados com Pytest
+├── docs/                     Roadmap, comunicados e levantamento de requisitos
 ├── src/
 │   ├── assets/               Imagens e recursos estáticos
 │   ├── components/           Componentes reutilizáveis
@@ -246,6 +248,8 @@ A descrição deve trazer o resumo da alteração, o roteiro de teste para quem 
 ## Estado atual
 
 Parte das telas ainda opera com dados de demonstração definidos em código. A autenticação e o cadastro de pets já estão conectados à API FastAPI e ao banco PostgreSQL (Neon).
+
+A landing page (números, depoimentos, planos e selos de validação) é conteúdo ilustrativo, sem valor real.
 
 Em aberto, acompanhado pela equipe:
 
