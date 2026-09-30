@@ -50,6 +50,19 @@ class Pet(Base):
         cascade="all, delete-orphan",
         lazy="selectin",
     )
+    care_contacts = relationship(
+        "CareContact",
+        back_populates="pet",
+        cascade="all, delete-orphan",
+        lazy="selectin",
+    )
+    lineage = relationship(
+        "Lineage",
+        back_populates="pet",
+        uselist=False,
+        cascade="all, delete-orphan",
+        lazy="selectin",
+    )
 
     def __repr__(self) -> str:
         return f"<Pet id={self.id} nome='{self.nome}' especie='{self.especie}'>"
