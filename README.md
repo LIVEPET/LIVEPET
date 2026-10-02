@@ -17,6 +17,7 @@ Plataforma integrada para gestão de saúde, identificação e conexões de anim
 ![PostgreSQL](https://img.shields.io/badge/PostgreSQL-Neon-0E2B1E?style=flat-square&logo=postgresql&logoColor=1DA05A)
 ![Render](https://img.shields.io/badge/Render-Deployed-46E3B7?style=flat-square&logo=render&logoColor=white)
 ![Swagger](https://img.shields.io/badge/Swagger-OpenAPI-85EA2D?style=flat-square&logo=swagger&logoColor=black)
+![License](https://img.shields.io/badge/License-Proprietary-red?style=flat-square)
 
 <br>
 
@@ -24,7 +25,8 @@ Plataforma integrada para gestão de saúde, identificação e conexões de anim
 [Funcionalidades](#funcionalidades) ·
 [Começando](#começando) ·
 [Estrutura](#estrutura-do-projeto) ·
-[Contribuindo](#padrões-de-contribuição)
+[Contribuindo](#padrões-de-contribuição) ·
+[Licença](#-licença)
 
 </div>
 
@@ -261,8 +263,18 @@ Em aberto, acompanhado pela equipe:
 
 ---
 
+## 📄 Licença
+
+Este projeto é um software proprietário com **Todos os direitos reservados** à equipe **LIVEPET**. 
+
+O código-fonte, arquitetura, design e ativos visuais pertencem exclusivamente aos autores. Não é permitida a cópia, redistribuição, hospedagem como serviço (SaaS), engenharia reversa ou exploração comercial deste projeto, no todo ou em parte, sem autorização prévia por escrito. 
+
+Para mais detalhes, consulte o arquivo [LICENSE](LICENSE).
+
+<br>
+
 <div align="center">
 
-Projeto acadêmico sem fins comerciais.
+Projeto desenvolvido no âmbito acadêmico com plano de continuidade e monetização.
 
 </div>
