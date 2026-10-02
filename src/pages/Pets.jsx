@@ -312,9 +312,18 @@ const Pets = () => {
     if (!file) return;
     const toastId = toast.loading("Comprimindo e salvando nova foto...");
     try {
-      const compressed = await compressImage(file, 600, 600, 0.75);
+      let compressed = await compressImage(file, 600, 600, 0.75);
+      if (!compressed) {
+        compressed = await new Promise((resolve) => {
+          const reader = new FileReader();
+          reader.onload = (e) => resolve(e.target?.result);
+          reader.onerror = () => resolve(null);
+          reader.readAsDataURL(file);
+        });
+      }
       if (!compressed) {
         toast.dismiss(toastId);
+        toast.error("Não foi possível processar a imagem.");
         return;
       }
       await petsService.update(petId, { foto_url: compressed });

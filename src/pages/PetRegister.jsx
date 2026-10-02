@@ -145,13 +145,23 @@ const PetRegister = () => {
       toast.error("A imagem deve ter no máximo 10MB.");
       return;
     }
+    setPhotoFile(file);
     try {
-      setPhotoFile(file);
-      const compressed = await compressImage(file, 600, 600, 0.75);
+      let compressed = await compressImage(file, 600, 600, 0.75);
+      if (!compressed) {
+        compressed = await new Promise((resolve) => {
+          const reader = new FileReader();
+          reader.onload = (e) => resolve(e.target?.result);
+          reader.onerror = () => resolve("");
+          reader.readAsDataURL(file);
+        });
+      }
       setPhotoPreview(compressed || URL.createObjectURL(file));
     } catch (err) {
       console.error("Erro ao comprimir foto:", err);
-      setPhotoPreview(URL.createObjectURL(file));
+      const reader = new FileReader();
+      reader.onload = (e) => setPhotoPreview(e.target?.result);
+      reader.readAsDataURL(file);
     }
   };
 
@@ -202,6 +212,14 @@ const PetRegister = () => {
           photoPreview.startsWith("http"))
       ) {
         foto_url = photoPreview;
+      } else if (photoFile) {
+        // Fallback garantido se a foto foi selecionada mas photoPreview era blob ou atrasou
+        foto_url = await new Promise((resolve) => {
+          const reader = new FileReader();
+          reader.onload = (e) => resolve(e.target?.result);
+          reader.onerror = () => resolve(null);
+          reader.readAsDataURL(photoFile);
+        });
       }
 
       // Persiste o pet diretamente no PostgreSQL Neon via endpoint FastAPI

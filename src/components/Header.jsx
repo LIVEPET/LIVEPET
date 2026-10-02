@@ -17,6 +17,7 @@ const navItems = [
   { label: "Pets", to: "/pets" },
   { label: "Pedigree", to: "/pedigree" },
   { label: "MatchPet", to: "/matchpet" },
+  { label: "Tarefas", to: "/tasks" },
   { label: "Histórico", to: "/historico-medico" },
   { label: "Saúde", to: "/saude" },
   { label: "Cartão", to: "/cartao" },
