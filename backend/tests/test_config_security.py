@@ -36,6 +36,16 @@ def test_config_production_rejects_weak_secret_key():
     assert "SECRET_KEY insegura para ambiente de produção" in str(exc_info.value)
 
 
+def test_config_production_rejects_default_env_secret_key():
+    """Valida que o valor default do .env é rejeitado em produção mesmo tendo mais de 32 chars."""
+    with pytest.raises(ValidationError) as exc_info:
+        Settings(
+            ENVIRONMENT="production",
+            SECRET_KEY="livepet-super-secret-key-change-in-production",
+        )
+    assert "SECRET_KEY insegura para ambiente de produção" in str(exc_info.value)
+
+
 def test_config_production_rejects_short_secret_key():
     """Valida que em produção uma SECRET_KEY com menos de 32 caracteres é rejeitada."""
     with pytest.raises(ValidationError) as exc_info:

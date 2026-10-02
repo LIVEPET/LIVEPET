@@ -144,11 +144,20 @@ class TestPetsCRUD(unittest.TestCase):
 
         # 10. GET /public/pet/{token_publico}: Rota pública de emergência SEM autenticação
         db = TestingSessionLocal()
+        from datetime import date
+        from app.models.vaccine import Vaccine
+        vac = Vaccine(
+            pet_id=pet1_id,
+            nome="Vacina Antirrábica",
+            data_aplicacao=date(2026, 1, 15),
+            veterinario="Dra. Silva CRMV 1234",
+        )
         rec = MedicalRecord(
             pet_id=pet1_id,
             tipo="Alergia",
             descricao="Alérgico severo a Dipirona e picada de abelha.",
         )
+        db.add(vac)
         db.add(rec)
         db.commit()
         db.close()
@@ -161,6 +170,8 @@ class TestPetsCRUD(unittest.TestCase):
         self.assertEqual(pub_data["tutor_nome"], "Carlos Silva")
         self.assertEqual(pub_data["tutor_telefone"], "(62) 98888-1111")
         self.assertIn("Alérgico severo a Dipirona", pub_data["avisos_medicos"])
+        self.assertEqual(len(pub_data["vacinas_principais"]), 1)
+        self.assertEqual(pub_data["vacinas_principais"][0]["nome"], "Vacina Antirrábica")
 
         # 11. Teste de QR Code público com token inexistente (404)
         resp_not_found = self.client.get("/api/v1/public/pet/token-inexistente-12345")

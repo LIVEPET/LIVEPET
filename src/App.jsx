@@ -48,6 +48,7 @@ const App = () => (
           <Route element={<Layout />}>
             <Route path="/" element={<Index />} />
             <Route path="/parcerias" element={<Partnerships />} />
+            <Route path="/cartao" element={<PetCard />} />
 
             <Route element={<ProtectedRoute />}>
               <Route path="/pets" element={<Pets />} />
@@ -57,7 +58,6 @@ const App = () => (
               <Route path="/historico-medico" element={<MedicalHistory />} />
               <Route path="/matchpet" element={<MatchPet />} />
               <Route path="/saude" element={<PetHealth />} />
-              <Route path="/cartao" element={<PetCard />} />
             </Route>
 
             <Route path="*" element={<NotFound />} />

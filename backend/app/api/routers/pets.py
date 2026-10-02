@@ -35,9 +35,8 @@ def create_pet(
     Cadastra um novo animal vinculado automaticamente ao ID do tutor autenticado no token.
     Gera um identificador único seguro (token_publico) para geração de QR Code.
     """
-    token_publico = pet_in.token_publico or uuid.uuid4().hex
-
-    # Garante que o token_publico seja único
+    # Gera sempre no servidor um token de alta entropia para o QR Code
+    token_publico = uuid.uuid4().hex
     while db.query(Pet).filter(Pet.token_publico == token_publico).first():
         token_publico = uuid.uuid4().hex
 
@@ -203,13 +202,22 @@ def get_public_pet_emergency(
             detail="Animal não encontrado para o código de QR Code fornecido.",
         )
 
-    # Coleta avisos médicos ou registros críticos do animal
+    # Coleta vacinas registradas para comprovação de imunização (ex: raiva / antirrábica)
+    vacinas = []
+    if pet.vaccines:
+        for v in pet.vaccines:
+            vacinas.append({
+                "nome": v.nome,
+                "data_aplicacao": v.data_aplicacao,
+                "proxima_dose": v.proxima_dose,
+            })
+
+    # Coleta exclusivamente avisos médicos vitais ou alergias críticas
     avisos = []
     if pet.medical_records:
         for r in pet.medical_records:
-            if r.tipo and r.tipo.lower() in ["alergia", "doença crônica", "alerta", "urgente"]:
-                avisos.append(f"{r.tipo}: {r.descricao}")
-            elif r.descricao:
+            tipo_lower = (r.tipo or "").lower()
+            if any(term in tipo_lower for term in ["alergia", "doença crônica", "crônica", "cronica", "alerta", "urgente"]):
                 avisos.append(f"{r.tipo}: {r.descricao}")
 
     avisos_str = " | ".join(avisos) if avisos else "Nenhum alerta médico crítico registrado."
@@ -226,6 +234,7 @@ def get_public_pet_emergency(
         "token_publico": pet.token_publico,
         "tutor_nome": pet.tutor.nome if pet.tutor else "Tutor não identificado",
         "tutor_telefone": pet.tutor.telefone if pet.tutor else None,
+        "vacinas_principais": vacinas,
         "avisos_medicos": avisos_str,
     }
 
