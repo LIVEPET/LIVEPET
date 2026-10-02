@@ -3,7 +3,7 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from app.core.config import settings
 from app.core.database import Base, engine
-from app.api.routers import health, auth, pets
+from app.api.routers import health, auth, pets, lineages
 import app.models  # noqa: F401
 
 
@@ -39,10 +39,12 @@ app.add_middleware(
 app.include_router(health.router)
 app.include_router(auth.router, prefix=settings.API_V1_STR)
 app.include_router(pets.router, prefix=settings.API_V1_STR)
+app.include_router(lineages.router, prefix=settings.API_V1_STR)
 
 # Disponibiliza também sem o prefixo /api/v1 para flexibilidade
 app.include_router(auth.router)
 app.include_router(pets.router)
+app.include_router(lineages.router)
 
 
 @app.get("/", tags=["Root"])

@@ -20,6 +20,9 @@ class Lineage(Base):
     )
     registro = Column(String(100), nullable=True)  # Ex: CBKC nº 4521987
     generacoes = Column(Integer, default=3, nullable=False)
+    pai_pet_id = Column(Integer, ForeignKey("pets.id", ondelete="SET NULL"), nullable=True)
+    mae_pet_id = Column(Integer, ForeignKey("pets.id", ondelete="SET NULL"), nullable=True)
+    status_verificacao = Column(String(50), default="declaratorio", nullable=False)
     pai_nome = Column(String(150), nullable=True)
     pai_registro = Column(String(100), nullable=True)
     pai_titulos = Column(String(200), nullable=True)
@@ -37,7 +40,9 @@ class Lineage(Base):
     criado_em = Column(DateTime(timezone=True), server_default=func.now(), nullable=False)
 
     # Relacionamento 1:1 com Pet
-    pet = relationship("Pet", back_populates="lineage")
+    pet = relationship("Pet", back_populates="lineage", foreign_keys=[pet_id])
+    pai = relationship("Pet", foreign_keys=[pai_pet_id], lazy="selectin")
+    mae = relationship("Pet", foreign_keys=[mae_pet_id], lazy="selectin")
 
     def __repr__(self) -> str:
         return f"<Lineage id={self.id} pet_id={self.pet_id} registro='{self.registro}'>"

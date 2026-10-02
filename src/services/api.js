@@ -312,7 +312,76 @@ export const petsService = {
   },
 };
 
+export const lineageService = {
+  /**
+   * Busca pet por token público oficial
+   */
+  async searchByToken(token) {
+    return apiFetch(`/api/v1/lineages/search-by-token/${encodeURIComponent(token)}`);
+  },
+
+  /**
+   * Cria uma solicitação de autorização de paternidade/maternidade
+   */
+  async createRequest(data) {
+    return apiFetch("/api/v1/lineages/requests", {
+      method: "POST",
+      body: data,
+    });
+  },
+
+  /**
+   * Lista solicitações recebidas pelo tutor atual
+   */
+  async getReceivedRequests() {
+    return apiFetch("/api/v1/lineages/requests/received");
+  },
+
+  /**
+   * Lista solicitações enviadas pelo tutor atual
+   */
+  async getSentRequests() {
+    return apiFetch("/api/v1/lineages/requests/sent");
+  },
+
+  /**
+   * Aprova solicitação de paternidade/maternidade
+   */
+  async approveRequest(requestId) {
+    return apiFetch(`/api/v1/lineages/requests/${requestId}/approve`, {
+      method: "POST",
+    });
+  },
+
+  /**
+   * Recusa solicitação de paternidade/maternidade
+   */
+  async rejectRequest(requestId) {
+    return apiFetch(`/api/v1/lineages/requests/${requestId}/reject`, {
+      method: "POST",
+    });
+  },
+
+  /**
+   * Consulta dados de linhagem e pedigree de um pet
+   */
+  async getLineage(petId) {
+    return apiFetch(`/api/v1/lineages/pets/${petId}`);
+  },
+
+  /**
+   * Salva ou atualiza os dados manuais de pedigree de um pet
+   */
+  async updateLineage(petId, lineageData) {
+    return apiFetch(`/api/v1/lineages/pets/${petId}`, {
+      method: "PUT",
+      body: lineageData,
+    });
+  },
+};
+
 export default {
   auth: authService,
   pets: petsService,
+  lineages: lineageService,
 };

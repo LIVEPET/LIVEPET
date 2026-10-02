@@ -60,6 +60,7 @@ class Pet(Base):
         "Lineage",
         back_populates="pet",
         uselist=False,
+        foreign_keys="[Lineage.pet_id]",
         cascade="all, delete-orphan",
         lazy="selectin",
     )

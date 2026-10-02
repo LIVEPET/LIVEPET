@@ -25,6 +25,13 @@ import {
   Palette,
   GitBranch,
   FileText,
+  Check,
+  X,
+  Clock,
+  Send,
+  RefreshCw,
+  AlertCircle,
+  Info,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -37,7 +44,7 @@ import {
   DialogDescription,
 } from "@/components/ui/dialog";
 import { Label } from "@/components/ui/label";
-import { petsService } from "@/services/api";
+import { petsService, lineageService } from "@/services/api";
 import petDefaultDog from "@/assets/pet-thor.jpg";
 import petDefaultCat from "@/assets/pet-mia.jpg";
 
@@ -79,109 +86,154 @@ const Pedigree = () => {
   const [championOnly, setChampionOnly] = useState(false);
   const [selected, setSelected] = useState(null);
   const [detailDog, setDetailDog] = useState(null);
+  const [currentTab, setCurrentTab] = useState("catalogo");
+
+  const [receivedRequests, setReceivedRequests] = useState([]);
+  const [sentRequests, setSentRequests] = useState([]);
+  const [loadingRequests, setLoadingRequests] = useState(false);
+
+  const fetchDogs = async () => {
+    try {
+      setLoading(true);
+      const data = await petsService.list();
+      if (Array.isArray(data) && data.length > 0) {
+        const mapped = data.map((p) => {
+          const regNum = p.token_publico
+            ? `CBKC-${p.token_publico.slice(0, 8).toUpperCase()}`
+            : `CBKC-${p.id}`;
+          const isCat = p.especie?.toLowerCase() === "gato";
+          const defaultPhoto = isCat ? petDefaultCat : petDefaultDog;
+          const lin = p.lineage || {};
+
+          const fatherName =
+            lin.pai_nome ||
+            (lin.pai_pet_id
+              ? "Pai Vinculado LivePet"
+              : "Pai Sob Consulta Genealógica");
+          const motherName =
+            lin.mae_nome ||
+            (lin.mae_pet_id
+              ? "Mãe Vinculada LivePet"
+              : "Mãe Sob Consulta Genealógica");
+
+          return {
+            id: p.id,
+            name: p.nome,
+            breed: p.raca || "SRD",
+            registry: lin.registro || regNum,
+            entity: lin.registro?.startsWith("FCI")
+              ? "FCI"
+              : lin.registro?.startsWith("AKC")
+              ? "AKC"
+              : "CBKC",
+            size: p.porte || "Médio",
+            group: "Companhia",
+            champion: Boolean(lin.pai_titulos || lin.mae_titulos),
+            sex: p.sexo || "Macho",
+            gender: p.sexo || "Macho",
+            age: formatAge(p.data_nascimento),
+            microchip: p.token_publico
+              ? p.token_publico.slice(0, 12).toUpperCase()
+              : String(p.id),
+            color: p.cor || "Padrão",
+            birth: p.data_nascimento ? String(p.data_nascimento) : "Não informada",
+            kennel: "Canil Oficial LivePet",
+            breeder: "Tutor Responsável",
+            owner: "Tutor Oficial",
+            city: "Goiânia, GO",
+            qr: `https://livepet.app/cartao?token=${p.token_publico || p.id}`,
+            img: p.foto_url || defaultPhoto,
+            rating: 5.0,
+            reviews: 1,
+            vetNote: "Laudo veterinário e vacinação preventiva em dia.",
+            rawPet: p,
+            lineage: lin,
+            isVerified: lin.status_verificacao === "aprovado",
+            isPending: lin.status_verificacao === "pendente",
+            verificationStatus: lin.status_verificacao || "declaratorio",
+            parents: {
+              father: fatherName,
+              mother: motherName,
+            },
+            health: {
+              hip: "Laudo Normal (A)",
+              elbows: "Grau 0 (Normal)",
+              eyes: "Livre de anomalias",
+              dna: "Perfil arquivado",
+              vaccines:
+                (p.vaccines || []).length > 0 ? "Em dia" : "A atualizar",
+            },
+            titles: ["Registro LivePet Oficial"],
+            ratings: {
+              structure: 4.8,
+              movement: 4.9,
+              temperament: 5.0,
+              head: 4.7,
+              coat: 4.8,
+            },
+          };
+        });
+        setDogs(mapped);
+        setSelected((prev) => {
+          if (urlPetId) {
+            const match = mapped.find((d) => String(d.id) === String(urlPetId));
+            if (match) return match;
+          }
+          if (prev) {
+            const stillExists = mapped.find((d) => d.id === prev.id);
+            if (stillExists) return stillExists;
+          }
+          return mapped[0];
+        });
+      } else {
+        setDogs([]);
+        setSelected(null);
+      }
+    } catch (err) {
+      console.error("Erro ao carregar pedigree:", err);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const loadRequests = async () => {
+    try {
+      setLoadingRequests(true);
+      const [received, sent] = await Promise.all([
+        lineageService.getReceivedRequests(),
+        lineageService.getSentRequests(),
+      ]);
+      setReceivedRequests(Array.isArray(received) ? received : []);
+      setSentRequests(Array.isArray(sent) ? sent : []);
+    } catch (err) {
+      console.warn("Não foi possível carregar solicitações:", err);
+    } finally {
+      setLoadingRequests(false);
+    }
+  };
 
   useEffect(() => {
-    let isMounted = true;
-    const fetchDogs = async () => {
-      try {
-        setLoading(true);
-        const data = await petsService.list();
-        if (!isMounted) return;
-        if (Array.isArray(data) && data.length > 0) {
-          const mapped = data.map((p) => {
-            const regNum = p.token_publico
-              ? `CBKC-${p.token_publico.slice(0, 8).toUpperCase()}`
-              : `CBKC-${p.id}`;
-            const isCat = p.especie?.toLowerCase() === "gato";
-            const defaultPhoto = isCat ? petDefaultCat : petDefaultDog;
-
-            return {
-              id: p.id,
-              name: p.nome,
-              breed: p.raca || "SRD",
-              registry: regNum,
-              entity: "CBKC",
-              size: p.porte || "Médio",
-              group: "Companhia",
-              champion: false,
-              sex: p.sexo || "Macho",
-              gender: p.sexo || "Macho",
-              age: formatAge(p.data_nascimento),
-              microchip: p.token_publico
-                ? p.token_publico.slice(0, 12).toUpperCase()
-                : String(p.id),
-              color: p.cor || "Padrão",
-              birth: p.data_nascimento ? String(p.data_nascimento) : "2024-01-01",
-              kennel: "Canil Oficial LivePet",
-              breeder: "Tutor Responsável",
-              owner: "Tutor Oficial",
-              city: "Goiânia, GO",
-              qr: `https://livepet.app/cartao?token=${p.token_publico || p.id}`,
-              img: p.foto_url || defaultPhoto,
-              rating: 5.0,
-              reviews: 1,
-              vetNote: "Laudo veterinário e vacinação preventiva em dia.",
-              parents: {
-                father: "Pai Sob Consulta Genealógica",
-                mother: "Mãe Sob Consulta Genealógica",
-              },
-              health: {
-                hip: "Laudo Normal (A)",
-                elbows: "Grau 0 (Normal)",
-                eyes: "Livre de anomalias",
-                dna: "Perfil arquivado",
-                vaccines:
-                  (p.vaccines || []).length > 0 ? "Em dia" : "A atualizar",
-              },
-              titles: ["Registro LivePet Oficial"],
-              ratings: {
-                structure: 4.8,
-                movement: 4.9,
-                temperament: 5.0,
-                head: 4.7,
-                coat: 4.8,
-              },
-              pedigree: {
-                father: {
-                  name: "Pai Sob Consulta Genealógica",
-                  registry: "—",
-                  titles: [],
-                  father: { name: "Avô Paterno", registry: "—", titles: [] },
-                  mother: { name: "Avó Paterna", registry: "—", titles: [] },
-                },
-                mother: {
-                  name: "Mãe Sob Consulta Genealógica",
-                  registry: "—",
-                  titles: [],
-                  father: { name: "Avô Materno", registry: "—", titles: [] },
-                  mother: { name: "Avó Materna", registry: "—", titles: [] },
-                },
-              },
-              siblings: [],
-              offspring: [],
-            };
-          });
-          setDogs(mapped);
-          const initialMatch = urlPetId
-            ? mapped.find((d) => String(d.id) === String(urlPetId))
-            : null;
-          setSelected(initialMatch || mapped[0]);
-        } else {
-          setDogs([]);
-          setSelected(null);
-        }
-      } catch (err) {
-        console.error("Erro ao carregar pedigree:", err);
-      } finally {
-        if (isMounted) setLoading(false);
-      }
-    };
-
     fetchDogs();
-    return () => {
-      isMounted = false;
-    };
+    loadRequests();
   }, [urlPetId]);
+
+  const handleApproveRequest = async (requestId) => {
+    try {
+      await lineageService.approveRequest(requestId);
+      await Promise.all([loadRequests(), fetchDogs()]);
+    } catch (err) {
+      alert("Erro ao aprovar solicitação: " + (err.message || err));
+    }
+  };
+
+  const handleRejectRequest = async (requestId) => {
+    try {
+      await lineageService.rejectRequest(requestId);
+      await loadRequests();
+    } catch (err) {
+      alert("Erro ao recusar solicitação: " + (err.message || err));
+    }
+  };
 
   const openDetail = (dog) => setDetailDog(dog);
   const closeDetail = () => setDetailDog(null);
@@ -345,17 +397,64 @@ const Pedigree = () => {
 
           {/* Right side — Tabs */}
           <div>
-            <Tabs defaultValue="catalogo" className="space-y-6">
-              <TabsList className="rounded-full bg-muted p-1">
-                <TabsTrigger value="catalogo" className="rounded-full px-5">
-                  <Sparkles className="mr-2 h-3.5 w-3.5" />
-                  Catálogo Pedigree
-                </TabsTrigger>
-                <TabsTrigger value="cadastro" className="rounded-full px-5">
-                  <FileCheck2 className="mr-2 h-3.5 w-3.5" />
-                  Cadastrar pedigree
-                </TabsTrigger>
-              </TabsList>
+            <Tabs
+              value={currentTab}
+              onValueChange={setCurrentTab}
+              className="space-y-6"
+            >
+              <div className="flex flex-wrap items-center justify-between gap-3">
+                <TabsList className="rounded-full bg-muted p-1">
+                  <TabsTrigger value="catalogo" className="rounded-full px-5">
+                    <Sparkles className="mr-2 h-3.5 w-3.5" />
+                    Catálogo Pedigree
+                  </TabsTrigger>
+                  <TabsTrigger value="cadastro" className="rounded-full px-5">
+                    <FileCheck2 className="mr-2 h-3.5 w-3.5" />
+                    Cadastrar / Editar
+                  </TabsTrigger>
+                  <TabsTrigger
+                    value="solicitacoes"
+                    className="relative rounded-full px-5"
+                  >
+                    <GitBranch className="mr-2 h-3.5 w-3.5" />
+                    Solicitações
+                    {receivedRequests.filter((r) => r.status === "pendente").length > 0 && (
+                      <span className="ml-2 inline-flex h-5 w-5 items-center justify-center rounded-full bg-warm text-[10px] font-black text-warm-foreground animate-pulse">
+                        {
+                          receivedRequests.filter((r) => r.status === "pendente")
+                            .length
+                        }
+                      </span>
+                    )}
+                  </TabsTrigger>
+                </TabsList>
+              </div>
+
+              {/* Notification banner for pending requests */}
+              {receivedRequests.filter((r) => r.status === "pendente").length > 0 && currentTab !== "solicitacoes" && (
+                <div className="flex items-center justify-between gap-3 rounded-2xl border border-warm/40 bg-warm/10 p-4 shadow-soft">
+                  <div className="flex items-center gap-3">
+                    <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-warm/20 text-warm">
+                      <GitBranch className="h-5 w-5" />
+                    </span>
+                    <div>
+                      <p className="text-sm font-bold text-foreground">
+                        {receivedRequests.filter((r) => r.status === "pendente").length} autorização(ões) de linhagem pendente(s)
+                      </p>
+                      <p className="text-xs text-muted-foreground">
+                        Outro tutor solicitou vínculo com seu pet na árvore genealógica.
+                      </p>
+                    </div>
+                  </div>
+                  <Button
+                    size="sm"
+                    onClick={() => setCurrentTab("solicitacoes")}
+                    className="rounded-full bg-warm text-warm-foreground shadow-sm hover:bg-warm/90"
+                  >
+                    Revisar agora
+                  </Button>
+                </div>
+              )}
 
               {/* CATALOG */}
               <TabsContent value="catalogo" className="space-y-8">
@@ -547,7 +646,23 @@ const Pedigree = () => {
 
               {/* REGISTRATION */}
               <TabsContent value="cadastro">
-                <RegistrationForm />
+                <RegistrationForm
+                  pets={dogs}
+                  selectedPet={selected}
+                  onSaved={fetchDogs}
+                />
+              </TabsContent>
+
+              {/* REQUESTS */}
+              <TabsContent value="solicitacoes">
+                <RequestsManager
+                  receivedRequests={receivedRequests}
+                  sentRequests={sentRequests}
+                  loading={loadingRequests}
+                  onApprove={handleApproveRequest}
+                  onReject={handleRejectRequest}
+                  onRefresh={loadRequests}
+                />
               </TabsContent>
             </Tabs>
           </div>
@@ -1009,6 +1124,10 @@ const FamilyTree = ({ dog }) => {
   const [active, setActive] = useState("self");
   const [lineageView, setLineageView] = useState("all");
 
+  const lin = dog.lineage || {};
+  const isCat = dog.rawPet?.especie?.toLowerCase() === "gato";
+  const defaultPhoto = isCat ? petDefaultCat : petDefaultDog;
+
   const self = {
     id: "self",
     name: dog.name,
@@ -1019,77 +1138,91 @@ const FamilyTree = ({ dog }) => {
     img: dog.img,
     registry: dog.registry,
     champion: dog.champion,
-    titles: ["Pet atual"],
+    titles: dog.titles || ["Pet atual"],
   };
   const father = {
     id: "f",
-    name: dog.parents?.father || "Pai Sob Consulta Genealógica",
+    name:
+      lin.pai_nome ||
+      (lin.pai_pet_id ? "Pai Vinculado LivePet" : "Pai Sob Consulta Genealógica"),
     role: "Pai",
     gen: 1,
     side: "paternal",
     gender: "M",
-    img: "https://images.unsplash.com/photo-1589941013453-ec89f33b5e95?auto=format&fit=crop&w=300&q=80",
-    registry: "CBKC 09.412",
-    champion: true,
-    titles: ["Campeão Brasileiro", "BIS 2022"],
+    img: defaultPhoto,
+    registry: lin.pai_registro || "—",
+    champion: Boolean(lin.pai_titulos),
+    titles: lin.pai_titulos
+      ? lin.pai_titulos.split(",").map((t) => t.trim())
+      : lin.pai_nome
+      ? ["Pai registrado"]
+      : ["Pendente"],
   };
   const mother = {
     id: "m",
-    name: dog.parents?.mother || "Mãe Sob Consulta Genealógica",
+    name:
+      lin.mae_nome ||
+      (lin.mae_pet_id ? "Mãe Vinculada LivePet" : "Mãe Sob Consulta Genealógica"),
     role: "Mãe",
     gen: 1,
     side: "maternal",
     gender: "F",
-    img: "https://images.unsplash.com/photo-1591946614720-90a587da4a36?auto=format&fit=crop&w=300&q=80",
-    registry: "CBKC 09.118",
-    champion: true,
-    titles: ["Campeã Sul-Americana"],
+    img: defaultPhoto,
+    registry: lin.mae_registro || "—",
+    champion: Boolean(lin.mae_titulos),
+    titles: lin.mae_titulos
+      ? lin.mae_titulos.split(",").map((t) => t.trim())
+      : lin.mae_nome
+      ? ["Mãe registrada"]
+      : ["Pendente"],
   };
   const pGrandpa = {
     id: "pp",
-    name: "Rex Imperial",
+    name: lin.avo_pat_m_nome || "Avô paterno",
     role: "Avô paterno",
     gen: 2,
     side: "paternal",
     gender: "M",
-    img: "https://images.unsplash.com/photo-1558788353-f76d92427f16?auto=format&fit=crop&w=300&q=80",
-    registry: "FCI 04.221",
-    champion: true,
-    titles: ["Grand Champion"],
+    img: defaultPhoto,
+    registry: lin.avo_pat_m_registro || "—",
+    champion: false,
+    titles: lin.avo_pat_m_nome ? ["Ancestral paterno"] : [],
   };
   const pGrandma = {
     id: "pm",
-    name: "Bella Aurora",
+    name: lin.avo_pat_f_nome || "Avó paterna",
     role: "Avó paterna",
     gen: 2,
     side: "paternal",
     gender: "F",
-    img: "https://images.unsplash.com/photo-1548199973-03cce0bbc87b?auto=format&fit=crop&w=300&q=80",
-    registry: "CBKC 04.118",
-    titles: ["Linhagem importada"],
+    img: defaultPhoto,
+    registry: lin.avo_pat_f_registro || "—",
+    champion: false,
+    titles: lin.avo_pat_f_nome ? ["Ancestral paterna"] : [],
   };
   const mGrandpa = {
     id: "mp",
-    name: "Don Vito",
+    name: lin.avo_mat_m_nome || "Avô materno",
     role: "Avô materno",
     gen: 2,
     side: "maternal",
     gender: "M",
-    img: "https://images.unsplash.com/photo-1552053831-71594a27632d?auto=format&fit=crop&w=300&q=80",
-    registry: "AKC 04.502",
-    champion: true,
-    titles: ["AKC Champion"],
+    img: defaultPhoto,
+    registry: lin.avo_mat_m_registro || "—",
+    champion: false,
+    titles: lin.avo_mat_m_nome ? ["Ancestral materno"] : [],
   };
   const mGrandma = {
     id: "mm",
-    name: "Sofia Stella",
+    name: lin.avo_mat_f_nome || "Avó materna",
     role: "Avó materna",
     gen: 2,
     side: "maternal",
     gender: "F",
-    img: "https://images.unsplash.com/photo-1450778869180-41d0601e046e?auto=format&fit=crop&w=300&q=80",
-    registry: "FCI 04.901",
-    titles: ["Reprodutora premiada"],
+    img: defaultPhoto,
+    registry: lin.avo_mat_f_registro || "—",
+    champion: false,
+    titles: lin.avo_mat_f_nome ? ["Ancestral materna"] : [],
   };
 
   const nodes = [self, father, mother, pGrandpa, pGrandma, mGrandpa, mGrandma];
@@ -1267,10 +1400,28 @@ const FamilyTree = ({ dog }) => {
       {/* header */}
       <div className="relative mb-6 flex flex-wrap items-end justify-between gap-4">
         <div>
-          <p className="inline-flex items-center gap-2 rounded-full bg-primary/10 px-3 py-1 text-[10px] font-bold uppercase tracking-[0.25em] text-primary">
-            <Dna className="h-3 w-3" />
-            Linhagem oficial
-          </p>
+          <div className="flex flex-wrap items-center gap-2">
+            <span className="inline-flex items-center gap-2 rounded-full bg-primary/10 px-3 py-1 text-[10px] font-bold uppercase tracking-[0.25em] text-primary">
+              <Dna className="h-3 w-3" />
+              Linhagem oficial
+            </span>
+            {dog.isVerified ? (
+              <span className="inline-flex items-center gap-1 rounded-full bg-emerald-500/15 px-3 py-1 text-[10px] font-black uppercase tracking-wider text-emerald-600 ring-1 ring-emerald-500/30">
+                <ShieldCheck className="h-3.5 w-3.5" />
+                🛡️ Verificado Oficial LivePet
+              </span>
+            ) : dog.isPending ? (
+              <span className="inline-flex items-center gap-1 rounded-full bg-amber-500/15 px-3 py-1 text-[10px] font-black uppercase tracking-wider text-amber-600 ring-1 ring-amber-500/30">
+                <Clock className="h-3.5 w-3.5" />
+                ⏳ Vínculo Sob Autorização
+              </span>
+            ) : (
+              <span className="inline-flex items-center gap-1 rounded-full bg-blue-500/15 px-3 py-1 text-[10px] font-black uppercase tracking-wider text-blue-600 ring-1 ring-blue-500/30">
+                <FileText className="h-3.5 w-3.5" />
+                📝 Registro Declaratório
+              </span>
+            )}
+          </div>
           <h3 className="mt-2 font-display text-2xl font-bold text-foreground sm:text-3xl">
             Árvore genealógica
           </h3>
@@ -1569,98 +1720,990 @@ const InfoCell = ({ icon: Icon, label, value }) => (
   </div>
 );
 
-const RegistrationForm = () => {
-  const [submitted, setSubmitted] = useState(false);
+const RegistrationForm = ({ pets = [], selectedPet, onSaved }) => {
+  const [targetPetId, setTargetPetId] = useState(
+    selectedPet ? String(selectedPet.id) : pets[0] ? String(pets[0].id) : ""
+  );
+  const [loadingLineage, setLoadingLineage] = useState(false);
+  const [saving, setSaving] = useState(false);
+  const [saveSuccess, setSaveSuccess] = useState(false);
 
-  if (submitted) {
-    return (
-      <Card className="border-2 border-primary/30 bg-primary-soft/30 p-10 text-center shadow-glow">
-        <div className="mx-auto flex h-16 w-16 animate-stamp items-center justify-center rounded-full bg-primary text-primary-foreground">
-          <CheckCircle2 className="h-8 w-8" />
-        </div>
-        <h3 className="mt-5 font-display text-2xl font-bold text-foreground">
-          Cadastro recebido!
-        </h3>
-        <p className="mt-2 text-muted-foreground">
-          Vamos validar a documentação junto à entidade cinófila e seu pedigree
-          digital ficará pronto em até 48h.
-        </p>
-        <Button
-          onClick={() => setSubmitted(false)}
-          variant="outline"
-          className="mt-6 rounded-full"
-        >
-          Cadastrar outro pet
-        </Button>
-      </Card>
-    );
-  }
+  // Form fields
+  const [registro, setRegistro] = useState("");
+  const [paiNome, setPaiNome] = useState("");
+  const [paiRegistro, setPaiRegistro] = useState("");
+  const [paiTitulos, setPaiTitulos] = useState("");
+  const [paiPetId, setPaiPetId] = useState(null);
+
+  const [maeNome, setMaeNome] = useState("");
+  const [maeRegistro, setMaeRegistro] = useState("");
+  const [maeTitulos, setMaeTitulos] = useState("");
+  const [maePetId, setMaePetId] = useState(null);
+
+  const [avoPatMNome, setAvoPatMNome] = useState("");
+  const [avoPatMRegistro, setAvoPatMRegistro] = useState("");
+  const [avoPatFNome, setAvoPatFNome] = useState("");
+  const [avoPatFRegistro, setAvoPatFRegistro] = useState("");
+
+  const [avoMatMNome, setAvoMatMNome] = useState("");
+  const [avoMatMRegistro, setAvoMatMRegistro] = useState("");
+  const [avoMatFNome, setAvoMatFNome] = useState("");
+  const [avoMatFRegistro, setAvoMatFRegistro] = useState("");
+
+  const [currentLineage, setCurrentLineage] = useState(null);
+
+  // Paternity search state
+  const [paiMode, setPaiMode] = useState("manual"); // 'manual' | 'token'
+  const [paiTokenInput, setPaiTokenInput] = useState("");
+  const [searchingPai, setSearchingPai] = useState(false);
+  const [foundPai, setFoundPai] = useState(null);
+  const [paiSearchError, setPaiSearchError] = useState("");
+  const [paiRequestStatus, setPaiRequestStatus] = useState(null); // null | 'sending' | 'sent' | 'error'
+
+  // Maternity search state
+  const [maeMode, setMaeMode] = useState("manual"); // 'manual' | 'token'
+  const [maeTokenInput, setMaeTokenInput] = useState("");
+  const [searchingMae, setSearchingMae] = useState(false);
+  const [foundMae, setFoundMae] = useState(null);
+  const [maeSearchError, setMaeSearchError] = useState("");
+  const [maeRequestStatus, setMaeRequestStatus] = useState(null); // null | 'sending' | 'sent' | 'error'
+
+  // Update targetPetId if selectedPet changes
+  useEffect(() => {
+    if (selectedPet) {
+      setTargetPetId(String(selectedPet.id));
+    }
+  }, [selectedPet]);
+
+  // Load lineage from DB whenever targetPetId changes
+  useEffect(() => {
+    if (!targetPetId) return;
+    let isMounted = true;
+    const load = async () => {
+      try {
+        setLoadingLineage(true);
+        const lin = await lineageService.getLineage(targetPetId);
+        if (!isMounted) return;
+        setCurrentLineage(lin);
+        setRegistro(lin?.registro || "");
+        setPaiNome(lin?.pai_nome || "");
+        setPaiRegistro(lin?.pai_registro || "");
+        setPaiTitulos(lin?.pai_titulos || "");
+        setPaiPetId(lin?.pai_pet_id || null);
+
+        setMaeNome(lin?.mae_nome || "");
+        setMaeRegistro(lin?.mae_registro || "");
+        setMaeTitulos(lin?.mae_titulos || "");
+        setMaePetId(lin?.mae_pet_id || null);
+
+        setAvoPatMNome(lin?.avo_pat_m_nome || "");
+        setAvoPatMRegistro(lin?.avo_pat_m_registro || "");
+        setAvoPatFNome(lin?.avo_pat_f_nome || "");
+        setAvoPatFRegistro(lin?.avo_pat_f_registro || "");
+
+        setAvoMatMNome(lin?.avo_mat_m_nome || "");
+        setAvoMatMRegistro(lin?.avo_mat_m_registro || "");
+        setAvoMatFNome(lin?.avo_mat_f_nome || "");
+        setAvoMatFRegistro(lin?.avo_mat_f_registro || "");
+
+        // Reset search boxes
+        setFoundPai(null);
+        setPaiSearchError("");
+        setPaiRequestStatus(null);
+        setFoundMae(null);
+        setMaeSearchError("");
+        setMaeRequestStatus(null);
+      } catch (err) {
+        console.warn("Linhagem não carregada para pet:", err);
+      } finally {
+        if (isMounted) setLoadingLineage(false);
+      }
+    };
+    load();
+    return () => {
+      isMounted = false;
+    };
+  }, [targetPetId]);
+
+  const activePet = pets.find((p) => String(p.id) === String(targetPetId));
+
+  const handleSearchPai = async () => {
+    if (!paiTokenInput.trim()) return;
+    try {
+      setSearchingPai(true);
+      setPaiSearchError("");
+      const res = await lineageService.searchByToken(paiTokenInput.trim());
+      setFoundPai(res);
+      setPaiNome(res.nome);
+      setPaiRegistro(
+        res.token_publico
+          ? `CBKC-${res.token_publico.slice(0, 8).toUpperCase()}`
+          : `CBKC-${res.id}`
+      );
+      setPaiPetId(res.id);
+    } catch (err) {
+      setPaiSearchError(err.message || "Pet não encontrado com este token.");
+      setFoundPai(null);
+    } finally {
+      setSearchingPai(false);
+    }
+  };
+
+  const handleRequestPai = async () => {
+    if (!targetPetId || !foundPai) return;
+    try {
+      setPaiRequestStatus("sending");
+      await lineageService.createRequest({
+        filhote_pet_id: parseInt(targetPetId, 10),
+        ascendente_pet_id: foundPai.id,
+        tipo_vinculo: "pai",
+        mensagem: `Solicitação de vínculo de paternidade para o filhote ${activePet?.name || "do tutor"}.`,
+      });
+      setPaiRequestStatus("sent");
+    } catch (err) {
+      alert("Erro ao solicitar autorização: " + (err.message || err));
+      setPaiRequestStatus("error");
+    }
+  };
+
+  const handleSearchMae = async () => {
+    if (!maeTokenInput.trim()) return;
+    try {
+      setSearchingMae(true);
+      setMaeSearchError("");
+      const res = await lineageService.searchByToken(maeTokenInput.trim());
+      setFoundMae(res);
+      setMaeNome(res.nome);
+      setMaeRegistro(
+        res.token_publico
+          ? `CBKC-${res.token_publico.slice(0, 8).toUpperCase()}`
+          : `CBKC-${res.id}`
+      );
+      setMaePetId(res.id);
+    } catch (err) {
+      setMaeSearchError(err.message || "Pet não encontrado com este token.");
+      setFoundMae(null);
+    } finally {
+      setSearchingMae(false);
+    }
+  };
+
+  const handleRequestMae = async () => {
+    if (!targetPetId || !foundMae) return;
+    try {
+      setMaeRequestStatus("sending");
+      await lineageService.createRequest({
+        filhote_pet_id: parseInt(targetPetId, 10),
+        ascendente_pet_id: foundMae.id,
+        tipo_vinculo: "mae",
+        mensagem: `Solicitação de vínculo de maternidade para o filhote ${activePet?.name || "do tutor"}.`,
+      });
+      setMaeRequestStatus("sent");
+    } catch (err) {
+      alert("Erro ao solicitar autorização: " + (err.message || err));
+      setMaeRequestStatus("error");
+    }
+  };
+
+  const handleSubmit = async (e) => {
+    e.preventDefault();
+    if (!targetPetId) return;
+    try {
+      setSaving(true);
+      await lineageService.updateLineage(targetPetId, {
+        registro: registro.trim() || null,
+        pai_nome: paiNome.trim() || null,
+        pai_registro: paiRegistro.trim() || null,
+        pai_titulos: paiTitulos.trim() || null,
+        pai_pet_id: paiPetId,
+        mae_nome: maeNome.trim() || null,
+        mae_registro: maeRegistro.trim() || null,
+        mae_titulos: maeTitulos.trim() || null,
+        mae_pet_id: maePetId,
+        avo_pat_m_nome: avoPatMNome.trim() || null,
+        avo_pat_m_registro: avoPatMRegistro.trim() || null,
+        avo_pat_f_nome: avoPatFNome.trim() || null,
+        avo_pat_f_registro: avoPatFRegistro.trim() || null,
+        avo_mat_m_nome: avoMatMNome.trim() || null,
+        avo_mat_m_registro: avoMatMRegistro.trim() || null,
+        avo_mat_f_nome: avoMatFNome.trim() || null,
+        avo_mat_f_registro: avoMatFRegistro.trim() || null,
+      });
+      setSaveSuccess(true);
+      if (onSaved) onSaved();
+      setTimeout(() => setSaveSuccess(false), 5000);
+    } catch (err) {
+      alert("Erro ao salvar pedigree: " + (err.message || err));
+    } finally {
+      setSaving(false);
+    }
+  };
 
   return (
     <Card className="overflow-hidden border-border/60 p-0 shadow-card">
+      {/* Header */}
       <div className="border-b border-border/60 bg-foreground p-6 text-primary-foreground">
-        <h2 className="font-display text-2xl font-bold">
-          Cadastro de Pedigree Digital
-        </h2>
-        <p className="mt-1 text-sm text-primary-foreground/70">
-          Preencha os dados abaixo. Verificamos junto à CBKC, FCI ou AKC.
-        </p>
+        <div className="flex flex-wrap items-center justify-between gap-4">
+          <div>
+            <span className="inline-flex items-center gap-1.5 rounded-full bg-warm/15 px-3 py-1 text-[10px] font-bold uppercase tracking-[0.2em] text-warm">
+              <Dna className="h-3 w-3" />
+              Linhagem & Pedigree
+            </span>
+            <h2 className="mt-2 font-display text-2xl font-bold">
+              Cadastro e Gestão de Pedigree
+            </h2>
+            <p className="mt-1 text-xs text-primary-foreground/75 sm:text-sm">
+              Vincule pais oficiais por token ou registre ancestrais manualmente para compor a árvore genealógica.
+            </p>
+          </div>
+
+          {/* Pet Selector */}
+          {pets.length > 0 && (
+            <div className="flex flex-col gap-1.5 min-w-[200px]">
+              <Label className="text-[10px] font-bold uppercase tracking-wider text-primary-foreground/70">
+                Selecione o Pet
+              </Label>
+              <select
+                value={targetPetId}
+                onChange={(e) => setTargetPetId(e.target.value)}
+                className="h-10 rounded-xl border border-primary-foreground/20 bg-background/10 px-3 text-sm font-semibold text-primary-foreground backdrop-blur focus:bg-foreground focus:outline-none"
+              >
+                {pets.map((p) => (
+                  <option key={p.id} value={p.id} className="text-foreground">
+                    {p.name} ({p.breed})
+                  </option>
+                ))}
+              </select>
+            </div>
+          )}
+        </div>
+
+        {/* Selected Pet Banner */}
+        {activePet && (
+          <div className="mt-5 flex flex-wrap items-center justify-between gap-3 rounded-2xl bg-primary-foreground/10 p-3.5 backdrop-blur">
+            <div className="flex items-center gap-3">
+              <img
+                src={activePet.img}
+                alt={activePet.name}
+                className="h-11 w-11 rounded-xl object-cover ring-2 ring-warm/40"
+              />
+              <div>
+                <p className="font-display text-sm font-bold text-primary-foreground">
+                  {activePet.name}
+                </p>
+                <p className="text-[11px] text-primary-foreground/70">
+                  {activePet.breed} · Token: {activePet.microchip}
+                </p>
+              </div>
+            </div>
+
+            {/* Verification Status */}
+            <div>
+              {currentLineage?.status_verificacao === "aprovado" ? (
+                <span className="inline-flex items-center gap-1 rounded-full bg-emerald-500/20 px-3 py-1 text-[11px] font-bold text-emerald-300 ring-1 ring-emerald-500/40">
+                  <ShieldCheck className="h-3.5 w-3.5" />
+                  Verificado Oficial LivePet
+                </span>
+              ) : currentLineage?.status_verificacao === "pendente" ? (
+                <span className="inline-flex items-center gap-1 rounded-full bg-amber-500/20 px-3 py-1 text-[11px] font-bold text-amber-300 ring-1 ring-amber-500/40">
+                  <Clock className="h-3.5 w-3.5" />
+                  Aguardando Autorização
+                </span>
+              ) : (
+                <span className="inline-flex items-center gap-1 rounded-full bg-primary-soft/20 px-3 py-1 text-[11px] font-bold text-primary-soft ring-1 ring-primary-soft/40">
+                  <FileText className="h-3.5 w-3.5" />
+                  Registro Declaratório
+                </span>
+              )}
+            </div>
+          </div>
+        )}
       </div>
-      <form
-        onSubmit={(e) => {
-          e.preventDefault();
-          setSubmitted(true);
-        }}
-        className="grid gap-5 p-6 sm:grid-cols-2"
-      >
-        <Field label="Nome do cão" placeholder="Ex.: Thor do Vale Imperial" />
-        <Field label="Raça" placeholder="Ex.: Golden Retriever" />
-        <Field label="Data de nascimento" type="date" />
-        <Field label="Cor / pelagem" placeholder="Ex.: Dourado claro" />
-        <Field label="Nome do pai" placeholder="Pai registrado" />
-        <Field label="Nome da mãe" placeholder="Mãe registrada" />
-        <Field label="Número de registro" placeholder="Ex.: CBKC 12.847" />
-        <div className="space-y-2">
-          <Label className="text-xs font-bold uppercase tracking-wider text-muted-foreground">
-            Entidade
-          </Label>
-          <select className="flex h-10 w-full rounded-md border border-input bg-background px-3 text-sm">
-            <option>CBKC</option>
-            <option>FCI</option>
-            <option>AKC</option>
-          </select>
-        </div>
 
-        <div className="space-y-2 sm:col-span-2">
-          <Label className="text-xs font-bold uppercase tracking-wider text-muted-foreground">
-            Laudo veterinário
-          </Label>
-          <textarea
-            placeholder="Cole aqui as principais observações do laudo (cardio, displasia, vacinas)..."
-            className="flex min-h-[100px] w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
-          />
+      {saveSuccess && (
+        <div className="border-b border-emerald-500/30 bg-emerald-500/10 p-4 text-center text-sm font-bold text-emerald-600">
+          <CheckCircle2 className="inline-block mr-2 h-4 w-4" />
+          Pedigree salvo com sucesso no banco de dados! A árvore genealógica já foi atualizada.
         </div>
+      )}
 
-        <div className="rounded-xl border-2 border-dashed border-border p-4 text-center sm:col-span-2">
-          <FileCheck2 className="mx-auto h-8 w-8 text-primary" />
-          <p className="mt-2 text-sm font-semibold text-foreground">
-            Anexar certificado original (PDF/JPG)
-          </p>
-          <p className="text-xs text-muted-foreground">
-            Aceitamos pedigree físico digitalizado para validação
+      {loadingLineage ? (
+        <div className="flex flex-col items-center justify-center gap-3 py-16">
+          <Loader2 className="h-8 w-8 animate-spin text-primary" />
+          <p className="text-sm text-muted-foreground">
+            Carregando dados genealógicos...
           </p>
         </div>
+      ) : (
+        <form onSubmit={handleSubmit} className="space-y-8 p-6">
+          {/* Section: Official Pet Registry */}
+          <div className="space-y-4">
+            <h3 className="flex items-center gap-2 font-display text-base font-bold text-foreground">
+              <Award className="h-4 w-4 text-primary" />
+              Identificação Cinófila do Pet
+            </h3>
+            <div className="grid gap-4 sm:grid-cols-2">
+              <Field
+                label="Número de Registro Oficial (CBKC / FCI / AKC)"
+                placeholder="Ex.: CBKC 14.892 ou FCI 99.412"
+                value={registro}
+                onChange={(e) => setRegistro(e.target.value)}
+              />
+              <div className="space-y-2">
+                <Label className="text-xs font-bold uppercase tracking-wider text-muted-foreground">
+                  Token Público de Validação
+                </Label>
+                <Input
+                  disabled
+                  value={activePet ? activePet.registry : ""}
+                  className="bg-muted font-mono text-xs"
+                />
+              </div>
+            </div>
+          </div>
 
-        <Button
-          type="submit"
-          size="lg"
-          className="rounded-full gradient-primary text-primary-foreground shadow-glow sm:col-span-2"
-        >
-          <Crown className="h-5 w-5" />
-          Solicitar pedigree digital
-        </Button>
-      </form>
+          {/* Section: Father (Pai) */}
+          <div className="space-y-4 rounded-2xl border border-primary/20 bg-primary-soft/30 p-5">
+            <div className="flex flex-wrap items-center justify-between gap-3">
+              <div className="flex items-center gap-2">
+                <span className="flex h-7 w-7 items-center justify-center rounded-lg bg-primary text-xs font-bold text-primary-foreground">
+                  ♂
+                </span>
+                <div>
+                  <h4 className="font-display text-sm font-bold text-foreground">
+                    Padreador (Pai)
+                  </h4>
+                  <p className="text-[11px] text-muted-foreground">
+                    Linhagem paterna oficial de 1ª geração
+                  </p>
+                </div>
+              </div>
+
+              {/* Mode Toggle */}
+              <div className="inline-flex rounded-full border border-border bg-card p-1 text-[11px] font-bold shadow-soft">
+                <button
+                  type="button"
+                  onClick={() => setPaiMode("manual")}
+                  className={`rounded-full px-3 py-1 transition-all ${
+                    paiMode === "manual"
+                      ? "bg-primary text-primary-foreground"
+                      : "text-muted-foreground hover:text-foreground"
+                  }`}
+                >
+                  Manual
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setPaiMode("token")}
+                  className={`rounded-full px-3 py-1 transition-all ${
+                    paiMode === "token"
+                      ? "bg-primary text-primary-foreground"
+                      : "text-muted-foreground hover:text-foreground"
+                  }`}
+                >
+                  Buscar no LivePet (Token)
+                </button>
+              </div>
+            </div>
+
+            {paiMode === "token" ? (
+              <div className="space-y-3 rounded-xl border border-primary/30 bg-card p-4">
+                <p className="text-xs text-muted-foreground">
+                  Se o pai é de outro tutor e já possui cadastro no LivePet, informe o código do cartão ou token público para enviar uma solicitação de autorização.
+                </p>
+                <div className="flex gap-2">
+                  <Input
+                    placeholder="Ex.: CBKC-A1B2C3D4 ou token completo"
+                    value={paiTokenInput}
+                    onChange={(e) => setPaiTokenInput(e.target.value)}
+                    className="flex-1 font-mono text-xs"
+                  />
+                  <Button
+                    type="button"
+                    onClick={handleSearchPai}
+                    disabled={searchingPai || !paiTokenInput.trim()}
+                    className="rounded-full gradient-primary text-primary-foreground"
+                  >
+                    {searchingPai ? (
+                      <Loader2 className="h-4 w-4 animate-spin" />
+                    ) : (
+                      <Search className="h-4 w-4" />
+                    )}
+                    Buscar
+                  </Button>
+                </div>
+
+                {paiSearchError && (
+                  <p className="text-xs font-semibold text-destructive">
+                    {paiSearchError}
+                  </p>
+                )}
+
+                {foundPai && (
+                  <div className="mt-3 flex flex-wrap items-center justify-between gap-3 rounded-xl border border-primary/20 bg-primary-soft/40 p-3">
+                    <div className="flex items-center gap-3">
+                      <div className="h-10 w-10 overflow-hidden rounded-lg bg-muted">
+                        {foundPai.foto_url ? (
+                          <img
+                            src={foundPai.foto_url}
+                            alt={foundPai.nome}
+                            className="h-full w-full object-cover"
+                          />
+                        ) : (
+                          <div className="flex h-full w-full items-center justify-center font-bold text-primary">
+                            🐾
+                          </div>
+                        )}
+                      </div>
+                      <div>
+                        <p className="font-bold text-foreground">
+                          {foundPai.nome} ({foundPai.raca || "SRD"})
+                        </p>
+                        <p className="text-[11px] text-muted-foreground">
+                          Tutor: {foundPai.tutor?.nome || "Responsável"}
+                          {foundPai.tutor?.nome_canil
+                            ? ` · Canil: ${foundPai.tutor.nome_canil}`
+                            : ""}
+                        </p>
+                      </div>
+                    </div>
+
+                    <div className="flex items-center gap-2">
+                      {paiRequestStatus === "sent" ? (
+                        <span className="inline-flex items-center gap-1 rounded-full bg-emerald-500/20 px-3 py-1 text-xs font-bold text-emerald-600">
+                          <Check className="h-3.5 w-3.5" />
+                          Solicitação Enviada!
+                        </span>
+                      ) : (
+                        <Button
+                          type="button"
+                          size="sm"
+                          onClick={handleRequestPai}
+                          disabled={paiRequestStatus === "sending"}
+                          className="rounded-full gradient-primary text-primary-foreground shadow-sm"
+                        >
+                          <Send className="mr-1.5 h-3.5 w-3.5" />
+                          Solicitar Autorização
+                        </Button>
+                      )}
+                    </div>
+                  </div>
+                )}
+              </div>
+            ) : (
+              <div className="grid gap-4 sm:grid-cols-3">
+                <Field
+                  label="Nome do Pai"
+                  placeholder="Ex.: Thor do Vale Imperial"
+                  value={paiNome}
+                  onChange={(e) => setPaiNome(e.target.value)}
+                />
+                <Field
+                  label="Registro do Pai (CBKC/FCI)"
+                  placeholder="Ex.: CBKC 09.412"
+                  value={paiRegistro}
+                  onChange={(e) => setPaiRegistro(e.target.value)}
+                />
+                <Field
+                  label="Títulos e Premiações"
+                  placeholder="Ex.: Campeão Brasileiro, BIS"
+                  value={paiTitulos}
+                  onChange={(e) => setPaiTitulos(e.target.value)}
+                />
+              </div>
+            )}
+          </div>
+
+          {/* Section: Mother (Mãe) */}
+          <div className="space-y-4 rounded-2xl border border-warm/30 bg-warm/10 p-5">
+            <div className="flex flex-wrap items-center justify-between gap-3">
+              <div className="flex items-center gap-2">
+                <span className="flex h-7 w-7 items-center justify-center rounded-lg bg-warm text-xs font-bold text-warm-foreground">
+                  ♀
+                </span>
+                <div>
+                  <h4 className="font-display text-sm font-bold text-foreground">
+                    Matriz (Mãe)
+                  </h4>
+                  <p className="text-[11px] text-muted-foreground">
+                    Linhagem materna oficial de 1ª geração
+                  </p>
+                </div>
+              </div>
+
+              {/* Mode Toggle */}
+              <div className="inline-flex rounded-full border border-border bg-card p-1 text-[11px] font-bold shadow-soft">
+                <button
+                  type="button"
+                  onClick={() => setMaeMode("manual")}
+                  className={`rounded-full px-3 py-1 transition-all ${
+                    maeMode === "manual"
+                      ? "bg-warm text-warm-foreground"
+                      : "text-muted-foreground hover:text-foreground"
+                  }`}
+                >
+                  Manual
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setMaeMode("token")}
+                  className={`rounded-full px-3 py-1 transition-all ${
+                    maeMode === "token"
+                      ? "bg-warm text-warm-foreground"
+                      : "text-muted-foreground hover:text-foreground"
+                  }`}
+                >
+                  Buscar no LivePet (Token)
+                </button>
+              </div>
+            </div>
+
+            {maeMode === "token" ? (
+              <div className="space-y-3 rounded-xl border border-warm/30 bg-card p-4">
+                <p className="text-xs text-muted-foreground">
+                  Se a mãe é de outro tutor e já possui cadastro no LivePet, informe o código do cartão ou token público para enviar uma solicitação de autorização.
+                </p>
+                <div className="flex gap-2">
+                  <Input
+                    placeholder="Ex.: CBKC-A1B2C3D4 ou token completo"
+                    value={maeTokenInput}
+                    onChange={(e) => setMaeTokenInput(e.target.value)}
+                    className="flex-1 font-mono text-xs"
+                  />
+                  <Button
+                    type="button"
+                    onClick={handleSearchMae}
+                    disabled={searchingMae || !maeTokenInput.trim()}
+                    className="rounded-full bg-warm text-warm-foreground hover:bg-warm/90"
+                  >
+                    {searchingMae ? (
+                      <Loader2 className="h-4 w-4 animate-spin" />
+                    ) : (
+                      <Search className="h-4 w-4" />
+                    )}
+                    Buscar
+                  </Button>
+                </div>
+
+                {maeSearchError && (
+                  <p className="text-xs font-semibold text-destructive">
+                    {maeSearchError}
+                  </p>
+                )}
+
+                {foundMae && (
+                  <div className="mt-3 flex flex-wrap items-center justify-between gap-3 rounded-xl border border-warm/20 bg-warm/15 p-3">
+                    <div className="flex items-center gap-3">
+                      <div className="h-10 w-10 overflow-hidden rounded-lg bg-muted">
+                        {foundMae.foto_url ? (
+                          <img
+                            src={foundMae.foto_url}
+                            alt={foundMae.nome}
+                            className="h-full w-full object-cover"
+                          />
+                        ) : (
+                          <div className="flex h-full w-full items-center justify-center font-bold text-warm">
+                            🐾
+                          </div>
+                        )}
+                      </div>
+                      <div>
+                        <p className="font-bold text-foreground">
+                          {foundMae.nome} ({foundMae.raca || "SRD"})
+                        </p>
+                        <p className="text-[11px] text-muted-foreground">
+                          Tutor: {foundMae.tutor?.nome || "Responsável"}
+                          {foundMae.tutor?.nome_canil
+                            ? ` · Canil: ${foundMae.tutor.nome_canil}`
+                            : ""}
+                        </p>
+                      </div>
+                    </div>
+
+                    <div className="flex items-center gap-2">
+                      {maeRequestStatus === "sent" ? (
+                        <span className="inline-flex items-center gap-1 rounded-full bg-emerald-500/20 px-3 py-1 text-xs font-bold text-emerald-600">
+                          <Check className="h-3.5 w-3.5" />
+                          Solicitação Enviada!
+                        </span>
+                      ) : (
+                        <Button
+                          type="button"
+                          size="sm"
+                          onClick={handleRequestMae}
+                          disabled={maeRequestStatus === "sending"}
+                          className="rounded-full bg-warm text-warm-foreground shadow-sm hover:bg-warm/90"
+                        >
+                          <Send className="mr-1.5 h-3.5 w-3.5" />
+                          Solicitar Autorização
+                        </Button>
+                      )}
+                    </div>
+                  </div>
+                )}
+              </div>
+            ) : (
+              <div className="grid gap-4 sm:grid-cols-3">
+                <Field
+                  label="Nome da Mãe"
+                  placeholder="Ex.: Luna da Mata Encantada"
+                  value={maeNome}
+                  onChange={(e) => setMaeNome(e.target.value)}
+                />
+                <Field
+                  label="Registro da Mãe (CBKC/FCI)"
+                  placeholder="Ex.: CBKC 09.118"
+                  value={maeRegistro}
+                  onChange={(e) => setMaeRegistro(e.target.value)}
+                />
+                <Field
+                  label="Títulos e Premiações"
+                  placeholder="Ex.: Campeã Sul-Americana"
+                  value={maeTitulos}
+                  onChange={(e) => setMaeTitulos(e.target.value)}
+                />
+              </div>
+            )}
+          </div>
+
+          {/* Section: Grandparents (Geração III) */}
+          <div className="space-y-4">
+            <h3 className="flex items-center gap-2 font-display text-base font-bold text-foreground">
+              <Dna className="h-4 w-4 text-warm" />
+              Geração III · Avós (Opcional)
+            </h3>
+            <p className="text-xs text-muted-foreground">
+              Preencha os nomes e registros dos avós paternos e maternos se constarem no certificado original.
+            </p>
+
+            <div className="grid gap-4 sm:grid-cols-2">
+              {/* Avô Paterno */}
+              <div className="space-y-3 rounded-xl border border-primary/20 bg-card p-4">
+                <span className="text-[10px] font-bold uppercase tracking-wider text-primary">
+                  👴 Avô Paterno (Pai do Pai)
+                </span>
+                <Field
+                  label="Nome"
+                  placeholder="Nome do avô paterno"
+                  value={avoPatMNome}
+                  onChange={(e) => setAvoPatMNome(e.target.value)}
+                />
+                <Field
+                  label="Registro Oficial"
+                  placeholder="Ex.: FCI 04.221"
+                  value={avoPatMRegistro}
+                  onChange={(e) => setAvoPatMRegistro(e.target.value)}
+                />
+              </div>
+
+              {/* Avó Paterna */}
+              <div className="space-y-3 rounded-xl border border-primary/20 bg-card p-4">
+                <span className="text-[10px] font-bold uppercase tracking-wider text-primary">
+                  👵 Avó Paterna (Mãe do Pai)
+                </span>
+                <Field
+                  label="Nome"
+                  placeholder="Nome da avó paterna"
+                  value={avoPatFNome}
+                  onChange={(e) => setAvoPatFNome(e.target.value)}
+                />
+                <Field
+                  label="Registro Oficial"
+                  placeholder="Ex.: CBKC 04.118"
+                  value={avoPatFRegistro}
+                  onChange={(e) => setAvoPatFRegistro(e.target.value)}
+                />
+              </div>
+
+              {/* Avô Materno */}
+              <div className="space-y-3 rounded-xl border border-warm/25 bg-card p-4">
+                <span className="text-[10px] font-bold uppercase tracking-wider text-warm">
+                  👴 Avô Materno (Pai da Mãe)
+                </span>
+                <Field
+                  label="Nome"
+                  placeholder="Nome do avô materno"
+                  value={avoMatMNome}
+                  onChange={(e) => setAvoMatMNome(e.target.value)}
+                />
+                <Field
+                  label="Registro Oficial"
+                  placeholder="Ex.: AKC 04.502"
+                  value={avoMatMRegistro}
+                  onChange={(e) => setAvoMatMRegistro(e.target.value)}
+                />
+              </div>
+
+              {/* Avó Materna */}
+              <div className="space-y-3 rounded-xl border border-warm/25 bg-card p-4">
+                <span className="text-[10px] font-bold uppercase tracking-wider text-warm">
+                  👵 Avó Materna (Mãe da Mãe)
+                </span>
+                <Field
+                  label="Nome"
+                  placeholder="Nome da avó materna"
+                  value={avoMatFNome}
+                  onChange={(e) => setAvoMatFNome(e.target.value)}
+                />
+                <Field
+                  label="Registro Oficial"
+                  placeholder="Ex.: FCI 04.901"
+                  value={avoMatFRegistro}
+                  onChange={(e) => setAvoMatFRegistro(e.target.value)}
+                />
+              </div>
+            </div>
+          </div>
+
+          {/* Submit button */}
+          <div className="flex justify-end pt-4">
+            <Button
+              type="submit"
+              size="lg"
+              disabled={saving}
+              className="rounded-full gradient-primary text-primary-foreground shadow-glow px-8"
+            >
+              {saving ? (
+                <>
+                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                  Salvando dados...
+                </>
+              ) : (
+                <>
+                  <Crown className="mr-2 h-5 w-5" />
+                  Salvar Dados do Pedigree
+                </>
+              )}
+            </Button>
+          </div>
+        </form>
+      )}
     </Card>
+  );
+};
+
+const RequestsManager = ({
+  receivedRequests = [],
+  sentRequests = [],
+  loading = false,
+  onApprove,
+  onReject,
+  onRefresh,
+}) => {
+  const pendingReceived = receivedRequests.filter((r) => r.status === "pendente");
+  const historyReceived = receivedRequests.filter((r) => r.status !== "pendente");
+
+  return (
+    <div className="space-y-8">
+      {/* Top bar */}
+      <div className="flex flex-wrap items-center justify-between gap-3 border-b border-border/60 pb-4">
+        <div>
+          <h2 className="font-display text-xl font-bold text-foreground sm:text-2xl">
+            Autorizações e Vínculos de Linhagem
+          </h2>
+          <p className="text-xs text-muted-foreground sm:text-sm">
+            Gerencie as confirmações de paternidade e maternidade de pets entre tutores no LivePet.
+          </p>
+        </div>
+        <Button
+          variant="outline"
+          size="sm"
+          onClick={onRefresh}
+          disabled={loading}
+          className="rounded-full"
+        >
+          <RefreshCw className={`mr-1.5 h-3.5 w-3.5 ${loading ? "animate-spin" : ""}`} />
+          Atualizar
+        </Button>
+      </div>
+
+      {/* Received Section */}
+      <div className="space-y-4">
+        <div className="flex items-center gap-2">
+          <span className="flex h-6 w-6 items-center justify-center rounded-md bg-warm/15 text-warm">
+            <Clock className="h-3.5 w-3.5" />
+          </span>
+          <h3 className="font-display text-base font-bold text-foreground">
+            Solicitações Recebidas ({pendingReceived.length} pendentes)
+          </h3>
+        </div>
+
+        {pendingReceived.length === 0 ? (
+          <Card className="border-dashed p-8 text-center text-muted-foreground">
+            <CheckCircle2 className="mx-auto h-8 w-8 text-emerald-500/60" />
+            <p className="mt-2 font-semibold text-foreground">
+              Nenhuma solicitação pendente no momento
+            </p>
+            <p className="text-xs">
+              Quando outro tutor registrar um filhote e indicar seu pet como pai ou mãe via token, a autorização aparecerá aqui para você aprovar ou recusar.
+            </p>
+          </Card>
+        ) : (
+          <div className="grid gap-4">
+            {pendingReceived.map((req) => (
+              <Card
+                key={req.id}
+                className="overflow-hidden border-2 border-warm/40 bg-card p-5 shadow-card"
+              >
+                <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+                  <div className="flex items-start gap-3.5">
+                    <div className="h-12 w-12 shrink-0 overflow-hidden rounded-xl bg-muted">
+                      {req.filhote_pet?.foto_url ? (
+                        <img
+                          src={req.filhote_pet.foto_url}
+                          alt={req.filhote_pet.nome}
+                          className="h-full w-full object-cover"
+                        />
+                      ) : (
+                        <div className="flex h-full w-full items-center justify-center bg-primary-soft text-primary font-bold">
+                          🐾
+                        </div>
+                      )}
+                    </div>
+                    <div>
+                      <div className="flex flex-wrap items-center gap-2">
+                        <span className="rounded-full bg-warm/15 px-2.5 py-0.5 text-[10px] font-black uppercase tracking-wider text-warm">
+                          Vínculo de {req.tipo_vinculo.toUpperCase()}
+                        </span>
+                        <span className="text-[11px] text-muted-foreground">
+                          {new Date(req.criado_em).toLocaleDateString("pt-BR")}
+                        </span>
+                      </div>
+                      <p className="mt-1 text-sm font-bold text-foreground">
+                        Tutor {req.solicitante?.nome || "Responsável"} solicita vincular{" "}
+                        <span className="text-primary font-bold">
+                          {req.ascendente_pet?.nome}
+                        </span>{" "}
+                        como {req.tipo_vinculo} do filhote{" "}
+                        <span className="font-bold underline">
+                          {req.filhote_pet?.nome}
+                        </span>{" "}
+                        ({req.filhote_pet?.raca || "SRD"}).
+                      </p>
+                      {req.mensagem && (
+                        <p className="mt-1 text-xs italic text-muted-foreground">
+                          &ldquo;{req.mensagem}&rdquo;
+                        </p>
+                      )}
+                    </div>
+                  </div>
+
+                  <div className="flex items-center gap-2 sm:self-center">
+                    <Button
+                      size="sm"
+                      onClick={() => onApprove(req.id)}
+                      className="rounded-full gradient-primary text-primary-foreground shadow-sm"
+                    >
+                      <Check className="mr-1.5 h-3.5 w-3.5" />
+                      Aprovar Vínculo
+                    </Button>
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      onClick={() => onReject(req.id)}
+                      className="rounded-full border-destructive/40 text-destructive hover:bg-destructive/10"
+                    >
+                      <X className="mr-1.5 h-3.5 w-3.5" />
+                      Recusar
+                    </Button>
+                  </div>
+                </div>
+              </Card>
+            ))}
+          </div>
+        )}
+
+        {/* History */}
+        {historyReceived.length > 0 && (
+          <div className="mt-6 space-y-3">
+            <h4 className="text-xs font-bold uppercase tracking-wider text-muted-foreground">
+              Histórico de solicitações recebidas
+            </h4>
+            <div className="grid gap-2">
+              {historyReceived.map((req) => (
+                <div
+                  key={req.id}
+                  className="flex items-center justify-between rounded-xl border border-border/70 bg-card/60 px-4 py-3 text-xs"
+                >
+                  <div>
+                    <span className="font-semibold text-foreground">
+                      {req.ascendente_pet?.nome}
+                    </span>{" "}
+                    como {req.tipo_vinculo} de{" "}
+                    <span className="font-semibold">{req.filhote_pet?.nome}</span>{" "}
+                    (Tutor {req.solicitante?.nome})
+                  </div>
+                  <span
+                    className={`rounded-full px-2.5 py-0.5 text-[10px] font-bold uppercase tracking-wider ${
+                      req.status === "aprovado"
+                        ? "bg-emerald-500/15 text-emerald-600"
+                        : "bg-muted text-muted-foreground"
+                    }`}
+                  >
+                    {req.status === "aprovado" ? "✓ Aprovado" : "Recusado"}
+                  </span>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
+      </div>
+
+      {/* Sent Section */}
+      <div className="space-y-4 border-t border-border/60 pt-6">
+        <div className="flex items-center gap-2">
+          <span className="flex h-6 w-6 items-center justify-center rounded-md bg-primary/15 text-primary">
+            <Send className="h-3.5 w-3.5" />
+          </span>
+          <h3 className="font-display text-base font-bold text-foreground">
+            Solicitações Enviadas por Você ({sentRequests.length})
+          </h3>
+        </div>
+
+        {sentRequests.length === 0 ? (
+          <p className="text-xs text-muted-foreground">
+            Você ainda não enviou solicitações de autorização de linhagem para outros tutores.
+          </p>
+        ) : (
+          <div className="grid gap-3">
+            {sentRequests.map((req) => (
+              <div
+                key={req.id}
+                className="flex items-center justify-between rounded-2xl border border-border bg-card p-4 text-xs"
+              >
+                <div>
+                  <p className="font-bold text-foreground">
+                    Filhote: {req.filhote_pet?.nome} ({req.filhote_pet?.raca})
+                  </p>
+                  <p className="text-muted-foreground">
+                    Vínculo de {req.tipo_vinculo.toUpperCase()} solicitado para o pet{" "}
+                    <span className="font-semibold text-foreground">
+                      {req.ascendente_pet?.nome}
+                    </span>{" "}
+                    (Tutor {req.solicitado?.nome || "Responsável"})
+                  </p>
+                </div>
+                <span
+                  className={`rounded-full px-3 py-1 text-[10px] font-bold uppercase tracking-wider ${
+                    req.status === "aprovado"
+                      ? "bg-emerald-500/15 text-emerald-600"
+                      : req.status === "pendente"
+                      ? "bg-amber-500/15 text-amber-600"
+                      : "bg-muted text-muted-foreground"
+                  }`}
+                >
+                  {req.status === "aprovado"
+                    ? "✓ Aprovado"
+                    : req.status === "pendente"
+                    ? "⏳ Aguardando Tutor"
+                    : "Recusado"}
+                </span>
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
+    </div>
   );
 };
 
