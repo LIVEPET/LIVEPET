@@ -11,7 +11,7 @@ from app.core.security import (
     verify_password,
 )
 from app.models.user import User
-from app.schemas.user import LoginRequest, Token, UserCreate, UserResponse
+from app.schemas.user import LoginRequest, Token, UserCreate, UserResponse, UserUpdate
 
 router = APIRouter(prefix="/auth", tags=["Autenticação"])
 
@@ -101,3 +101,41 @@ def login(request: Request, login_data: LoginRequest, db: Session = Depends(get_
 def get_me(current_user: User = Depends(get_current_user)):
     """Retorna os dados cadastrais do tutor associado ao token JWT ativo."""
     return current_user
+
+
+@router.put(
+    "/me",
+    response_model=UserResponse,
+    summary="Atualizar dados do perfil do tutor autenticado",
+)
+def update_me(
+    user_in: UserUpdate,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    """
+    Atualiza informações do perfil do tutor autenticado (nome, telefone, foto, cidade, estado, canil, bio).
+    Se uma nova senha for fornecida, ela é re-hasheada de forma segura.
+    """
+    if user_in.nome is not None:
+        current_user.nome = user_in.nome
+    if user_in.telefone is not None:
+        current_user.telefone = user_in.telefone
+    if user_in.foto_url is not None:
+        current_user.foto_url = user_in.foto_url
+    if user_in.cidade is not None:
+        current_user.cidade = user_in.cidade
+    if user_in.estado is not None:
+        current_user.estado = user_in.estado
+    if user_in.nome_canil is not None:
+        current_user.nome_canil = user_in.nome_canil
+    if user_in.bio is not None:
+        current_user.bio = user_in.bio
+    if user_in.senha is not None and len(user_in.senha) >= 6:
+        current_user.senha_hash = get_password_hash(user_in.senha)
+
+    db.add(current_user)
+    db.commit()
+    db.refresh(current_user)
+    return current_user
+

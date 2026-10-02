@@ -17,6 +17,11 @@ class User(Base):
     email = Column(String(255), unique=True, index=True, nullable=False)
     senha_hash = Column(String(255), nullable=False)
     telefone = Column(String(20), nullable=True)
+    foto_url = Column(String, nullable=True)
+    cidade = Column(String(100), nullable=True)
+    estado = Column(String(50), nullable=True)
+    nome_canil = Column(String(150), nullable=True)
+    bio = Column(String, nullable=True)
     criado_em = Column(DateTime(timezone=True), server_default=func.now(), nullable=False)
 
     # Relacionamento 1:N com Pets

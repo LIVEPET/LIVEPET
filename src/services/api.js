@@ -186,6 +186,19 @@ export const authService = {
   },
 
   /**
+   * Atualiza dados cadastrais do perfil do tutor
+   */
+  async updateMe(userData) {
+    const updatedUser = await apiFetch("/api/v1/auth/me", {
+      method: "PUT",
+      body: userData,
+    });
+    const currentToken = getAuthToken();
+    setStoredAuth(currentToken, updatedUser);
+    return updatedUser;
+  },
+
+  /**
    * Inscreve um listener para mudanças de estado de autenticação
    */
   onAuthStateChange(callback) {

@@ -20,7 +20,7 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import { Avatar, AvatarFallback } from "@/components/ui/avatar";
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 
 const initialsFrom = (nameOrEmail) => {
   if (!nameOrEmail) return "?";
@@ -98,6 +98,7 @@ const UserMenu = () => {
           className="group flex items-center gap-2 rounded-full border border-border bg-card p-1 pr-3 transition-smooth hover:-translate-y-0.5 hover:border-primary/40 hover:shadow-soft"
         >
           <Avatar className="h-8 w-8">
+            <AvatarImage src={currentUser?.foto_url} alt={displayName} />
             <AvatarFallback className="bg-primary-soft text-xs font-bold text-primary">
               {initialsFrom(displayName)}
             </AvatarFallback>
@@ -152,15 +153,10 @@ const UserMenu = () => {
         >
           <Settings className="h-4 w-4" /> Configurações
         </DropdownMenuItem>
-        <DropdownMenuItem
-          onSelect={() =>
-            toast("Em breve", {
-              description: "Perfil do usuário em construção.",
-            })
-          }
-          className="cursor-pointer gap-2"
-        >
-          <User className="h-4 w-4" /> Meu perfil
+        <DropdownMenuItem asChild>
+          <Link to="/perfil" className="cursor-pointer gap-2">
+            <User className="h-4 w-4" /> Meu perfil
+          </Link>
         </DropdownMenuItem>
         <DropdownMenuSeparator />
         <DropdownMenuItem

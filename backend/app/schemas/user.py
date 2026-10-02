@@ -8,6 +8,11 @@ class UserBase(BaseModel):
     nome: str = Field(..., min_length=2, max_length=150, description="Nome completo do tutor")
     email: EmailStr = Field(..., description="E-mail único do tutor")
     telefone: Optional[str] = Field(None, max_length=20, description="Telefone de contato")
+    foto_url: Optional[str] = Field(None, description="Foto de perfil do tutor (URL ou data-url)")
+    cidade: Optional[str] = Field(None, max_length=100, description="Cidade do tutor")
+    estado: Optional[str] = Field(None, max_length=50, description="Estado do tutor")
+    nome_canil: Optional[str] = Field(None, max_length=150, description="Nome do canil/gatil (opcional)")
+    bio: Optional[str] = Field(None, max_length=500, description="Biografia ou apresentação do tutor")
 
 
 class UserCreate(UserBase):
@@ -21,6 +26,11 @@ class UserUpdate(BaseModel):
     email: Optional[EmailStr] = None
     telefone: Optional[str] = Field(None, max_length=20)
     senha: Optional[str] = Field(None, min_length=6, max_length=100)
+    foto_url: Optional[str] = None
+    cidade: Optional[str] = Field(None, max_length=100)
+    estado: Optional[str] = Field(None, max_length=50)
+    nome_canil: Optional[str] = Field(None, max_length=150)
+    bio: Optional[str] = Field(None, max_length=500)
 
 
 class UserResponse(UserBase):

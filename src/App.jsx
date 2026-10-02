@@ -17,6 +17,7 @@ import PetRegister from "./pages/PetRegister";
 import MatchPet from "./pages/MatchPet";
 import PetHealth from "./pages/PetHealth";
 import PetCard from "./pages/PetCard";
+import Profile from "./pages/Profile";
 import NotFound from "./pages/NotFound";
 
 import ClinicLogin from "./pages/Clinic/ClinicLogin";
@@ -58,6 +59,7 @@ const App = () => (
               <Route path="/historico-medico" element={<MedicalHistory />} />
               <Route path="/matchpet" element={<MatchPet />} />
               <Route path="/saude" element={<PetHealth />} />
+              <Route path="/perfil" element={<Profile />} />
             </Route>
 
             <Route path="*" element={<NotFound />} />
