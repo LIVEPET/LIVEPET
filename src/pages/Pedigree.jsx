@@ -45,8 +45,8 @@ import {
 } from "@/components/ui/dialog";
 import { Label } from "@/components/ui/label";
 import { petsService, lineageService } from "@/services/api";
-import petDefaultDog from "@/assets/pet-thor.jpg";
-import petDefaultCat from "@/assets/pet-mia.jpg";
+import { toast } from "sonner";
+import { BLANK_PET_IMAGE, getPetPhoto } from "@/lib/petPlaceholder";
 
 const SIZES = ["Todos", "Pequeno", "Médio", "Grande"];
 const GROUPS = ["Todos", "Trabalho", "Pastor", "Toy", "Esportivo", "Companhia"];
@@ -101,8 +101,6 @@ const Pedigree = () => {
           const regNum = p.token_publico
             ? `CBKC-${p.token_publico.slice(0, 8).toUpperCase()}`
             : `CBKC-${p.id}`;
-          const isCat = p.especie?.toLowerCase() === "gato";
-          const defaultPhoto = isCat ? petDefaultCat : petDefaultDog;
           const lin = p.lineage || {};
 
           const fatherName =
@@ -142,7 +140,7 @@ const Pedigree = () => {
             owner: "Tutor Oficial",
             city: "Goiânia, GO",
             qr: `https://livepet.app/cartao?token=${p.token_publico || p.id}`,
-            img: p.foto_url || defaultPhoto,
+            img: getPetPhoto(p.foto_url),
             rating: 5.0,
             reviews: 1,
             vetNote: "Laudo veterinário e vacinação preventiva em dia.",
@@ -218,20 +216,34 @@ const Pedigree = () => {
   }, [urlPetId]);
 
   const handleApproveRequest = async (requestId) => {
+    const toastId = toast.loading("Aprovando vínculo de linhagem...");
     try {
       await lineageService.approveRequest(requestId);
+      toast.dismiss(toastId);
+      toast.success("Vínculo de linhagem aprovado com sucesso!", {
+        description: "A árvore genealógica do pet foi atualizada e verificada.",
+      });
       await Promise.all([loadRequests(), fetchDogs()]);
     } catch (err) {
-      alert("Erro ao aprovar solicitação: " + (err.message || err));
+      toast.dismiss(toastId);
+      toast.error("Erro ao aprovar solicitação", {
+        description: err.message || String(err),
+      });
     }
   };
 
   const handleRejectRequest = async (requestId) => {
+    const toastId = toast.loading("Processando recusa...");
     try {
       await lineageService.rejectRequest(requestId);
-      await loadRequests();
+      toast.dismiss(toastId);
+      toast.info("Solicitação de linhagem recusada.");
+      await Promise.all([loadRequests(), fetchDogs()]);
     } catch (err) {
-      alert("Erro ao recusar solicitação: " + (err.message || err));
+      toast.dismiss(toastId);
+      toast.error("Erro ao recusar solicitação", {
+        description: err.message || String(err),
+      });
     }
   };
 
@@ -1125,8 +1137,7 @@ const FamilyTree = ({ dog }) => {
   const [lineageView, setLineageView] = useState("all");
 
   const lin = dog.lineage || {};
-  const isCat = dog.rawPet?.especie?.toLowerCase() === "gato";
-  const defaultPhoto = isCat ? petDefaultCat : petDefaultDog;
+  const defaultPhoto = BLANK_PET_IMAGE;
 
   const self = {
     id: "self",
@@ -1834,13 +1845,7 @@ const RegistrationForm = ({ pets = [], selectedPet, onSaved }) => {
       setPaiSearchError("");
       const res = await lineageService.searchByToken(paiTokenInput.trim());
       setFoundPai(res);
-      setPaiNome(res.nome);
-      setPaiRegistro(
-        res.token_publico
-          ? `CBKC-${res.token_publico.slice(0, 8).toUpperCase()}`
-          : `CBKC-${res.id}`
-      );
-      setPaiPetId(res.id);
+      setPaiRequestStatus(null);
     } catch (err) {
       setPaiSearchError(err.message || "Pet não encontrado com este token.");
       setFoundPai(null);
@@ -1860,8 +1865,13 @@ const RegistrationForm = ({ pets = [], selectedPet, onSaved }) => {
         mensagem: `Solicitação de vínculo de paternidade para o filhote ${activePet?.name || "do tutor"}.`,
       });
       setPaiRequestStatus("sent");
+      toast.success("Solicitação de autorização enviada com sucesso!", {
+        description: `O tutor de ${foundPai.nome} recebeu o pedido. O pedigree será vinculado assim que for aprovado na aba Solicitações.`,
+      });
     } catch (err) {
-      alert("Erro ao solicitar autorização: " + (err.message || err));
+      toast.error("Erro ao solicitar autorização", {
+        description: err.message || String(err),
+      });
       setPaiRequestStatus("error");
     }
   };
@@ -1873,13 +1883,7 @@ const RegistrationForm = ({ pets = [], selectedPet, onSaved }) => {
       setMaeSearchError("");
       const res = await lineageService.searchByToken(maeTokenInput.trim());
       setFoundMae(res);
-      setMaeNome(res.nome);
-      setMaeRegistro(
-        res.token_publico
-          ? `CBKC-${res.token_publico.slice(0, 8).toUpperCase()}`
-          : `CBKC-${res.id}`
-      );
-      setMaePetId(res.id);
+      setMaeRequestStatus(null);
     } catch (err) {
       setMaeSearchError(err.message || "Pet não encontrado com este token.");
       setFoundMae(null);
@@ -1899,8 +1903,13 @@ const RegistrationForm = ({ pets = [], selectedPet, onSaved }) => {
         mensagem: `Solicitação de vínculo de maternidade para o filhote ${activePet?.name || "do tutor"}.`,
       });
       setMaeRequestStatus("sent");
+      toast.success("Solicitação de autorização enviada com sucesso!", {
+        description: `O tutor de ${foundMae.nome} recebeu o pedido. O pedigree será vinculado assim que for aprovado na aba Solicitações.`,
+      });
     } catch (err) {
-      alert("Erro ao solicitar autorização: " + (err.message || err));
+      toast.error("Erro ao solicitar autorização", {
+        description: err.message || String(err),
+      });
       setMaeRequestStatus("error");
     }
   };
@@ -1915,11 +1924,11 @@ const RegistrationForm = ({ pets = [], selectedPet, onSaved }) => {
         pai_nome: paiNome.trim() || null,
         pai_registro: paiRegistro.trim() || null,
         pai_titulos: paiTitulos.trim() || null,
-        pai_pet_id: paiPetId,
+        pai_pet_id: paiPetId || currentLineage?.pai_pet_id || null,
         mae_nome: maeNome.trim() || null,
         mae_registro: maeRegistro.trim() || null,
         mae_titulos: maeTitulos.trim() || null,
-        mae_pet_id: maePetId,
+        mae_pet_id: maePetId || currentLineage?.mae_pet_id || null,
         avo_pat_m_nome: avoPatMNome.trim() || null,
         avo_pat_m_registro: avoPatMRegistro.trim() || null,
         avo_pat_f_nome: avoPatFNome.trim() || null,
@@ -1930,10 +1939,13 @@ const RegistrationForm = ({ pets = [], selectedPet, onSaved }) => {
         avo_mat_f_registro: avoMatFRegistro.trim() || null,
       });
       setSaveSuccess(true);
+      toast.success("Dados do pedigree salvos com sucesso!");
       if (onSaved) onSaved();
       setTimeout(() => setSaveSuccess(false), 5000);
     } catch (err) {
-      alert("Erro ao salvar pedigree: " + (err.message || err));
+      toast.error("Erro ao salvar pedigree", {
+        description: err.message || String(err),
+      });
     } finally {
       setSaving(false);
     }
@@ -2540,76 +2552,78 @@ const RequestsManager = ({
           </Card>
         ) : (
           <div className="grid gap-4">
-            {pendingReceived.map((req) => (
-              <Card
-                key={req.id}
-                className="overflow-hidden border-2 border-warm/40 bg-card p-5 shadow-card"
-              >
-                <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-                  <div className="flex items-start gap-3.5">
-                    <div className="h-12 w-12 shrink-0 overflow-hidden rounded-xl bg-muted">
-                      {req.filhote_pet?.foto_url ? (
+            {pendingReceived.map((req) => {
+              const filhoteNome = req.filhote_nome || req.filhote_pet?.nome || "Filhote";
+              const filhoteRaca = req.filhote_raca || req.filhote_pet?.raca || "SRD";
+              const filhoteFoto = req.filhote_foto_url || req.filhote_pet?.foto_url || BLANK_PET_IMAGE;
+              const ascendenteNome = req.ascendente_nome || req.ascendente_pet?.nome || "Pet Ascendente";
+              const solicitanteNome = req.solicitante_nome || req.solicitante?.nome || "Tutor Responsável";
+
+              return (
+                <Card
+                  key={req.id}
+                  className="overflow-hidden border-2 border-warm/40 bg-card p-5 shadow-card"
+                >
+                  <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+                    <div className="flex items-start gap-3.5">
+                      <div className="h-12 w-12 shrink-0 overflow-hidden rounded-xl bg-muted border border-border">
                         <img
-                          src={req.filhote_pet.foto_url}
-                          alt={req.filhote_pet.nome}
+                          src={filhoteFoto}
+                          alt={filhoteNome}
                           className="h-full w-full object-cover"
                         />
-                      ) : (
-                        <div className="flex h-full w-full items-center justify-center bg-primary-soft text-primary font-bold">
-                          🐾
-                        </div>
-                      )}
-                    </div>
-                    <div>
-                      <div className="flex flex-wrap items-center gap-2">
-                        <span className="rounded-full bg-warm/15 px-2.5 py-0.5 text-[10px] font-black uppercase tracking-wider text-warm">
-                          Vínculo de {req.tipo_vinculo.toUpperCase()}
-                        </span>
-                        <span className="text-[11px] text-muted-foreground">
-                          {new Date(req.criado_em).toLocaleDateString("pt-BR")}
-                        </span>
                       </div>
-                      <p className="mt-1 text-sm font-bold text-foreground">
-                        Tutor {req.solicitante?.nome || "Responsável"} solicita vincular{" "}
-                        <span className="text-primary font-bold">
-                          {req.ascendente_pet?.nome}
-                        </span>{" "}
-                        como {req.tipo_vinculo} do filhote{" "}
-                        <span className="font-bold underline">
-                          {req.filhote_pet?.nome}
-                        </span>{" "}
-                        ({req.filhote_pet?.raca || "SRD"}).
-                      </p>
-                      {req.mensagem && (
-                        <p className="mt-1 text-xs italic text-muted-foreground">
-                          &ldquo;{req.mensagem}&rdquo;
+                      <div>
+                        <div className="flex flex-wrap items-center gap-2">
+                          <span className="rounded-full bg-warm/15 px-2.5 py-0.5 text-[10px] font-black uppercase tracking-wider text-warm">
+                            Vínculo de {req.tipo_vinculo.toUpperCase()}
+                          </span>
+                          <span className="text-[11px] text-muted-foreground">
+                            {new Date(req.criado_em).toLocaleDateString("pt-BR")}
+                          </span>
+                        </div>
+                        <p className="mt-1 text-sm font-bold text-foreground">
+                          Tutor {solicitanteNome} solicita vincular{" "}
+                          <span className="text-primary font-bold">
+                            {ascendenteNome}
+                          </span>{" "}
+                          como {req.tipo_vinculo} do filhote{" "}
+                          <span className="font-bold underline">
+                            {filhoteNome}
+                          </span>{" "}
+                          ({filhoteRaca}).
                         </p>
-                      )}
+                        {req.mensagem && (
+                          <p className="mt-1 text-xs italic text-muted-foreground">
+                            &ldquo;{req.mensagem}&rdquo;
+                          </p>
+                        )}
+                      </div>
+                    </div>
+
+                    <div className="flex items-center gap-2 sm:self-center">
+                      <Button
+                        size="sm"
+                        onClick={() => onApprove(req.id)}
+                        className="rounded-full gradient-primary text-primary-foreground shadow-sm"
+                      >
+                        <Check className="mr-1.5 h-3.5 w-3.5" />
+                        Aprovar Vínculo
+                      </Button>
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        onClick={() => onReject(req.id)}
+                        className="rounded-full border-destructive/40 text-destructive hover:bg-destructive/10"
+                      >
+                        <X className="mr-1.5 h-3.5 w-3.5" />
+                        Recusar
+                      </Button>
                     </div>
                   </div>
-
-                  <div className="flex items-center gap-2 sm:self-center">
-                    <Button
-                      size="sm"
-                      onClick={() => onApprove(req.id)}
-                      className="rounded-full gradient-primary text-primary-foreground shadow-sm"
-                    >
-                      <Check className="mr-1.5 h-3.5 w-3.5" />
-                      Aprovar Vínculo
-                    </Button>
-                    <Button
-                      size="sm"
-                      variant="outline"
-                      onClick={() => onReject(req.id)}
-                      className="rounded-full border-destructive/40 text-destructive hover:bg-destructive/10"
-                    >
-                      <X className="mr-1.5 h-3.5 w-3.5" />
-                      Recusar
-                    </Button>
-                  </div>
-                </div>
-              </Card>
-            ))}
+                </Card>
+              );
+            })}
           </div>
         )}
 
@@ -2620,30 +2634,36 @@ const RequestsManager = ({
               Histórico de solicitações recebidas
             </h4>
             <div className="grid gap-2">
-              {historyReceived.map((req) => (
-                <div
-                  key={req.id}
-                  className="flex items-center justify-between rounded-xl border border-border/70 bg-card/60 px-4 py-3 text-xs"
-                >
-                  <div>
-                    <span className="font-semibold text-foreground">
-                      {req.ascendente_pet?.nome}
-                    </span>{" "}
-                    como {req.tipo_vinculo} de{" "}
-                    <span className="font-semibold">{req.filhote_pet?.nome}</span>{" "}
-                    (Tutor {req.solicitante?.nome})
-                  </div>
-                  <span
-                    className={`rounded-full px-2.5 py-0.5 text-[10px] font-bold uppercase tracking-wider ${
-                      req.status === "aprovado"
-                        ? "bg-emerald-500/15 text-emerald-600"
-                        : "bg-muted text-muted-foreground"
-                    }`}
+              {historyReceived.map((req) => {
+                const filhoteNome = req.filhote_nome || req.filhote_pet?.nome || "Filhote";
+                const ascendenteNome = req.ascendente_nome || req.ascendente_pet?.nome || "Pet Ascendente";
+                const solicitanteNome = req.solicitante_nome || req.solicitante?.nome || "Tutor";
+
+                return (
+                  <div
+                    key={req.id}
+                    className="flex items-center justify-between rounded-xl border border-border/70 bg-card/60 px-4 py-3 text-xs"
                   >
-                    {req.status === "aprovado" ? "✓ Aprovado" : "Recusado"}
-                  </span>
-                </div>
-              ))}
+                    <div>
+                      <span className="font-semibold text-foreground">
+                        {ascendenteNome}
+                      </span>{" "}
+                      como {req.tipo_vinculo} de{" "}
+                      <span className="font-semibold">{filhoteNome}</span>{" "}
+                      (Tutor {solicitanteNome})
+                    </div>
+                    <span
+                      className={`rounded-full px-2.5 py-0.5 text-[10px] font-bold uppercase tracking-wider ${
+                        req.status === "aprovado"
+                          ? "bg-emerald-500/15 text-emerald-600"
+                          : "bg-muted text-muted-foreground"
+                      }`}
+                    >
+                      {req.status === "aprovado" ? "✓ Aprovado" : "Recusado"}
+                    </span>
+                  </div>
+                );
+              })}
             </div>
           </div>
         )}
@@ -2666,40 +2686,60 @@ const RequestsManager = ({
           </p>
         ) : (
           <div className="grid gap-3">
-            {sentRequests.map((req) => (
-              <div
-                key={req.id}
-                className="flex items-center justify-between rounded-2xl border border-border bg-card p-4 text-xs"
-              >
-                <div>
-                  <p className="font-bold text-foreground">
-                    Filhote: {req.filhote_pet?.nome} ({req.filhote_pet?.raca})
-                  </p>
-                  <p className="text-muted-foreground">
-                    Vínculo de {req.tipo_vinculo.toUpperCase()} solicitado para o pet{" "}
-                    <span className="font-semibold text-foreground">
-                      {req.ascendente_pet?.nome}
-                    </span>{" "}
-                    (Tutor {req.solicitado?.nome || "Responsável"})
-                  </p>
-                </div>
-                <span
-                  className={`rounded-full px-3 py-1 text-[10px] font-bold uppercase tracking-wider ${
-                    req.status === "aprovado"
-                      ? "bg-emerald-500/15 text-emerald-600"
-                      : req.status === "pendente"
-                      ? "bg-amber-500/15 text-amber-600"
-                      : "bg-muted text-muted-foreground"
-                  }`}
+            {sentRequests.map((req) => {
+              const filhoteNome = req.filhote_nome || req.filhote_pet?.nome || "Filhote";
+              const filhoteRaca = req.filhote_raca || req.filhote_pet?.raca || "SRD";
+              const ascendenteNome = req.ascendente_nome || req.ascendente_pet?.nome || "Pet";
+              const solicitadoNome = req.solicitado_nome || req.solicitado?.nome || "Tutor Responsável";
+
+              return (
+                <div
+                  key={req.id}
+                  className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 rounded-2xl border border-border bg-card p-4 text-xs"
                 >
-                  {req.status === "aprovado"
-                    ? "✓ Aprovado"
-                    : req.status === "pendente"
-                    ? "⏳ Aguardando Tutor"
-                    : "Recusado"}
-                </span>
-              </div>
-            ))}
+                  <div>
+                    <p className="font-bold text-foreground">
+                      Filhote: {filhoteNome} ({filhoteRaca})
+                    </p>
+                    <p className="text-muted-foreground">
+                      Vínculo de {req.tipo_vinculo.toUpperCase()} solicitado para o pet{" "}
+                      <span className="font-semibold text-foreground">
+                        {ascendenteNome}
+                      </span>{" "}
+                      (Tutor {solicitadoNome})
+                    </p>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <span
+                      className={`rounded-full px-3 py-1 text-[10px] font-bold uppercase tracking-wider ${
+                        req.status === "aprovado"
+                          ? "bg-emerald-500/15 text-emerald-600"
+                          : req.status === "pendente"
+                          ? "bg-amber-500/15 text-amber-600"
+                          : "bg-muted text-muted-foreground"
+                      }`}
+                    >
+                      {req.status === "aprovado"
+                        ? "✓ Aprovado"
+                        : req.status === "pendente"
+                        ? "⏳ Aguardando Tutor"
+                        : "Recusado"}
+                    </span>
+                    {req.status === "pendente" && (
+                      <Button
+                        size="sm"
+                        variant="ghost"
+                        onClick={() => onReject(req.id)}
+                        className="text-destructive h-7 text-xs px-2 hover:bg-destructive/10"
+                        title="Cancelar solicitação enviada"
+                      >
+                        Cancelar
+                      </Button>
+                    )}
+                  </div>
+                </div>
+              );
+            })}
           </div>
         )}
       </div>

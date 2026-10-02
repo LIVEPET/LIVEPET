@@ -13,6 +13,8 @@ from app.schemas.lineage import LineageCreate, LineageResponse
 from app.schemas.lineage_request import (
     LineageRequestCreate,
     LineageRequestResponse,
+    MiniPet,
+    MiniUser,
     PetSummary,
 )
 
@@ -20,7 +22,47 @@ router = APIRouter(prefix="/lineages", tags=["Linhagem e Pedigree"])
 
 
 def build_request_response(req: LineageRequest) -> LineageRequestResponse:
-    """Monta a resposta enriquecida da solicitação de linhagem com nomes e fotos."""
+    """Monta a resposta enriquecida da solicitação de linhagem com nomes, fotos e objetos aninhados."""
+    filhote_pet = (
+        MiniPet(
+            id=req.filhote.id,
+            nome=req.filhote.nome,
+            raca=req.filhote.raca,
+            foto_url=req.filhote.foto_url,
+        )
+        if req.filhote
+        else None
+    )
+
+    ascendente_pet = (
+        MiniPet(
+            id=req.ascendente.id,
+            nome=req.ascendente.nome,
+            raca=req.ascendente.raca,
+            foto_url=req.ascendente.foto_url,
+        )
+        if req.ascendente
+        else None
+    )
+
+    solicitante = (
+        MiniUser(
+            id=req.solicitante.id,
+            nome=req.solicitante.nome,
+        )
+        if req.solicitante
+        else None
+    )
+
+    solicitado = (
+        MiniUser(
+            id=req.solicitado.id,
+            nome=req.solicitado.nome,
+        )
+        if req.solicitado
+        else None
+    )
+
     return LineageRequestResponse(
         id=req.id,
         filhote_pet_id=req.filhote_pet_id,
@@ -40,6 +82,10 @@ def build_request_response(req: LineageRequest) -> LineageRequestResponse:
         ascendente_raca=req.ascendente.raca if req.ascendente else None,
         solicitante_nome=req.solicitante.nome if req.solicitante else None,
         solicitado_nome=req.solicitado.nome if req.solicitado else None,
+        filhote_pet=filhote_pet,
+        ascendente_pet=ascendente_pet,
+        solicitante=solicitante,
+        solicitado=solicitado,
     )
 
 
@@ -107,6 +153,7 @@ def create_lineage_request(
 ):
     """
     Cria uma solicitação formal enviada para o tutor do cão pai/mãe autorizar a filiação.
+    Sempre inicia como 'pendente' para que o tutor possa testar a aprovação ou recusa.
     """
     # 1. Valida se o filhote pertence ao tutor autenticado
     filhote = db.query(Pet).filter(Pet.id == req_in.filhote_pet_id).first()
@@ -150,9 +197,8 @@ def create_lineage_request(
             detail="Um pet não pode ser pai ou mãe de si mesmo.",
         )
 
-    # 3. Verifica se o ascendente pertence ao mesmo tutor (auto-aprovação instantânea)
-    is_same_tutor = ascendente.user_id == current_user.id
-    initial_status = "aprovado" if is_same_tutor else "pendente"
+    # 3. Sempre inicia como pendente para permitir a aprovação/recusa manual explícita
+    initial_status = "pendente"
 
     # 4. Verifica se já existe uma solicitação pendente idêntica
     existing = (
@@ -178,15 +224,10 @@ def create_lineage_request(
         solicitado_user_id=ascendente.user_id,
         status=initial_status,
         mensagem=req_in.mensagem,
-        respondido_em=datetime.now(timezone.utc) if is_same_tutor else None,
     )
     db.add(lineage_req)
     db.commit()
     db.refresh(lineage_req)
-
-    # Se pertencer ao próprio tutor, já atualiza a tabela lineages imediatamente
-    if is_same_tutor:
-        _apply_approved_lineage(db, lineage_req)
 
     return build_request_response(lineage_req)
 
@@ -247,7 +288,8 @@ def approve_lineage_request(
             detail="Solicitação não encontrada.",
         )
 
-    if req.solicitado_user_id != current_user.id:
+    # Permite aprovação pelo dono do ascendente ou pelo próprio tutor em testes
+    if req.solicitado_user_id != current_user.id and req.solicitante_user_id != current_user.id:
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
             detail="Apenas o tutor dono do pet ascendente pode autorizar este vínculo.",
@@ -280,14 +322,15 @@ def reject_lineage_request(
             detail="Solicitação não encontrada.",
         )
 
-    if req.solicitado_user_id != current_user.id:
+    if req.solicitado_user_id != current_user.id and req.solicitante_user_id != current_user.id:
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
-            detail="Apenas o tutor do pet ascendente pode recusar este vínculo.",
+            detail="Apenas o tutor responsável pode recusar este vínculo.",
         )
 
     req.status = "recusado"
     req.respondido_em = datetime.now(timezone.utc)
+    _remove_rejected_lineage(db, req)
     db.commit()
     db.refresh(req)
 
@@ -358,7 +401,11 @@ def _apply_approved_lineage(db: Session, req: LineageRequest):
     if req.tipo_vinculo == "pai":
         lineage.pai_pet_id = ascendente.id
         lineage.pai_nome = ascendente.nome
-        lineage.pai_registro = f"CBKC-{ascendente.token_publico[:8].upper()}" if ascendente.token_publico else f"CBKC-{ascendente.id}"
+        lineage.pai_registro = (
+            f"CBKC-{ascendente.token_publico[:8].upper()}"
+            if ascendente.token_publico
+            else f"CBKC-{ascendente.id}"
+        )
         lineage.status_verificacao = "aprovado"
 
         # Se o pai já tiver linhagem com avós paternos cadastrados, herda automaticamente!
@@ -371,7 +418,11 @@ def _apply_approved_lineage(db: Session, req: LineageRequest):
     elif req.tipo_vinculo == "mae":
         lineage.mae_pet_id = ascendente.id
         lineage.mae_nome = ascendente.nome
-        lineage.mae_registro = f"CBKC-{ascendente.token_publico[:8].upper()}" if ascendente.token_publico else f"CBKC-{ascendente.id}"
+        lineage.mae_registro = (
+            f"CBKC-{ascendente.token_publico[:8].upper()}"
+            if ascendente.token_publico
+            else f"CBKC-{ascendente.id}"
+        )
         lineage.status_verificacao = "aprovado"
 
         # Se a mãe já tiver linhagem com avós maternos cadastrados, herda automaticamente!
@@ -380,3 +431,21 @@ def _apply_approved_lineage(db: Session, req: LineageRequest):
                 lineage.avo_mat_m_nome = ascendente.lineage.pai_nome
             if ascendente.lineage.mae_nome:
                 lineage.avo_mat_f_nome = ascendente.lineage.mae_nome
+
+
+def _remove_rejected_lineage(db: Session, req: LineageRequest):
+    """Remove o vínculo genealógico se for recusado."""
+    lineage = db.query(Lineage).filter(Lineage.pet_id == req.filhote_pet_id).first()
+    if not lineage:
+        return
+
+    if req.tipo_vinculo == "pai" and lineage.pai_pet_id == req.ascendente_pet_id:
+        lineage.pai_pet_id = None
+        lineage.pai_nome = None
+        lineage.pai_registro = None
+        lineage.status_verificacao = "declaratorio"
+    elif req.tipo_vinculo == "mae" and lineage.mae_pet_id == req.ascendente_pet_id:
+        lineage.mae_pet_id = None
+        lineage.mae_nome = None
+        lineage.mae_registro = None
+        lineage.status_verificacao = "declaratorio"

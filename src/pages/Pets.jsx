@@ -40,6 +40,7 @@ import {
 } from "@/components/ui/dialog";
 import { petsService } from "@/services/api";
 import { compressImage } from "@/lib/image";
+import { BLANK_PET_IMAGE, getPetPhoto } from "@/lib/petPlaceholder";
 // Fotos autênticas de pets — Unsplash
 const petThor =
   "https://images.unsplash.com/photo-1552053831-71594a27632d?auto=format&fit=crop&w=800&q=80";
@@ -213,8 +214,6 @@ const Pets = () => {
         if (!isMounted) return;
         if (Array.isArray(data)) {
           const mapped = data.map((p) => {
-            const isCat = p.especie?.toLowerCase() === "gato";
-            const defaultImg = isCat ? petMia : petThor;
             return {
               id: p.id,
               name: p.nome,
@@ -232,8 +231,8 @@ const Pets = () => {
               medicalNote:
                 p.medical_records?.[0]?.descricao ||
                 "Acompanhamento preventivo em dia.",
-              image: p.foto_url || defaultImg,
-              img: p.foto_url || defaultImg,
+              image: getPetPhoto(p.foto_url),
+              img: getPetPhoto(p.foto_url),
               pedigree: Boolean(p.lineage || p.raca),
               vetCertified: true,
               vaccines: (p.vaccines || []).map((v) => ({

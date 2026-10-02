@@ -3,6 +3,22 @@ from typing import Optional
 from pydantic import BaseModel, ConfigDict, Field
 
 
+class MiniPet(BaseModel):
+    id: int
+    nome: str
+    raca: Optional[str] = None
+    foto_url: Optional[str] = None
+
+    model_config = ConfigDict(from_attributes=True)
+
+
+class MiniUser(BaseModel):
+    id: int
+    nome: Optional[str] = None
+
+    model_config = ConfigDict(from_attributes=True)
+
+
 class PetSummary(BaseModel):
     """Resumo de pet para busca de ascendência/linhagem por token público."""
     id: int
@@ -43,7 +59,7 @@ class LineageRequestResponse(BaseModel):
     criado_em: datetime
     respondido_em: Optional[datetime] = None
 
-    # Informações enriquecidas para a interface
+    # Informações enriquecidas (planas e aninhadas para compatibilidade total com o front-end)
     filhote_nome: Optional[str] = None
     filhote_foto_url: Optional[str] = None
     filhote_raca: Optional[str] = None
@@ -52,5 +68,10 @@ class LineageRequestResponse(BaseModel):
     ascendente_raca: Optional[str] = None
     solicitante_nome: Optional[str] = None
     solicitado_nome: Optional[str] = None
+
+    filhote_pet: Optional[MiniPet] = None
+    ascendente_pet: Optional[MiniPet] = None
+    solicitante: Optional[MiniUser] = None
+    solicitado: Optional[MiniUser] = None
 
     model_config = ConfigDict(from_attributes=True)

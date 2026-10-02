@@ -29,8 +29,7 @@ import {
 } from "@/components/ui/dialog";
 import { calcularStatus, formatarData, textoPrazo } from "@/lib/vacinas";
 import { getStoredUser, petsService } from "@/services/api";
-import petDefaultDog from "@/assets/pet-thor.jpg";
-import petDefaultCat from "@/assets/pet-mia.jpg";
+import { BLANK_PET_IMAGE, getPetPhoto } from "@/lib/petPlaceholder";
 
 // A tabela vira uma lista de cards abaixo de md: o thead some e cada célula
 // exibe seu rótulo via data-label.
@@ -49,9 +48,7 @@ const adaptBackendPet = (p) => ({
   registro: p.token_publico
     ? `LP-${p.token_publico.slice(0, 8).toUpperCase()}`
     : `LP-${p.id}`,
-  img:
-    p.foto_url ||
-    (p.especie?.toLowerCase() === "gato" ? petDefaultCat : petDefaultDog),
+  img: getPetPhoto(p.foto_url),
   vacinas: (p.vaccines || []).map((v) => ({
     id: v.id,
     nome: v.nome,

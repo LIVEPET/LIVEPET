@@ -42,8 +42,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { getStoredUser, petsService } from "@/services/api";
-import petDefaultDog from "@/assets/pet-thor.jpg";
-import petDefaultCat from "@/assets/pet-mia.jpg";
+import { BLANK_PET_IMAGE, getPetPhoto } from "@/lib/petPlaceholder";
 
 const typeMeta = {
   vacina: {
@@ -155,11 +154,7 @@ const MedicalHistory = () => {
             microchip: p.token_publico
               ? `LP-${p.token_publico.slice(0, 8).toUpperCase()}`
               : `LP-${p.id}`,
-            img:
-              p.foto_url ||
-              (p.especie?.toLowerCase() === "gato"
-                ? petDefaultCat
-                : petDefaultDog),
+            img: getPetPhoto(p.foto_url),
             color: PET_COLORS[index % PET_COLORS.length],
           }));
 

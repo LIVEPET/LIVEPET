@@ -55,8 +55,7 @@ import {
   Calendar,
 } from "lucide-react";
 
-import petDefaultDog from "@/assets/pet-thor.jpg";
-import petDefaultCat from "@/assets/pet-mia.jpg";
+import { BLANK_PET_IMAGE, getPetPhoto } from "@/lib/petPlaceholder";
 
 const activityIcons = {
   Passeios: Footprints,
@@ -208,11 +207,9 @@ const PetCard = () => {
     return pets.find((p) => p.id === selectedPetId) || pets[0];
   }, [pets, selectedPetId]);
 
-  // Foto do animal com fallback conforme a espécie
+  // Foto do animal com fallback neutro
   const petPhoto = useMemo(() => {
-    if (selectedPet?.foto_url) return selectedPet.foto_url;
-    if (selectedPet?.especie?.toLowerCase() === "gato") return petDefaultCat;
-    return petDefaultDog;
+    return getPetPhoto(selectedPet?.foto_url);
   }, [selectedPet]);
 
   // Dados consolidados do tutor autenticado
@@ -508,12 +505,9 @@ const PetCard = () => {
           <div className="flex flex-col items-center text-center">
             <div className="relative mb-3">
               <img
-                src={
-                  emergencyPet.foto_url ||
-                  (emergencyPet.especie?.toLowerCase() === "gato" ? petDefaultCat : petDefaultDog)
-                }
+                src={getPetPhoto(emergencyPet.foto_url)}
                 alt={emergencyPet.nome}
-                className="h-28 w-28 rounded-2xl object-cover border-4 border-background shadow-md"
+                className="h-28 w-28 rounded-2xl object-cover border-4 border-background shadow-md bg-muted"
               />
               <span
                 className="absolute -bottom-1 -right-1 grid h-7 w-7 place-items-center rounded-full bg-emerald-500 text-white shadow-sm"
@@ -720,11 +714,7 @@ const PetCard = () => {
             <div className="flex gap-2 overflow-x-auto pb-1">
               {pets.map((p) => {
                 const isActive = p.id === selectedPet.id;
-                const photo =
-                  p.foto_url ||
-                  (p.especie?.toLowerCase() === "gato"
-                    ? petDefaultCat
-                    : petDefaultDog);
+                const photo = getPetPhoto(p.foto_url);
                 return (
                   <button
                     key={p.id}

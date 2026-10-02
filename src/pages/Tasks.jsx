@@ -44,8 +44,6 @@ import {
 } from "@/components/ui/select";
 import { toast } from "sonner";
 import { petsService } from "@/services/api";
-import petDefaultDog from "@/assets/pet-thor.jpg";
-import petDefaultCat from "@/assets/pet-mia.jpg";
 
 const CATEGORIES = {
   alimentacao: {

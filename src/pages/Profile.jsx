@@ -43,8 +43,7 @@ import {
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { authService, petsService } from "@/services/api";
 import { compressImage } from "@/lib/image";
-import petDefaultDog from "@/assets/pet-thor.jpg";
-import petDefaultCat from "@/assets/pet-mia.jpg";
+import { BLANK_PET_IMAGE, getPetPhoto } from "@/lib/petPlaceholder";
 
 const initialsFrom = (nameOrEmail) => {
   if (!nameOrEmail) return "LP";
@@ -395,8 +394,7 @@ const Profile = () => {
 
             {/* Bolhas para cada pet do tutor */}
             {pets.map((pet) => {
-              const isCat = pet.especie?.toLowerCase() === "gato";
-              const petImg = pet.foto_url || (isCat ? petDefaultCat : petDefaultDog);
+              const petImg = getPetPhoto(pet.foto_url);
               return (
                 <Link
                   key={pet.id}
@@ -470,8 +468,7 @@ const Profile = () => {
             ) : (
               <div className="grid grid-cols-2 sm:grid-cols-3 gap-3 sm:gap-5">
                 {pets.map((pet) => {
-                  const isCat = pet.especie?.toLowerCase() === "gato";
-                  const petImg = pet.foto_url || (isCat ? petDefaultCat : petDefaultDog);
+                  const petImg = getPetPhoto(pet.foto_url);
 
                   return (
                     <article
@@ -554,8 +551,7 @@ const Profile = () => {
               <div className="grid gap-4 sm:grid-cols-2">
                 {pets.map((pet) => {
                   const hasLineage = Boolean(pet.lineage || pet.raca);
-                  const isCat = pet.especie?.toLowerCase() === "gato";
-                  const petImg = pet.foto_url || (isCat ? petDefaultCat : petDefaultDog);
+                  const petImg = getPetPhoto(pet.foto_url);
 
                   return (
                     <Card key={pet.id} className="p-4 flex items-center gap-4 border-border/60 shadow-soft">
