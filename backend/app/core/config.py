@@ -32,12 +32,20 @@ class Settings(BaseSettings):
     @field_validator("SECRET_KEY")
     def validate_secret_key(cls, v: str, info: ValidationInfo) -> str:
         env = (info.data.get("ENVIRONMENT") or "development").lower()
-        # Em ambiente de produção, rejeita chaves fracas conhecidas ou de baixa entropia (< 32 chars)
+        # Em ambiente de produção, rejeita chaves fracas conhecidas, padrões de exemplo ou de baixa entropia (< 32 chars)
         if env == "production":
-            if "dev-secret" in v.lower() or len(v) < 32:
+            insecure_patterns = [
+                "dev-secret",
+                "change-in-production",
+                "super-secret",
+                "secret-key",
+                "12345",
+                "livepet-local",
+            ]
+            if any(p in v.lower() for p in insecure_patterns) or len(v) < 32:
                 raise ValueError(
                     "SECRET_KEY insegura para ambiente de produção! "
-                    "Forneça uma chave de alta entropia com pelo menos 32 caracteres."
+                    "Forneça uma chave de alta entropia com pelo menos 32 caracteres gerada aleatoriamente."
                 )
         return v
 

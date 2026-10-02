@@ -276,5 +276,22 @@ class TestAuthModule(unittest.TestCase):
         self.assertEqual(resp.status_code, 401)
 
 
+    def test_login_rate_limiting_blocks_after_excessive_attempts(self):
+        """Simula requisições com IP externo e verifica se 429 Too Many Requests é retornado."""
+        headers = {"x-forwarded-for": "198.51.100.22"}
+        blocked = False
+        for _ in range(25):
+            resp = self.client.post(
+                "/api/v1/auth/login",
+                headers=headers,
+                json={"email": "wrong@example.com", "senha": "wrong"},
+            )
+            if resp.status_code == 429:
+                blocked = True
+                break
+        self.assertTrue(blocked, "Rate limiting deveria ter bloqueado tentativas excessivas com 429")
+
+
 if __name__ == "__main__":
     unittest.main()
+

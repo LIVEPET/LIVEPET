@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
-import { Link } from "react-router-dom";
+import { Link, useNavigate, useSearchParams } from "react-router-dom";
 import { QRCodeSVG } from "qrcode.react";
 import {
   Dialog,
@@ -120,10 +120,19 @@ const formatAge = (birthDateStr) => {
 };
 
 const PetCard = () => {
+  const [searchParams] = useSearchParams();
+  const navigate = useNavigate();
+  const token = searchParams.get("token");
+
+  // Estados do modo de emergência público (QR Code)
+  const [emergencyPet, setEmergencyPet] = useState(null);
+  const [emergencyLoading, setEmergencyLoading] = useState(Boolean(token));
+  const [emergencyError, setEmergencyError] = useState(null);
+
   const [currentUser, setCurrentUser] = useState(null);
   const [pets, setPets] = useState([]);
   const [selectedPetId, setSelectedPetId] = useState(null);
-  const [loading, setLoading] = useState(true);
+  const [loading, setLoading] = useState(!token);
 
   // Modais de detalhamento
   const [open, setOpen] = useState(false);
@@ -133,8 +142,38 @@ const PetCard = () => {
   const [selectedContact, setSelectedContact] = useState(null);
   const [selectedAncestor, setSelectedAncestor] = useState(null);
 
-  // 1. Carrega dados do tutor logado e busca os pets reais cadastrados no banco
+  // 1. Busca dados de emergência se token público estiver presente na URL
   useEffect(() => {
+    if (!token) return;
+    let isMounted = true;
+    const loadEmergency = async () => {
+      try {
+        setEmergencyLoading(true);
+        setEmergencyError(null);
+        const data = await petsService.getPublicEmergency(token);
+        if (isMounted) setEmergencyPet(data);
+      } catch (err) {
+        if (isMounted) setEmergencyError("Animal não encontrado ou QR Code desativado.");
+      } finally {
+        if (isMounted) setEmergencyLoading(false);
+      }
+    };
+    loadEmergency();
+    return () => {
+      isMounted = false;
+    };
+  }, [token]);
+
+  // 2. Se for acesso regular (sem token), exige autenticação
+  useEffect(() => {
+    if (!token && !getStoredUser()) {
+      navigate("/login", { replace: true });
+    }
+  }, [token, navigate]);
+
+  // 3. Carrega dados do tutor logado e busca os pets reais cadastrados no banco
+  useEffect(() => {
+    if (token) return;
     const user = getStoredUser();
     setCurrentUser(user);
 
@@ -392,6 +431,191 @@ const PetCard = () => {
       });
     }
   }, [selectedPet, lineageData]);
+
+  // ============================================================
+  // RENDERIZAÇÃO DO MODO DE EMERGÊNCIA PÚBLICO (QUANDO HÁ TOKEN)
+  // ============================================================
+  if (token) {
+    if (emergencyLoading) {
+      return (
+        <div className="flex min-h-[60vh] flex-col items-center justify-center gap-3">
+          <Loader2 className="h-8 w-8 animate-spin text-primary" />
+          <p className="text-sm font-medium text-muted-foreground">
+            Buscando dados de emergência do animal...
+          </p>
+        </div>
+      );
+    }
+
+    if (emergencyError || !emergencyPet) {
+      return (
+        <div className="container max-w-md py-16 text-center">
+          <div className="mx-auto mb-6 flex h-16 w-16 items-center justify-center rounded-full bg-destructive/10 text-destructive">
+            <AlertCircle className="h-8 w-8" />
+          </div>
+          <h1 className="text-2xl font-bold">Animal não encontrado</h1>
+          <p className="mt-2 text-sm text-muted-foreground">
+            {emergencyError || "Este QR Code pode estar desatualizado ou não cadastrado na rede LivePet."}
+          </p>
+          <Button asChild className="mt-6 rounded-full gradient-primary">
+            <Link to="/">Página Inicial LivePet</Link>
+          </Button>
+        </div>
+      );
+    }
+
+    const hasVaccines = emergencyPet.vacinas_principais && emergencyPet.vacinas_principais.length > 0;
+    const isRabiesVaccinated = emergencyPet.vacinas_principais?.some((v) => {
+      const n = (v.nome || "").toLowerCase();
+      return n.includes("raiva") || n.includes("antirrábica") || n.includes("antirrabica");
+    });
+
+    const cleanPhone = emergencyPet.tutor_telefone ? emergencyPet.tutor_telefone.replace(/\D/g, "") : "";
+    const whatsappUrl = cleanPhone
+      ? `https://wa.me/55${cleanPhone}?text=${encodeURIComponent(
+          `Olá, encontrei o seu pet ${emergencyPet.nome} através do QR Code do LivePet!`
+        )}`
+      : null;
+
+    return (
+      <div className="container max-w-lg py-6 px-4">
+        {/* Banner de Alerta e Conscientização */}
+        <div className="mb-4 rounded-2xl bg-amber-500/15 border border-amber-500/30 p-4 text-amber-950 dark:text-amber-200 flex items-start gap-3 shadow-sm">
+          <Siren className="h-5 w-5 text-amber-600 dark:text-amber-400 shrink-0 mt-0.5 animate-pulse" />
+          <div>
+            <p className="font-bold text-sm">Modo de Emergência — Animal Encontrado</p>
+            <p className="text-xs opacity-90 mt-0.5">
+              Você está visualizando a identificação de segurança de <strong>{emergencyPet.nome}</strong>. Por favor, ajude-o contatando o tutor abaixo.
+            </p>
+          </div>
+        </div>
+
+        {/* Card Principal de Identificação */}
+        <Card className="overflow-hidden rounded-3xl border-border bg-card shadow-soft p-6 space-y-6">
+          <div className="flex flex-col items-center text-center">
+            <div className="relative mb-3">
+              <img
+                src={
+                  emergencyPet.foto_url ||
+                  (emergencyPet.especie?.toLowerCase() === "gato" ? petDefaultCat : petDefaultDog)
+                }
+                alt={emergencyPet.nome}
+                className="h-28 w-28 rounded-2xl object-cover border-4 border-background shadow-md"
+              />
+              <span
+                className="absolute -bottom-1 -right-1 grid h-7 w-7 place-items-center rounded-full bg-emerald-500 text-white shadow-sm"
+                title="Cadastrado na Rede LivePet"
+              >
+                <ShieldCheck className="h-4 w-4" />
+              </span>
+            </div>
+            <h1 className="font-display text-2xl font-bold tracking-tight text-foreground">
+              {emergencyPet.nome}
+            </h1>
+            <p className="text-xs text-muted-foreground mt-0.5">
+              {[emergencyPet.especie, emergencyPet.raca, emergencyPet.sexo, emergencyPet.porte, emergencyPet.cor]
+                .filter(Boolean)
+                .join(" • ")}
+            </p>
+          </div>
+
+          {/* Destaque de Saúde e Imunização contra Raiva */}
+          <div className="rounded-2xl border border-emerald-500/30 bg-emerald-500/10 p-4 space-y-2">
+            <div className="flex items-center gap-2 text-emerald-800 dark:text-emerald-300 font-bold text-sm">
+              <ShieldCheck className="h-4 w-4 text-emerald-600 dark:text-emerald-400 shrink-0" />
+              <span>Proteção e Vacinação Comprovada</span>
+            </div>
+            <p className="text-xs text-emerald-900/85 dark:text-emerald-200/85 leading-relaxed">
+              {isRabiesVaccinated
+                ? "Este animal possui vacinação antirrábica registrada na plataforma. Ele é vacinado, cuidado e NÃO oferece risco de raiva. Por favor, trate-o com carinho e ajude-o a voltar para sua família!"
+                : hasVaccines
+                ? "Este animal possui histórico de vacinas registrado na plataforma LivePet. Ele é vacinado e acompanhado por tutor responsável."
+                : "Animal registrado no LivePet. Por favor, acolha-o em segurança até conseguir contato com o tutor."}
+            </p>
+
+            {hasVaccines && (
+              <div className="mt-2 pt-2 border-t border-emerald-500/20">
+                <p className="text-[11px] font-semibold text-emerald-900 dark:text-emerald-300 mb-1.5">
+                  Vacinas registradas:
+                </p>
+                <div className="flex flex-wrap gap-1.5">
+                  {emergencyPet.vacinas_principais.map((v, idx) => (
+                    <Badge
+                      key={idx}
+                      variant="outline"
+                      className="bg-background/80 border-emerald-500/30 text-emerald-800 dark:text-emerald-200 text-xs py-0.5"
+                    >
+                      <Syringe className="h-3 w-3 mr-1 text-emerald-600" />
+                      {v.nome}
+                    </Badge>
+                  ))}
+                </div>
+              </div>
+            )}
+          </div>
+
+          {/* Avisos Médicos Vitais */}
+          {emergencyPet.avisos_medicos &&
+            emergencyPet.avisos_medicos !== "Nenhum alerta médico crítico registrado." && (
+              <div className="rounded-2xl border border-amber-500/30 bg-amber-500/10 p-4">
+                <div className="flex items-center gap-2 text-amber-800 dark:text-amber-300 font-bold text-xs mb-1">
+                  <HeartPulse className="h-3.5 w-3.5 text-amber-600 shrink-0" />
+                  <span>Cuidados Médicos / Alertas</span>
+                </div>
+                <p className="text-xs text-amber-900/90 dark:text-amber-200/90">
+                  {emergencyPet.avisos_medicos}
+                </p>
+              </div>
+            )}
+
+          {/* Contato do Tutor */}
+          <div className="rounded-2xl border border-border bg-muted/40 p-4 space-y-3">
+            <div>
+              <p className="text-[11px] uppercase tracking-wider text-muted-foreground font-semibold">
+                Tutor Responsável
+              </p>
+              <p className="text-base font-bold text-foreground">{emergencyPet.tutor_nome}</p>
+              {emergencyPet.tutor_telefone && (
+                <p className="text-xs text-muted-foreground flex items-center gap-1.5 mt-0.5">
+                  <Phone className="h-3 w-3 text-primary" />
+                  {emergencyPet.tutor_telefone}
+                </p>
+              )}
+            </div>
+
+            {emergencyPet.tutor_telefone && (
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 pt-1">
+                <Button asChild className="w-full rounded-xl gradient-primary text-primary-foreground shadow-sm">
+                  <a href={`tel:${cleanPhone}`}>
+                    <Phone className="mr-2 h-4 w-4" />
+                    Ligar para o Tutor
+                  </a>
+                </Button>
+                {whatsappUrl && (
+                  <Button
+                    asChild
+                    variant="outline"
+                    className="w-full rounded-xl border-emerald-600 text-emerald-700 hover:bg-emerald-50 dark:hover:bg-emerald-950/30"
+                  >
+                    <a href={whatsappUrl} target="_blank" rel="noopener noreferrer">
+                      <MessageCircle className="mr-2 h-4 w-4 text-emerald-600" />
+                      Chamar WhatsApp
+                    </a>
+                  </Button>
+                )}
+              </div>
+            )}
+          </div>
+
+          <div className="text-center pt-1">
+            <p className="text-[11px] text-muted-foreground">
+              Identificação digital oficial fornecida pela plataforma <strong>LivePet</strong>.
+            </p>
+          </div>
+        </Card>
+      </div>
+    );
+  }
 
   // Estado de carregamento inicial
   if (loading) {

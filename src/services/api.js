@@ -290,6 +290,13 @@ export const petsService = {
       body: recordData,
     });
   },
+
+  /**
+   * Consulta pública de emergência via token do QR Code (sem necessidade de login)
+   */
+  async getPublicEmergency(token) {
+    return apiFetch(`/api/v1/public/pet/${token}`);
+  },
 };
 
 export default {

@@ -18,8 +18,8 @@ class PetBase(BaseModel):
 
 class PetCreate(PetBase):
     """Schema para cadastro de um pet."""
-    user_id: Optional[int] = Field(None, description="ID do tutor (se não inferido via autenticação)")
-    token_publico: Optional[str] = Field(None, max_length=64, description="Token público customizado para QR Code")
+    pass
+
 
 
 class PetUpdate(BaseModel):
@@ -54,6 +54,15 @@ class PetResponse(PetBase):
     model_config = ConfigDict(from_attributes=True)
 
 
+class VaccinePublicSummary(BaseModel):
+    """Resumo de vacinação para comprovação em resgate ou emergência."""
+    nome: str
+    data_aplicacao: Optional[date] = None
+    proxima_dose: Optional[date] = None
+
+    model_config = ConfigDict(from_attributes=True)
+
+
 class PetPublicResponse(BaseModel):
     """Schema de resposta pública de emergência para leitura de QR Code."""
     nome: str
@@ -67,6 +76,7 @@ class PetPublicResponse(BaseModel):
     token_publico: str
     tutor_nome: str
     tutor_telefone: Optional[str] = None
+    vacinas_principais: list[VaccinePublicSummary] = []
     avisos_medicos: Optional[str] = None
 
     model_config = ConfigDict(from_attributes=True)
