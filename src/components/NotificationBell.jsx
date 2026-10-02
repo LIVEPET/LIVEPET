@@ -16,44 +16,7 @@ import {
 import { Badge } from "@/components/ui/badge";
 import { ScrollArea } from "@/components/ui/scroll-area";
 
-const seed = [
-  {
-    id: "1",
-    icon: Heart,
-    title: "Novo match!",
-    body: "Luna deu match com Thor. Que tal iniciar uma conversa?",
-    time: "agora",
-    read: false,
-    tone: "primary",
-  },
-  {
-    id: "2",
-    icon: Calendar,
-    title: "Vacina próxima",
-    body: "A V10 da Mel vence em 3 dias. Agende com seu veterinário.",
-    time: "2h",
-    read: false,
-    tone: "warm",
-  },
-  {
-    id: "3",
-    icon: Stethoscope,
-    title: "Histórico atualizado",
-    body: "Consulta de check-up de Bento foi adicionada.",
-    time: "ontem",
-    read: true,
-    tone: "success",
-  },
-  {
-    id: "4",
-    icon: Sparkles,
-    title: "Bem-vindo ao LivePet",
-    body: "Conclua o cadastro do seu pet para liberar o MatchPet.",
-    time: "2d",
-    read: true,
-    tone: "primary",
-  },
-];
+const seed = [];
 
 const toneClasses = {
   primary: "bg-primary-soft text-primary",
