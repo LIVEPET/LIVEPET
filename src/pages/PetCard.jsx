@@ -894,7 +894,8 @@ const PetCard = () => {
               accent="bg-emerald-50 text-emerald-700"
             >
               {vaccinesList.length > 0 ? (
-                <ul className="divide-y divide-border/60">
+                <>
+                  <ul className="divide-y divide-border/60">
                   {vaccinesList.map((v) => (
                     <li
                       key={v.id || v.nome}
