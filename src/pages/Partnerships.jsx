@@ -30,7 +30,154 @@ import {
 } from "@/components/ui/dialog";
 import { toast } from "@/hooks/use-toast";
 
-const partners = [];
+const partners = [
+  {
+    id: "petz",
+    name: "Petz",
+    city: "Goiânia & Nacional",
+    category: "Petshop",
+    Icon: Store,
+    contract: "LP-PETZ-2026",
+    rating: 4.9,
+    accent: "from-blue-600/25 to-sky-500/10",
+    initials: "PZ",
+    description:
+      "Maior rede de petshops do Brasil com rações super premium, farmácia veterinária e entrega expressa.",
+    perks: [
+      "Frete grátis em compras acima de R$ 99",
+      "Farmácia veterinária completa",
+      "Pontos em dobro no clube de benefícios",
+    ],
+    coupons: [
+      {
+        code: "LIVEPET15",
+        discount: "15% OFF",
+        description:
+          "Válido em rações, medicamentos e acessórios em todo o site e app.",
+        minSpend: "R$ 150",
+        rules: "Não cumulativo com outras promoções ativas.",
+      },
+      {
+        code: "LIVEPRIME",
+        discount: "R$ 30 OFF",
+        description: "Desconto direto na primeira compra pelo app oficial.",
+        minSpend: "R$ 120",
+        rules: "Válido para novos usuários cadastrados.",
+      },
+    ],
+  },
+  {
+    id: "cobasi",
+    name: "Cobasi",
+    city: "Goiânia, GO",
+    category: "Petshop",
+    Icon: Store,
+    contract: "LP-COB-2026",
+    rating: 4.8,
+    accent: "from-amber-600/25 to-orange-500/10",
+    initials: "CB",
+    description:
+      "Tudo para o seu pet e casa com atendimento especializado e marcas exclusivas.",
+    perks: [
+      "Desconto direto na assinatura de rações",
+      "Retirada em loja em até 1 hora",
+      "Variedade de brinquedos e petiscos naturais",
+    ],
+    coupons: [
+      {
+        code: "COBASILIVE10",
+        discount: "10% OFF",
+        description: "Desconto em qualquer categoria do catálogo online.",
+        minSpend: "R$ 100",
+        rules: "Válido para compras com cupom no carrinho.",
+      },
+    ],
+  },
+  {
+    id: "vet-popular",
+    name: "Hospital Veterinário 24h São Francisco",
+    city: "Goiânia, GO",
+    category: "Clínica",
+    Icon: Stethoscope,
+    contract: "LP-VET24-2026",
+    rating: 5.0,
+    accent: "from-emerald-600/25 to-teal-500/10",
+    initials: "SF",
+    description:
+      "Pronto-atendimento veterinário 24 horas, UTI completa, cirurgias e exames de imagem imediatos.",
+    perks: [
+      "Atendimento emergencial 24 horas",
+      "Laboratório clínico próprio com laudos no mesmo dia",
+      "Desconto na primeira consulta para pets cadastrados no LivePet",
+    ],
+    coupons: [
+      {
+        code: "PLANTÃO20",
+        discount: "20% OFF na Consulta",
+        description:
+          "Desconto na consulta clínica ou emergencial para usuários LivePet.",
+        minSpend: "Consulta geral",
+        rules: "Apresente o Cartão Digital do pet no balcão de atendimento.",
+      },
+    ],
+  },
+  {
+    id: "spa-bichos",
+    name: "Spa dos Bichos — Estética & Bem-Estar",
+    city: "Goiânia, GO",
+    category: "Estética",
+    Icon: Scissors,
+    contract: "LP-SPA-2026",
+    rating: 4.9,
+    accent: "from-purple-600/25 to-pink-500/10",
+    initials: "SB",
+    description:
+      "Banho terapêutico com ozonioterapia, tosa higiênica e padrão da raça, hidratação profunda e cromoterapia.",
+    perks: [
+      "Secagem silenciosa e toalhas esterilizadas individuais",
+      "Produtos hipoalergênicos e veganos",
+      "Espaço sem gaiolas, com área de relaxamento",
+    ],
+    coupons: [
+      {
+        code: "BANHOVIP",
+        discount: "Hidratação Grátis no Banho",
+        description:
+          "Ao agendar um banho completo, ganhe uma hidratação reconstrutora.",
+        minSpend: "Pacote de banho",
+        rules: "Válido de terça a quinta-feira com agendamento prévio.",
+      },
+    ],
+  },
+  {
+    id: "centro-vacina",
+    name: "Centro de Imunização Preventiva PetCare",
+    city: "Goiânia, GO",
+    category: "Vacinação",
+    Icon: Syringe,
+    contract: "LP-VAC-2026",
+    rating: 4.9,
+    accent: "from-rose-600/25 to-red-500/10",
+    initials: "PC",
+    description:
+      "Vacinas importadas mantidas sob controle rigoroso de temperatura e registro instantâneo no LivePet.",
+    perks: [
+      "Vacinas importadas com garantia de refrigeração",
+      "Integração imediata com o histórico de vacinas do LivePet",
+      "Atendimento domiciliar disponível",
+    ],
+    coupons: [
+      {
+        code: "IMUNIZAR15",
+        discount: "15% OFF",
+        description:
+          "Desconto em doses de V10, Antirrábica, Gripe ou Giárdiase.",
+        minSpend: "R$ 80",
+        rules: "Apresente o Cartão Animal LivePet no momento da aplicação.",
+      },
+    ],
+  },
+];
 
 const categories = [
   { key: "Todos", label: "Todos", Icon: Sparkles },

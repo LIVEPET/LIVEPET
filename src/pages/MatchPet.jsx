@@ -39,6 +39,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { Card } from "@/components/ui/card";
+import { petsService } from "@/services/api";
 import {
   Dialog,
   DialogContent,
@@ -117,23 +118,312 @@ const initials = (name) =>
 // ============================================================
 // Dados mock
 // ============================================================
-const MATCH_PETS = [];
+const BASE_MATCH_PETS = [
+  {
+    id: "match-1",
+    name: "Thor",
+    breed: "Golden Retriever",
+    species: "Cachorro",
+    sex: "Macho",
+    age: "2 anos",
+    ageYears: 2,
+    distanceKm: 4,
+    city: "Goiânia, GO",
+    pedigree: true,
+    availableForBreeding: true,
+    img: petThor,
+    gallery: [petThor, petBento],
+    tutor: { name: "Carlos Eduardo", phone: "(62) 99812-4411", online: true, lastSeen: "agora" },
+    compat: { breed: 98, genetic: 95, temperament: 92, age: 90 },
+    temperament: ["Dócil", "Brincalhão", "Sociável", "Atlético"],
+    medical: "Exames de displasia coxofemoral grau A (normal), laudo cardíaco limpo.",
+    vaccines: [
+      { name: "V10 Quádrupla", date: "15/01/2026" },
+      { name: "Antirrábica", date: "15/01/2026" },
+      { name: "Giárdiase", date: "10/02/2026" },
+    ],
+    genetics: "Linhagem pura campeã CBKC, livre de anomalias oculares.",
+    certifications: ["CBKC Oficial", "Laudo Displasia A", "Perfil de DNA Arquivado"],
+    rating: 5.0,
+    reviews: [
+      { tutor: "Juliana Silva", stars: 5, text: "Excelente linhagem e comportamento impecável!" },
+    ],
+  },
+  {
+    id: "match-2",
+    name: "Mia",
+    breed: "Siamês",
+    species: "Gato",
+    sex: "Fêmea",
+    age: "1 ano e meio",
+    ageYears: 1.5,
+    distanceKm: 8,
+    city: "Goiânia, GO",
+    pedigree: true,
+    availableForBreeding: true,
+    img: petMia,
+    gallery: [petMia, petSimba],
+    tutor: { name: "Mariana Costa", phone: "(62) 98765-1234", online: false, lastSeen: "há 10 min" },
+    compat: { breed: 94, genetic: 92, temperament: 96, age: 95 },
+    temperament: ["Carinhosa", "Tranquila", "Curiosa"],
+    medical: "Testes FIV/FeLV negativos, ecocardiograma normal.",
+    vaccines: [
+      { name: "V4 Felina", date: "20/12/2025" },
+      { name: "Antirrábica", date: "20/12/2025" },
+    ],
+    genetics: "Padrão de pelagem pura Pointed, linhagem certificada.",
+    certifications: ["FIV/FeLV Negativo", "Registro Cinófilo Oficial"],
+    rating: 4.9,
+    reviews: [
+      { tutor: "Rodrigo Mendes", stars: 5, text: "Gatinha dócil e muito bem cuidada." },
+    ],
+  },
+  {
+    id: "match-3",
+    name: "Bento",
+    breed: "Bulldog Francês",
+    species: "Cachorro",
+    sex: "Macho",
+    age: "3 anos",
+    ageYears: 3,
+    distanceKm: 12,
+    city: "Aparecida de Goiânia, GO",
+    pedigree: true,
+    availableForBreeding: true,
+    img: petBento,
+    gallery: [petBento, petThor],
+    tutor: { name: "Felipe Almeida", phone: "(62) 99112-8877", online: true, lastSeen: "agora" },
+    compat: { breed: 92, genetic: 90, temperament: 94, age: 88 },
+    temperament: ["Companheiro", "Calmo", "Amoroso"],
+    medical: "Sem problemas respiratórios, vacinas em dia.",
+    vaccines: [
+      { name: "V10", date: "05/02/2026" },
+      { name: "Antirrábica", date: "05/02/2026" },
+    ],
+    genetics: "Linhagem compacta padrão CBKC/FCI.",
+    certifications: ["CBKC 38.109", "Perfil Genético Atestado"],
+    rating: 4.8,
+    reviews: [
+      { tutor: "Beatriz Lima", stars: 5, text: "Cão maravilhoso, super saudável e dócil!" },
+    ],
+  },
+  {
+    id: "match-4",
+    name: "Luna",
+    breed: "Border Collie",
+    species: "Cachorro",
+    sex: "Fêmea",
+    age: "2 anos",
+    ageYears: 2,
+    distanceKm: 15,
+    city: "Anápolis, GO",
+    pedigree: true,
+    availableForBreeding: true,
+    img: petLuna,
+    gallery: [petLuna, petZeca],
+    tutor: { name: "Renata Pires", phone: "(62) 98455-9012", online: true, lastSeen: "agora" },
+    compat: { breed: 99, genetic: 98, temperament: 95, age: 92 },
+    temperament: ["Inteligente", "Ágil", "Atenta", "Obediente"],
+    medical: "CEA/CH livre por parentesco, MDR1 normal, displasia coxofemoral A.",
+    vaccines: [
+      { name: "V10 Vanguard", date: "12/01/2026" },
+      { name: "Antirrábica", date: "12/01/2026" },
+      { name: "Gripe Canina", date: "12/01/2026" },
+    ],
+    genetics: "Linha de trabalho e agilidade premiada.",
+    certifications: ["CBKC Oficial", "CEA Livre", "MDR1 Livre"],
+    rating: 5.0,
+    reviews: [
+      { tutor: "Lucas Rocha", stars: 5, text: "Inteligência fora da curva e temperamento espetacular!" },
+    ],
+  },
+  {
+    id: "match-5",
+    name: "Simba",
+    breed: "Persa",
+    species: "Gato",
+    sex: "Macho",
+    age: "2 anos",
+    ageYears: 2,
+    distanceKm: 18,
+    city: "Goiânia, GO",
+    pedigree: true,
+    availableForBreeding: false,
+    img: petSimba,
+    gallery: [petSimba, petAmora],
+    tutor: { name: "Camila Nogueira", phone: "(62) 99344-5566", online: false, lastSeen: "há 1h" },
+    compat: { breed: 91, genetic: 89, temperament: 97, age: 91 },
+    temperament: ["Dócil", "Carinhoso", "Caseiro"],
+    medical: "PKD negativo, exames renais regulares e perfeitos.",
+    vaccines: [
+      { name: "V5 Quíntupla", date: "18/11/2025" },
+      { name: "Antirrábica", date: "18/11/2025" },
+    ],
+    genetics: "Pelagem pura e volumosa, porte exemplar.",
+    certifications: ["PKD Livre", "FIV/FeLV Negativo"],
+    rating: 4.9,
+    reviews: [
+      { tutor: "Gabriel Santos", stars: 5, text: "Gato lindo e extremamente manso." },
+    ],
+  },
+];
 
-const PUPPIES = [];
+const BASE_PUPPIES = [
+  {
+    id: "pup-1",
+    title: "Filhotes de Golden Retriever com Pedigree Oficial",
+    breed: "Golden Retriever",
+    species: "Cachorro",
+    sex: "Macho",
+    ageMonths: 2,
+    city: "Goiânia, GO",
+    price: 3200,
+    status: "Ativo",
+    pedigree: true,
+    img: petThor,
+    seller: { name: "Canil Vale Imperial", rating: 4.9, phone: "(62) 99812-4411" },
+    available: 3,
+    postedDaysAgo: 2,
+    description: "Filhotes vacinados com 1ª dose de V10 importada, desverminados e com microchip.",
+    photos: [petThor, petBento],
+  },
+  {
+    id: "pup-2",
+    title: "Gatinhos Siameses Puros — Linhagem Pointed",
+    breed: "Siamês",
+    species: "Gato",
+    sex: "Fêmea",
+    ageMonths: 2,
+    city: "Goiânia, GO",
+    price: 1800,
+    status: "Ativo",
+    pedigree: true,
+    img: petMia,
+    seller: { name: "Gatil Luar de Prata", rating: 5.0, phone: "(62) 98765-1234" },
+    available: 2,
+    postedDaysAgo: 4,
+    description: "Pais negativos para FIV/FeLV, acostumados com caixa de areia e ração super premium.",
+    photos: [petMia, petSimba],
+  },
+  {
+    id: "pup-3",
+    title: "Filhote Border Collie Linhagem Pastoreio e Agility",
+    breed: "Border Collie",
+    species: "Cachorro",
+    sex: "Fêmea",
+    ageMonths: 3,
+    city: "Anápolis, GO",
+    price: 2600,
+    status: "Ativo",
+    pedigree: true,
+    img: petLuna,
+    seller: { name: "Canil Estrela Guia", rating: 4.8, phone: "(62) 98455-9012" },
+    available: 1,
+    postedDaysAgo: 1,
+    description: "Pais com exames genéticos livres e laudo de displasia A.",
+    photos: [petLuna, petZeca],
+  },
+  {
+    id: "pup-4",
+    title: "Bulldog Francês Macho — Vacinas em Dia",
+    breed: "Bulldog Francês",
+    species: "Cachorro",
+    sex: "Macho",
+    ageMonths: 2,
+    city: "Aparecida de Goiânia, GO",
+    price: 3500,
+    status: "Ativo",
+    pedigree: true,
+    img: petBento,
+    seller: { name: "Canil Real Bull", rating: 4.9, phone: "(62) 99112-8877" },
+    available: 2,
+    postedDaysAgo: 3,
+    description: "Estrutura compacta, excelente padrão de respiração e acompanhamento veterinário.",
+    photos: [petBento, petThor],
+  },
+];
 
 const BREEDS = Array.from(
-  new Set([...MATCH_PETS.map((p) => p.breed), ...PUPPIES.map((p) => p.breed)]),
+  new Set([...BASE_MATCH_PETS.map((p) => p.breed), ...BASE_PUPPIES.map((p) => p.breed)]),
 ).sort();
 
-const NOTIFICATIONS = [];
+const NOTIFICATIONS = [
+  {
+    id: "notif-1",
+    icon: Heart,
+    text: "Você tem um novo match de reprodução para Thor!",
+    time: "há 10 min",
+  },
+  {
+    id: "notif-2",
+    icon: ShieldCheck,
+    text: "Pedigree oficial validado na plataforma LivePet.",
+    time: "há 1h",
+  },
+  {
+    id: "notif-3",
+    icon: Sparkles,
+    text: "3 novos tutores curtiram seus pets no MatchPet.",
+    time: "há 3h",
+  },
+];
 
 const MatchPet = () => {
   // -------- estados gerais --------
   const [tab, setTab] = useState("descobrir");
   const [loading, setLoading] = useState(true);
+  const [matchPets, setMatchPets] = useState(BASE_MATCH_PETS);
+  const [puppies, setPuppies] = useState(BASE_PUPPIES);
+
   useEffect(() => {
-    const t = setTimeout(() => setLoading(false), 700);
-    return () => clearTimeout(t);
+    let isMounted = true;
+    const loadPets = async () => {
+      try {
+        setLoading(true);
+        const data = await petsService.list();
+        if (!isMounted) return;
+        if (Array.isArray(data) && data.length > 0) {
+          const dbPets = data.map((p) => {
+            const isCat = p.especie?.toLowerCase() === "gato";
+            const defaultImg = isCat ? petMia : petThor;
+            return {
+              id: `db-${p.id}`,
+              name: p.nome,
+              breed: p.raca || "SRD",
+              species: p.especie || "Cachorro",
+              sex: p.sexo || "Macho",
+              age: "Registrado",
+              ageYears: 2,
+              distanceKm: 2,
+              city: "Goiânia, GO",
+              pedigree: Boolean(p.lineage),
+              availableForBreeding: true,
+              img: p.foto_url || defaultImg,
+              gallery: [p.foto_url || defaultImg],
+              tutor: { name: "Você (Tutor)", phone: "(62) 99999-0000", online: true, lastSeen: "agora" },
+              compat: { breed: 95, genetic: 92, temperament: 94, age: 90 },
+              temperament: ["Dócil", "Sociável", "Acompanhado"],
+              medical: p.medical_records?.[0]?.descricao || "Acompanhamento preventivo em dia.",
+              vaccines: (p.vaccines || []).map((v) => ({ name: v.nome, date: v.data_aplicacao || "Em dia" })),
+              genetics: p.lineage?.registro ? `Registro Oficial ${p.lineage.registro}` : "Perfil registrado no LivePet",
+              certifications: p.lineage ? ["Pedigree LivePet", "Microchip Ativo"] : ["Cadastrado no LivePet"],
+              rating: 5.0,
+              reviews: [],
+            };
+          });
+          setMatchPets([...BASE_MATCH_PETS, ...dbPets]);
+        }
+      } catch (err) {
+        console.warn("Usando base padrão para MatchPet:", err);
+      } finally {
+        if (isMounted) setLoading(false);
+      }
+    };
+
+    loadPets();
+    return () => {
+      isMounted = false;
+    };
   }, []);
 
   // -------- filtros --------
@@ -168,7 +458,7 @@ const MatchPet = () => {
 
   // -------- match deck --------
   const filteredMatches = useMemo(() => {
-    return MATCH_PETS.filter((p) => {
+    return matchPets.filter((p) => {
       if (breed !== "Todas" && p.breed !== breed) return false;
       if (sex !== "Todos" && p.sex !== sex) return false;
       if (speciesF !== "Todas" && p.species !== speciesF) return false;
@@ -353,7 +643,7 @@ const MatchPet = () => {
   const [puppyPreview, setPuppyPreview] = useState(null);
 
   const filteredPuppies = useMemo(() => {
-    let list = PUPPIES.filter((p) => {
+    let list = puppies.filter((p) => {
       if (breed !== "Todas" && p.breed !== breed) return false;
       if (speciesF !== "Todas" && p.species !== speciesF) return false;
       if (pedigreeOnly && !p.pedigree) return false;
@@ -388,8 +678,8 @@ const MatchPet = () => {
   };
 
   // -------- listas derivadas --------
-  const matchList = MATCH_PETS.filter((p) => likes.has(p.id));
-  const recommended = [...MATCH_PETS]
+  const matchList = matchPets.filter((p) => likes.has(p.id));
+  const recommended = [...matchPets]
     .sort((a, b) => compatScore(b.compat) - compatScore(a.compat))
     .slice(0, 4);
 
@@ -737,7 +1027,7 @@ const MatchPet = () => {
                     </h3>
                   </div>
                   <div className="grid grid-cols-2 gap-2">
-                    {MATCH_PETS.slice(0, 4).map((p) => (
+                    {matchPets.slice(0, 4).map((p) => (
                       <button
                         key={p.id}
                         onClick={() => setProfilePet(p)}

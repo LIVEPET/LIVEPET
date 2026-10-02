@@ -387,38 +387,46 @@ const PetCard = () => {
         },
         parents: [
           {
-            name: lin?.pai_nome || `Pai de ${selfName}`,
+            name:
+              lin?.pai_nome ||
+              (lin?.pai_pet_id ? "Pai Vinculado LivePet" : "Pai Sob Consulta"),
             role: "Pai",
-            registry: lin?.pai_registro || "CBKC P-41200",
-            titles: lin?.pai_titulos || "Pedigree Certificado",
+            registry: lin?.pai_registro || "—",
+            titles:
+              lin?.pai_titulos ||
+              (lin?.pai_nome ? "Pedigree Declarado" : "Pendente"),
           },
           {
-            name: lin?.mae_nome || `Mãe de ${selfName}`,
+            name:
+              lin?.mae_nome ||
+              (lin?.mae_pet_id ? "Mãe Vinculada LivePet" : "Mãe Sob Consulta"),
             role: "Mãe",
-            registry: lin?.mae_registro || "CBKC M-39811",
-            titles: lin?.mae_titulos || "Pedigree Certificado",
+            registry: lin?.mae_registro || "—",
+            titles:
+              lin?.mae_titulos ||
+              (lin?.mae_nome ? "Pedigree Declarado" : "Pendente"),
           },
         ],
         grandparents: [
           {
             name: lin?.avo_pat_m_nome || "Avô paterno",
             role: "Avô paterno",
-            registry: lin?.avo_pat_m_registro || "CBKC 31022",
+            registry: lin?.avo_pat_m_registro || "—",
           },
           {
             name: lin?.avo_pat_f_nome || "Avó paterna",
             role: "Avó paterna",
-            registry: lin?.avo_pat_f_registro || "CBKC 30988",
+            registry: lin?.avo_pat_f_registro || "—",
           },
           {
             name: lin?.avo_mat_m_nome || "Avô materno",
             role: "Avô materno",
-            registry: lin?.avo_mat_m_registro || "CBKC 28741",
+            registry: lin?.avo_mat_m_registro || "—",
           },
           {
             name: lin?.avo_mat_f_nome || "Avó materna",
             role: "Avó materna",
-            registry: lin?.avo_mat_f_registro || "CBKC 28710",
+            registry: lin?.avo_mat_f_registro || "—",
           },
         ],
       },
