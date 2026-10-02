@@ -229,10 +229,12 @@ const Pedigree = () => {
               {/* CATALOG */}
               <TabsContent value="catalogo" className="space-y-8">
                 {/* Selected dog certificate */}
-                {selected && <DigitalCertificate
-                  dog={selected}
-                  certificateUrl={certificateUrl}
-                />
+                {selected && (
+                  <DigitalCertificate
+                    dog={selected}
+                    certificateUrl={certificateUrl}
+                  />
+                )}
 
                 {/* Grid */}
                 <div>
