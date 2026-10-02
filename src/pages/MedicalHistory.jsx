@@ -24,52 +24,7 @@ import petMia from "@/assets/pet-mia.jpg";
 import petBento from "@/assets/pet-bento.jpg";
 import petLuna from "@/assets/pet-luna.jpg";
 
-const PETS = [
-  {
-    id: "thor",
-    name: "Thor",
-    species: "Cachorro",
-    breed: "Golden Retriever",
-    age: "3 meses",
-    img: petThor,
-    color: "from-amber-400 to-orange-500",
-    tutor: "João Silva",
-    microchip: "982 000 123 456 789",
-  },
-  {
-    id: "mia",
-    name: "Mia",
-    species: "Gato",
-    breed: "SRD",
-    age: "1 ano",
-    img: petMia,
-    color: "from-rose-400 to-pink-500",
-    tutor: "João Silva",
-    microchip: "982 000 234 567 890",
-  },
-  {
-    id: "bento",
-    name: "Bento",
-    species: "Cachorro",
-    breed: "Labrador",
-    age: "2 anos",
-    img: petBento,
-    color: "from-emerald-400 to-teal-500",
-    tutor: "João Silva",
-    microchip: "982 000 345 678 901",
-  },
-  {
-    id: "luna",
-    name: "Luna",
-    species: "Gato",
-    breed: "Persa",
-    age: "4 meses",
-    img: petLuna,
-    color: "from-violet-400 to-indigo-500",
-    tutor: "João Silva",
-    microchip: "982 000 456 789 012",
-  },
-];
+const PETS = [];
 
 // Build a week's worth of events relative to today
 const offsetDate = (dayOffset) => {
@@ -79,118 +34,7 @@ const offsetDate = (dayOffset) => {
   return d.toISOString().slice(0, 10);
 };
 
-const EVENTS = [
-  {
-    id: "e1",
-    petId: "thor",
-    date: offsetDate(-3),
-    time: "09:30",
-    type: "vacina",
-    title: "V10 — 2ª dose",
-    vet: "Dra. Helena Costa",
-    notes: "Aplicada sem reações. Reforço em 30 dias.",
-  },
-  {
-    id: "e2",
-    petId: "thor",
-    date: offsetDate(-1),
-    time: "14:00",
-    type: "consulta",
-    title: "Avaliação clínica geral",
-    vet: "Dra. Helena Costa",
-    notes: "Peso 8.4kg, mucosas normocoradas, hidratado.",
-  },
-  {
-    id: "e3",
-    petId: "thor",
-    date: offsetDate(2),
-    time: "10:00",
-    type: "medicacao",
-    title: "Vermífugo Drontal Plus",
-    vet: "Dra. Helena Costa",
-    notes: "1 comprimido VO, dose única.",
-  },
-  {
-    id: "e4",
-    petId: "mia",
-    date: offsetDate(-2),
-    time: "11:15",
-    type: "exame",
-    title: "Hemograma + FIV/FELV",
-    vet: "Dr. Marcos Lima",
-    notes: "Resultados dentro da normalidade. Negativo para FIV/FELV.",
-  },
-  {
-    id: "e5",
-    petId: "mia",
-    date: offsetDate(0),
-    time: "16:30",
-    type: "procedimento",
-    title: "Limpeza de tártaro",
-    vet: "Dr. Marcos Lima",
-    notes: "Procedimento de rotina, sob sedação leve. Recuperação ok.",
-  },
-  {
-    id: "e6",
-    petId: "mia",
-    date: offsetDate(3),
-    time: "09:00",
-    type: "consulta",
-    title: "Retorno pós-procedimento",
-    vet: "Dr. Marcos Lima",
-    notes: "Verificar cicatrização gengival.",
-  },
-  {
-    id: "e7",
-    petId: "bento",
-    date: offsetDate(-4),
-    time: "08:00",
-    type: "exame",
-    title: "Radiografia de quadril",
-    vet: "Dra. Ana Reis",
-    notes: "Sem alterações displásicas. Articulação preservada.",
-  },
-  {
-    id: "e8",
-    petId: "bento",
-    date: offsetDate(1),
-    time: "15:45",
-    type: "vacina",
-    title: "Giardia",
-    vet: "Dra. Ana Reis",
-    notes: "Reforço anual aplicado.",
-  },
-  {
-    id: "e9",
-    petId: "bento",
-    date: offsetDate(3),
-    time: "10:30",
-    type: "medicacao",
-    title: "Antipulgas Bravecto",
-    vet: "Dra. Ana Reis",
-    notes: "Dose conforme peso (32kg). Próxima em 12 semanas.",
-  },
-  {
-    id: "e10",
-    petId: "luna",
-    date: offsetDate(-1),
-    time: "13:20",
-    type: "vacina",
-    title: "Tríplice felina (2ª dose)",
-    vet: "Dr. Paulo Nunes",
-    notes: "Aplicada subcutânea. Filhote tolerou bem.",
-  },
-  {
-    id: "e11",
-    petId: "luna",
-    date: offsetDate(2),
-    time: "11:00",
-    type: "consulta",
-    title: "Acompanhamento de crescimento",
-    vet: "Dr. Paulo Nunes",
-    notes: "Peso 1.6kg, desenvolvimento adequado.",
-  },
-];
+const EVENTS = [];
 
 const typeMeta = {
   vacina: {
@@ -235,7 +79,7 @@ const getWeekStart = (d) => {
 };
 
 const MedicalHistory = () => {
-  const [selectedPets, setSelectedPets] = useState(["thor", "mia"]);
+  const [selectedPets, setSelectedPets] = useState([]);
   const [weekStart, setWeekStart] = useState(() => getWeekStart(new Date()));
 
   const togglePet = (id) =>

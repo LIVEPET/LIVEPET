@@ -37,228 +37,7 @@ import {
 } from "lucide-react";
 import { Label } from "@/components/ui/label";
 
-const DOGS = [
-  {
-    id: "LP-2847",
-    name: "Thor do Vale Imperial",
-    breed: "Golden Retriever",
-    group: "Esportivo",
-    size: "Grande",
-    age: "3 anos",
-    ageYears: 3,
-    gender: "Macho",
-    registry: "CBKC 12.847",
-    entity: "CBKC",
-    rating: 4.9,
-    reviews: 128,
-    champion: true,
-    img: "https://images.unsplash.com/photo-1633722715463-d30f4f325e24?auto=format&fit=crop&w=800&q=80",
-    owner: "Família Andrade",
-    city: "São Paulo, SP",
-    birth: "12/03/2022",
-    color: "Dourado claro",
-    vetNote: "Cardio e displasia OFA Excellent. Vacinação V10 em dia.",
-    parents: { father: "Apollo do Vale", mother: "Zara dos Lagos" },
-  },
-  {
-    id: "LP-3120",
-    name: "Bella Aurora",
-    breed: "Border Collie",
-    group: "Pastor",
-    size: "Médio",
-    age: "2 anos",
-    ageYears: 2,
-    gender: "Fêmea",
-    registry: "CBKC 13.120",
-    entity: "CBKC",
-    rating: 5.0,
-    reviews: 84,
-    champion: true,
-    img: "https://images.unsplash.com/photo-1503256207526-0d5d80fa2f47?auto=format&fit=crop&w=800&q=80",
-    owner: "Canil Aurora",
-    city: "Curitiba, PR",
-    birth: "08/06/2023",
-    color: "Preto e branco",
-    vetNote: "CEA/PRA negativos. Quadril A/A. Atleta de agility.",
-    parents: { father: "Rex Imperial", mother: "Luna do Sul" },
-  },
-  {
-    id: "LP-4501",
-    name: "Apollo Imperial",
-    breed: "Pastor Alemão",
-    group: "Pastor",
-    size: "Grande",
-    age: "4 anos",
-    ageYears: 4,
-    gender: "Macho",
-    registry: "FCI 45.011",
-    entity: "FCI",
-    rating: 4.8,
-    reviews: 211,
-    champion: true,
-    img: "https://images.unsplash.com/photo-1568572933382-74d440642117?auto=format&fit=crop&w=800&q=80",
-    owner: "Canil Imperial",
-    city: "Belo Horizonte, MG",
-    birth: "22/01/2021",
-    color: "Capa preta",
-    vetNote: "IPO3 certificado. Displasia HD-A, ED-0. Linhagem alemã.",
-    parents: { father: "Falk vom Wallerstein", mother: "Heidi vom Holtkämper" },
-  },
-  {
-    id: "LP-5210",
-    name: "Mia Belle",
-    breed: "Poodle Toy",
-    group: "Toy",
-    size: "Pequeno",
-    age: "1 ano",
-    ageYears: 1,
-    gender: "Fêmea",
-    registry: "CBKC 15.210",
-    entity: "CBKC",
-    rating: 4.7,
-    reviews: 56,
-    champion: true,
-    img: "https://images.unsplash.com/photo-1616190264687-b7ebf4ed3e9f?auto=format&fit=crop&w=800&q=80",
-    owner: "Família Costa",
-    city: "Rio de Janeiro, RJ",
-    birth: "15/09/2024",
-    color: "Branco",
-    vetNote: "Patela grau 0. Vacinação completa. Castrada.",
-    parents: { father: "Mickey Snow", mother: "Lola Pearl" },
-  },
-  {
-    id: "LP-6022",
-    name: "Zeus do Norte",
-    breed: "Husky Siberiano",
-    group: "Trabalho",
-    size: "Grande",
-    age: "5 anos",
-    ageYears: 5,
-    gender: "Macho",
-    registry: "AKC 60.022",
-    entity: "AKC",
-    rating: 4.9,
-    reviews: 173,
-    champion: true,
-    img: "https://images.unsplash.com/photo-1605568427561-40dd23c2acea?auto=format&fit=crop&w=800&q=80",
-    owner: "Canil Polar",
-    city: "Florianópolis, SC",
-    birth: "30/11/2020",
-    color: "Cinza e branco",
-    vetNote: "Olhos azuis, exame oftalmo OK. Quadril Excellent.",
-    parents: { father: "Storm of Alaska", mother: "Nala White Wolf" },
-  },
-  {
-    id: "LP-7134",
-    name: "Luna Estrela",
-    breed: "Shih Tzu",
-    group: "Companhia",
-    size: "Pequeno",
-    age: "2 anos",
-    ageYears: 2,
-    gender: "Fêmea",
-    registry: "CBKC 17.134",
-    entity: "CBKC",
-    rating: 4.6,
-    reviews: 92,
-    champion: true,
-    img: "https://images.unsplash.com/photo-1591769225440-811ad7d6eab3?auto=format&fit=crop&w=800&q=80",
-    owner: "Família Lima",
-    city: "Porto Alegre, RS",
-    birth: "05/04/2023",
-    color: "Dourado e branco",
-    vetNote: "Pelagem de exposição. Sem alterações cardíacas.",
-    parents: { father: "Lord Brown", mother: "Princess Daisy" },
-  },
-  {
-    id: "LP-8045",
-    name: "Maximus do Atlas",
-    breed: "Rottweiler",
-    group: "Trabalho",
-    size: "Grande",
-    age: "4 anos",
-    ageYears: 4,
-    gender: "Macho",
-    registry: "FCI 80.045",
-    entity: "FCI",
-    rating: 4.9,
-    reviews: 198,
-    champion: true,
-    img: "https://images.unsplash.com/photo-1567752881298-894bb81f9379?auto=format&fit=crop&w=800&q=80",
-    owner: "Canil Atlas",
-    city: "Brasília, DF",
-    birth: "18/02/2021",
-    color: "Preto e fogo",
-    vetNote: "ZTP aprovado. Cardio normal. Quadril HD-A.",
-    parents: { father: "Brutus von Hause", mother: "Greta vom Stein" },
-  },
-  {
-    id: "LP-9210",
-    name: "Duquesa Real",
-    breed: "Labrador Retriever",
-    group: "Esportivo",
-    size: "Grande",
-    age: "3 anos",
-    ageYears: 3,
-    gender: "Fêmea",
-    registry: "CBKC 92.010",
-    entity: "CBKC",
-    rating: 4.8,
-    reviews: 142,
-    champion: true,
-    img: "https://images.unsplash.com/photo-1605897472359-85e4b94d685d?auto=format&fit=crop&w=800&q=80",
-    owner: "Canil Real",
-    city: "Salvador, BA",
-    birth: "10/07/2022",
-    color: "Chocolate",
-    vetNote: "PRA negativo. Cotovelos ED-0. Excelente temperamento.",
-    parents: { father: "Hunter of Devon", mother: "Cocoa Princess" },
-  },
-  {
-    id: "LP-1056",
-    name: "Romeo Bellini",
-    breed: "Bulldog Francês",
-    group: "Companhia",
-    size: "Pequeno",
-    age: "2 anos",
-    ageYears: 2,
-    gender: "Macho",
-    registry: "FCI 10.056",
-    entity: "FCI",
-    rating: 4.7,
-    reviews: 110,
-    champion: true,
-    img: "https://images.unsplash.com/photo-1620189507187-1babc1106e9b?auto=format&fit=crop&w=800&q=80",
-    owner: "Canil Bellini",
-    city: "São Paulo, SP",
-    birth: "03/05/2023",
-    color: "Fawn pied",
-    vetNote: "Vias aéreas livres. Coluna sem alterações. Coração OK.",
-    parents: { father: "Don Vito", mother: "Sofia Stella" },
-  },
-  {
-    id: "LP-2298",
-    name: "Athena Star",
-    breed: "Dálmata",
-    group: "Companhia",
-    size: "Médio",
-    age: "3 anos",
-    ageYears: 3,
-    gender: "Fêmea",
-    registry: "AKC 22.980",
-    entity: "AKC",
-    rating: 4.8,
-    reviews: 87,
-    champion: true,
-    img: "https://images.unsplash.com/photo-1518155317743-a8ff43ea6a5f?auto=format&fit=crop&w=800&q=80",
-    owner: "Canil Star",
-    city: "Recife, PE",
-    birth: "25/10/2022",
-    color: "Branco com pintas pretas",
-    vetNote: "BAER bilateral positivo (audição perfeita). Quadril A.",
-    parents: { father: "Pongo Royal", mother: "Perdita Bright" },
-  },
-];
+const DOGS = [];
 
 const SIZES = ["Todos", "Pequeno", "Médio", "Grande"];
 const GROUPS = ["Todos", "Trabalho", "Pastor", "Toy", "Esportivo", "Companhia"];
@@ -270,7 +49,7 @@ const Pedigree = () => {
   const [group, setGroup] = useState("Todos");
   const [entity, setEntity] = useState("Todos");
   const [championOnly, setChampionOnly] = useState(false);
-  const [selected, setSelected] = useState(DOGS[0]);
+  const [selected, setSelected] = useState(DOGS[0] || null);
   const [detailDog, setDetailDog] = useState(null);
 
   const openDetail = (dog) => setDetailDog(dog);
@@ -310,7 +89,7 @@ const Pedigree = () => {
     });
   }, [search, size, group, entity, championOnly]);
 
-  const certificateUrl = `https://livepet.app/pedigree/${selected.id}`;
+  const certificateUrl = selected ? `https://livepet.app/pedigree/${selected.id}` : '';
 
   return (
     <div className="min-h-screen bg-background">
@@ -450,7 +229,7 @@ const Pedigree = () => {
               {/* CATALOG */}
               <TabsContent value="catalogo" className="space-y-8">
                 {/* Selected dog certificate */}
-                <DigitalCertificate
+                {selected && <DigitalCertificate
                   dog={selected}
                   certificateUrl={certificateUrl}
                 />
@@ -489,7 +268,7 @@ const Pedigree = () => {
                   ) : (
                     <div className="grid gap-5 sm:grid-cols-2 xl:grid-cols-3">
                       {filtered.map((dog, i) => {
-                        const isSelected = selected.id === dog.id;
+                        const isSelected = selected?.id === dog.id;
                         return (
                           <button
                             key={dog.id}

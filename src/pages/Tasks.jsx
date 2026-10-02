@@ -5,19 +5,7 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { Progress } from "@/components/ui/progress";
 
 const Tasks = () => {
-  const [tasks, setTasks] = useState([
-    {
-      id: "1",
-      label: "Criar cards com logotipos de parceiros (ex: Petshops, Clínicas).",
-      done: false,
-    },
-    {
-      id: "2",
-      label: "Adicionar campo 'Número do Contrato' na grid.",
-      done: false,
-    },
-    { id: "3", label: "Botão 'Solicitar Cupom'.", done: false },
-  ]);
+  const [tasks, setTasks] = useState([]);
 
   const progress = useMemo(() => {
     if (tasks.length === 0) return 0;

@@ -2,36 +2,7 @@ import { Heart, MapPin } from "lucide-react";
 import { Link } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 
-const pets = [
-  {
-    name: "Thor",
-    age: "3 meses",
-    city: "São Paulo, SP",
-    img: "https://images.unsplash.com/photo-1583337130417-3346a1be7dee?auto=format&fit=crop&w=512&q=80",
-    tag: "Filhote",
-  },
-  {
-    name: "Mia",
-    age: "1 ano",
-    city: "Rio de Janeiro, RJ",
-    img: "https://images.unsplash.com/photo-1574144611937-0df059b5ef3e?auto=format&fit=crop&w=512&q=80",
-    tag: "Adulto",
-  },
-  {
-    name: "Bento",
-    age: "2 anos",
-    city: "Belo Horizonte, MG",
-    img: "https://images.unsplash.com/photo-1587300003388-59208cc962cb?auto=format&fit=crop&w=512&q=80",
-    tag: "Brincalhão",
-  },
-  {
-    name: "Luna",
-    age: "4 meses",
-    city: "Curitiba, PR",
-    img: "https://images.unsplash.com/photo-1592194996308-7b43878e84a6?auto=format&fit=crop&w=512&q=80",
-    tag: "Carinhosa",
-  },
-];
+const pets = [];
 
 const Adoption = () => {
   return (
