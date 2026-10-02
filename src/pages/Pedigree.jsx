@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
+import { Link, useSearchParams } from "react-router-dom";
 import { QRCodeSVG } from "qrcode.react";
 import {
   Award,
@@ -17,6 +18,13 @@ import {
   Download,
   Share2,
   ThumbsUp,
+  Plus,
+  Loader2,
+  MapPin,
+  User as UserIcon,
+  Palette,
+  GitBranch,
+  FileText,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -28,29 +36,118 @@ import {
   DialogTitle,
   DialogDescription,
 } from "@/components/ui/dialog";
-import {
-  MapPin,
-  User as UserIcon,
-  Palette,
-  GitBranch,
-  FileText,
-} from "lucide-react";
 import { Label } from "@/components/ui/label";
-
-const DOGS = [];
+import { petsService } from "@/services/api";
+import petDefaultDog from "@/assets/pet-thor.jpg";
 
 const SIZES = ["Todos", "Pequeno", "Médio", "Grande"];
 const GROUPS = ["Todos", "Trabalho", "Pastor", "Toy", "Esportivo", "Companhia"];
 const ENTITIES = ["Todos", "CBKC", "FCI", "AKC"];
 
 const Pedigree = () => {
+  const [searchParams] = useSearchParams();
+  const urlPetId = searchParams.get("petId") || searchParams.get("id");
+
+  const [dogs, setDogs] = useState([]);
+  const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState("");
   const [size, setSize] = useState("Todos");
   const [group, setGroup] = useState("Todos");
   const [entity, setEntity] = useState("Todos");
   const [championOnly, setChampionOnly] = useState(false);
-  const [selected, setSelected] = useState(DOGS[0] || null);
+  const [selected, setSelected] = useState(null);
   const [detailDog, setDetailDog] = useState(null);
+
+  useEffect(() => {
+    let isMounted = true;
+    const fetchDogs = async () => {
+      try {
+        setLoading(true);
+        const data = await petsService.list();
+        if (!isMounted) return;
+        if (Array.isArray(data) && data.length > 0) {
+          const mapped = data.map((p) => {
+            const regNum = p.token_publico
+              ? `CBKC-${p.token_publico.slice(0, 8).toUpperCase()}`
+              : `CBKC-${p.id}`;
+            return {
+              id: p.id,
+              name: p.nome,
+              breed: p.raca || "SRD",
+              registry: regNum,
+              entity: "CBKC",
+              size: p.porte || "Médio",
+              group: "Companhia",
+              champion: false,
+              sex: p.sexo || "Macho",
+              microchip: p.token_publico
+                ? p.token_publico.slice(0, 12).toUpperCase()
+                : String(p.id),
+              color: p.cor || "Padrão",
+              birth: p.data_nascimento || "2024-01-01",
+              kennel: "Canil Oficial LivePet",
+              breeder: "Tutor Responsável",
+              owner: "Tutor Oficial",
+              city: "Goiânia, GO",
+              qr: `https://livepet.app/cartao?token=${p.token_publico || p.id}`,
+              img: p.foto_url || petDefaultDog,
+              health: {
+                hip: "Laudo Normal (A)",
+                elbows: "Grau 0 (Normal)",
+                eyes: "Livre de anomalias",
+                dna: "Perfil arquivado",
+                vaccines:
+                  (p.vaccines || []).length > 0 ? "Em dia" : "A atualizar",
+              },
+              titles: ["Registro LivePet Oficial"],
+              ratings: {
+                structure: 4.8,
+                movement: 4.9,
+                temperament: 5.0,
+                head: 4.7,
+                coat: 4.8,
+              },
+              pedigree: {
+                father: {
+                  name: "Pai Sob Consulta Genealógica",
+                  registry: "—",
+                  titles: [],
+                  father: { name: "Avô Paterno", registry: "—", titles: [] },
+                  mother: { name: "Avó Paterna", registry: "—", titles: [] },
+                },
+                mother: {
+                  name: "Mãe Sob Consulta Genealógica",
+                  registry: "—",
+                  titles: [],
+                  father: { name: "Avô Materno", registry: "—", titles: [] },
+                  mother: { name: "Avó Materna", registry: "—", titles: [] },
+                },
+              },
+              siblings: [],
+              offspring: [],
+            };
+          });
+          setDogs(mapped);
+          const initialMatch = urlPetId
+            ? mapped.find((d) => String(d.id) === String(urlPetId))
+            : null;
+          setSelected(initialMatch || mapped[0]);
+        } else {
+          setDogs([]);
+          setSelected(null);
+        }
+      } catch (err) {
+        console.error("Erro ao carregar pedigree:", err);
+      } finally {
+        if (isMounted) setLoading(false);
+      }
+    };
+
+    fetchDogs();
+    return () => {
+      isMounted = false;
+    };
+  }, [urlPetId]);
 
   const openDetail = (dog) => setDetailDog(dog);
   const closeDetail = () => setDetailDog(null);
@@ -72,7 +169,7 @@ const Pedigree = () => {
   };
 
   const filtered = useMemo(() => {
-    return DOGS.filter((d) => {
+    return dogs.filter((d) => {
       if (size !== "Todos" && d.size !== size) return false;
       if (group !== "Todos" && d.group !== group) return false;
       if (entity !== "Todos" && d.entity !== entity) return false;
@@ -87,7 +184,7 @@ const Pedigree = () => {
       }
       return true;
     });
-  }, [search, size, group, entity, championOnly]);
+  }, [dogs, search, size, group, entity, championOnly]);
 
   const certificateUrl = selected ? `https://livepet.app/pedigree/${selected.id}` : '';
 
@@ -263,7 +360,35 @@ const Pedigree = () => {
                     </div>
                   </div>
 
-                  {filtered.length === 0 ? (
+                  {loading ? (
+                    <div className="flex flex-col items-center justify-center gap-3 py-16">
+                      <Loader2 className="h-8 w-8 animate-spin text-primary" />
+                      <p className="text-sm text-muted-foreground">
+                        Carregando registros genealógicos do banco de dados...
+                      </p>
+                    </div>
+                  ) : dogs.length === 0 ? (
+                    <Card className="p-10 text-center text-muted-foreground">
+                      <p className="font-semibold text-foreground">
+                        Nenhum pet cadastrado ainda
+                      </p>
+                      <p className="mt-1 text-sm">
+                        Cadastre seu pet para emitir o certificado digital de
+                        pedigree oficial com QR Code.
+                      </p>
+                      <div className="mt-4 flex justify-center">
+                        <Button
+                          asChild
+                          size="sm"
+                          className="rounded-full gradient-primary text-primary-foreground"
+                        >
+                          <Link to="/pets/novo">
+                            <Plus className="mr-1.5 h-4 w-4" /> Cadastrar Pet
+                          </Link>
+                        </Button>
+                      </div>
+                    </Card>
+                  ) : filtered.length === 0 ? (
                     <Card className="p-10 text-center text-muted-foreground">
                       Nenhum cão encontrado com esses filtros.
                     </Card>

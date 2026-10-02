@@ -183,7 +183,12 @@ const PetCard = () => {
         const data = await petsService.list();
         if (Array.isArray(data) && data.length > 0) {
           setPets(data);
-          setSelectedPetId(data[0].id);
+          const requestedId =
+            searchParams.get("id") || searchParams.get("petId");
+          const target = requestedId
+            ? data.find((p) => String(p.id) === String(requestedId))
+            : null;
+          setSelectedPetId(target ? target.id : data[0].id);
         } else {
           setPets([]);
         }
@@ -195,7 +200,7 @@ const PetCard = () => {
     };
 
     loadPets();
-  }, []);
+  }, [searchParams]);
 
   // Pet atualmente selecionado pelo usuário
   const selectedPet = useMemo(() => {
@@ -913,6 +918,19 @@ const PetCard = () => {
                     </li>
                   ))}
                 </ul>
+                <div className="mt-3 border-t border-border/60 pt-2 text-center">
+                  <Button
+                    asChild
+                    variant="link"
+                    size="sm"
+                    className="h-auto p-0 text-xs text-primary"
+                  >
+                    <Link to={`/saude?petId=${selectedPet.id}`}>
+                      Ver carteira de vacinas completa →
+                    </Link>
+                  </Button>
+                </div>
+              </>
               ) : (
                 <div className="py-6 text-center text-xs text-muted-foreground">
                   <p>Nenhuma vacina registrada para {selectedPet.nome}.</p>
@@ -922,7 +940,9 @@ const PetCard = () => {
                     size="sm"
                     className="mt-1 text-primary"
                   >
-                    <Link to="/saude">Ir para a Carteira de Vacinas</Link>
+                    <Link to={`/saude?petId=${selectedPet.id}`}>
+                      Ir para a Carteira de Vacinas
+                    </Link>
                   </Button>
                 </div>
               )}
@@ -990,14 +1010,28 @@ const PetCard = () => {
                     }
                   />
                 </ul>
-                <Button
-                  onClick={() => setHealthOpen(true)}
-                  variant="outline"
-                  className="w-full rounded-full"
-                >
-                  <ClipboardList className="mr-1.5 h-4 w-4" />
-                  Ver detalhes da saúde
-                </Button>
+                <div className="grid grid-cols-2 gap-2">
+                  <Button
+                    onClick={() => setHealthOpen(true)}
+                    variant="outline"
+                    size="sm"
+                    className="rounded-full text-xs"
+                  >
+                    <ClipboardList className="mr-1 h-3.5 w-3.5" />
+                    Resumo
+                  </Button>
+                  <Button
+                    asChild
+                    variant="outline"
+                    size="sm"
+                    className="rounded-full text-xs"
+                  >
+                    <Link to={`/historico-medico?petId=${selectedPet.id}`}>
+                      <History className="mr-1 h-3.5 w-3.5" />
+                      Histórico
+                    </Link>
+                  </Button>
+                </div>
               </div>
             </InfoCard>
 

@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from "react";
+import { Link } from "react-router-dom";
 import {
   Heart,
   MapPin,
@@ -22,6 +23,9 @@ import {
   FileText,
   Bell,
   Check,
+  Plus,
+  Loader2,
+  ClipboardList,
 } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
@@ -33,6 +37,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
+import { petsService } from "@/services/api";
 // Fotos autênticas de pets — Unsplash
 const petThor =
   "https://images.unsplash.com/photo-1552053831-71594a27632d?auto=format&fit=crop&w=800&q=80";
@@ -148,8 +153,44 @@ const getNextIntervalDays = (vaccineName) => {
   return 365;
 };
 
+const formatAge = (birthDateStr) => {
+  if (!birthDateStr) return "Idade não informada";
+  try {
+    const birth = new Date(birthDateStr);
+    const now = new Date();
+    const diffMonths =
+      (now.getFullYear() - birth.getFullYear()) * 12 +
+      (now.getMonth() - birth.getMonth());
+    if (diffMonths < 1) return "Menos de 1 mês";
+    if (diffMonths < 12)
+      return `${diffMonths} ${diffMonths === 1 ? "mês" : "meses"}`;
+    const years = Math.floor(diffMonths / 12);
+    const remainingMonths = diffMonths % 12;
+    if (remainingMonths === 0)
+      return `${years} ${years === 1 ? "ano" : "anos"}`;
+    return `${years}a ${remainingMonths}m`;
+  } catch {
+    return "Idade não informada";
+  }
+};
+
+const getAgeGroup = (birthDateStr) => {
+  if (!birthDateStr) return "Adulto";
+  try {
+    const birth = new Date(birthDateStr);
+    const now = new Date();
+    const years = now.getFullYear() - birth.getFullYear();
+    if (years < 1) return "Filhote";
+    if (years >= 8) return "Sênior";
+    return "Adulto";
+  } catch {
+    return "Adulto";
+  }
+};
+
 const Pets = () => {
-  const [pets, setPets] = useState(PETS);
+  const [pets, setPets] = useState([]);
+  const [loading, setLoading] = useState(true);
   const [query, setQuery] = useState("");
   const [species, setSpecies] = useState("Todos");
   const [ageGroup, setAgeGroup] = useState("Todos");
@@ -161,6 +202,60 @@ const Pets = () => {
   const [vaxDialog, setVaxDialog] = useState(null);
   const [alertsOpen, setAlertsOpen] = useState(false);
 
+  useEffect(() => {
+    let isMounted = true;
+    const fetchPets = async () => {
+      try {
+        setLoading(true);
+        const data = await petsService.list();
+        if (!isMounted) return;
+        if (Array.isArray(data)) {
+          const mapped = data.map((p) => {
+            const isCat = p.especie?.toLowerCase() === "gato";
+            const defaultImg = isCat ? petMia : petThor;
+            return {
+              id: p.id,
+              name: p.nome,
+              species: p.especie || "Cachorro",
+              breed: p.raca || "SRD",
+              size: p.porte || "Médio",
+              gender: p.sexo || "Não informado",
+              age: formatAge(p.data_nascimento),
+              ageGroup: getAgeGroup(p.data_nascimento),
+              city: "Goiânia, GO",
+              description: `${p.especie} registrado e protegido na plataforma LivePet.`,
+              personality: ["Dócil", "Amigável", "Sociável"],
+              rating: 5.0,
+              reviews: 1,
+              medicalNote:
+                p.medical_records?.[0]?.descricao ||
+                "Acompanhamento preventivo em dia.",
+              image: p.foto_url || defaultImg,
+              img: p.foto_url || defaultImg,
+              pedigree: Boolean(p.lineage || p.raca),
+              vetCertified: true,
+              vaccines: (p.vaccines || []).map((v) => ({
+                name: v.nome,
+                lastDate: v.data_aplicacao,
+                dueDate: v.proxima_dose || v.data_aplicacao,
+              })),
+            };
+          });
+          setPets(mapped);
+        }
+      } catch (err) {
+        console.error("Erro ao carregar pets:", err);
+      } finally {
+        if (isMounted) setLoading(false);
+      }
+    };
+
+    fetchPets();
+    return () => {
+      isMounted = false;
+    };
+  }, []);
+
   // Always derive the dialog pet from current state so updates reflect live
   const dialogPet = useMemo(
     () =>
@@ -168,8 +263,14 @@ const Pets = () => {
     [vaxDialog, pets],
   );
 
-  const handleApplyVaccine = (petId, vaccineName) => {
+  const handleApplyVaccine = async (petId, vaccineName) => {
     const today = new Date().toISOString().slice(0, 10);
+    const interval = getNextIntervalDays(vaccineName);
+    const next = new Date();
+    next.setDate(next.getDate() + interval);
+    const dueDate = next.toISOString().slice(0, 10);
+
+    // Atualiza estado local imediatamente
     setPets((prev) =>
       prev.map((p) => {
         if (p.id !== petId) return p;
@@ -177,21 +278,32 @@ const Pets = () => {
           ...p,
           vaccines: p.vaccines.map((v) => {
             if (v.name !== vaccineName) return v;
-            const interval = getNextIntervalDays(v.name);
-            const next = new Date();
-            next.setDate(next.getDate() + interval);
             return {
               ...v,
               lastDate: today,
-              dueDate: next.toISOString().slice(0, 10),
+              dueDate,
             };
           }),
         };
       }),
     );
-    toast.success(`${vaccineName} marcada como aplicada`, {
-      description: `Próxima dose agendada automaticamente em ${getNextIntervalDays(vaccineName)} dias.`,
-    });
+
+    // Persiste no banco de dados via endpoint FastAPI
+    try {
+      await petsService.addVaccine(petId, {
+        nome: vaccineName,
+        data_aplicacao: today,
+        proxima_dose: dueDate,
+        veterinario: "Clínica Veterinária Parceira",
+      });
+      toast.success(`${vaccineName} registrada com sucesso no banco de dados`, {
+        description: `Próxima dose agendada para ${dueDate}.`,
+      });
+    } catch (err) {
+      toast.error(`Erro ao salvar vacina no servidor`, {
+        description: err instanceof Error ? err.message : "Tente novamente",
+      });
+    }
   };
 
   const filtered = useMemo(() => {
@@ -291,22 +403,32 @@ const Pets = () => {
       <main className="container relative z-10 py-12">
         {/* Hero */}
         <div className="mx-auto max-w-3xl text-center animate-pop-in">
-          <span className="inline-flex items-center gap-2 rounded-full border border-primary/20 bg-primary-soft px-4 py-2 text-xs font-semibold text-primary shadow-soft">
-            <Sparkles className="h-3.5 w-3.5 animate-pulse" />
-            {totalCount} pets esperando por um lar
-          </span>
+          <div className="flex flex-wrap items-center justify-center gap-2">
+            <span className="inline-flex items-center gap-2 rounded-full border border-primary/20 bg-primary-soft px-4 py-2 text-xs font-semibold text-primary shadow-soft">
+              <Sparkles className="h-3.5 w-3.5 animate-pulse" />
+              {totalCount} {totalCount === 1 ? "pet cadastrado" : "pets cadastrados"}
+            </span>
+            <Button
+              asChild
+              size="sm"
+              className="rounded-full gradient-primary text-primary-foreground shadow-soft"
+            >
+              <Link to="/pets/novo">
+                <Plus className="mr-1.5 h-3.5 w-3.5" /> Cadastrar Pet
+              </Link>
+            </Button>
+          </div>
           <h1 className="mt-5 font-display text-4xl font-bold leading-tight text-foreground text-balance sm:text-5xl">
-            Encontre seu novo{" "}
+            Meus Animais e{" "}
             <span className="relative inline-block italic">
               <span className="relative z-10 bg-gradient-to-r from-primary via-primary-glow to-accent-warm bg-clip-text text-transparent animate-gradient">
-                melhor amigo
+                Acompanhamento
               </span>
               <PawPrint className="absolute -right-7 -top-3 h-6 w-6 text-accent-warm animate-wiggle" />
             </span>
           </h1>
           <p className="mt-4 text-base text-muted-foreground">
-            Explore pets com avaliação veterinária, ficha completa e muito amor
-            para dar.
+            Acompanhe o cartão digital com QR Code, carteira de saúde, reforços e histórico veterinário de cada animal.
           </p>
         </div>
 
@@ -599,7 +721,39 @@ const Pets = () => {
           ))}
         </div>
 
-        {filtered.length === 0 && (
+        {loading && (
+          <div className="my-16 flex flex-col items-center justify-center gap-3">
+            <Loader2 className="h-8 w-8 animate-spin text-primary" />
+            <p className="text-sm text-muted-foreground">
+              Carregando seus pets do banco de dados...
+            </p>
+          </div>
+        )}
+
+        {!loading && pets.length === 0 && (
+          <div className="mx-auto mt-12 max-w-md rounded-3xl border border-dashed border-border bg-card/70 p-10 text-center backdrop-blur animate-pop-in">
+            <div className="mx-auto mb-4 flex h-16 w-16 items-center justify-center rounded-full bg-primary-soft">
+              <PawPrint className="h-8 w-8 text-primary animate-wiggle" />
+            </div>
+            <p className="font-display text-xl font-bold text-foreground">
+              Nenhum pet cadastrado ainda
+            </p>
+            <p className="mt-2 text-sm text-muted-foreground">
+              Cadastre seu animal para gerar o cartão de identificação, carteira de vacinas e alertas médicos.
+            </p>
+            <Button
+              asChild
+              size="sm"
+              className="mt-5 rounded-full gradient-primary text-primary-foreground shadow-soft"
+            >
+              <Link to="/pets/novo">
+                <Plus className="mr-1.5 h-4 w-4" /> Cadastrar Meu Primeiro Pet
+              </Link>
+            </Button>
+          </div>
+        )}
+
+        {!loading && pets.length > 0 && filtered.length === 0 && (
           <div className="mx-auto mt-12 max-w-md rounded-3xl border border-dashed border-border bg-card/70 p-10 text-center backdrop-blur animate-pop-in">
             <div className="mx-auto mb-4 flex h-16 w-16 items-center justify-center rounded-full bg-primary-soft">
               <PawPrint className="h-8 w-8 text-primary animate-wiggle" />
@@ -834,12 +988,31 @@ const PetCard = ({
           </p>
         </div>
 
-        {/* Vaccine action buttons */}
+        {/* Acoes correlacionadas do Pet */}
         <div className="mt-4 grid grid-cols-2 gap-2">
+          <Button
+            asChild
+            variant="outline"
+            size="sm"
+            className="rounded-xl border-primary/30 bg-primary/10 text-primary hover:bg-primary hover:text-primary-foreground text-xs"
+          >
+            <Link to={`/cartao?id=${pet.id}`}>Cartão Digital</Link>
+          </Button>
+          <Button
+            asChild
+            variant="outline"
+            size="sm"
+            className="rounded-xl border-accent-warm/30 bg-accent-warm/10 text-accent-warm hover:bg-accent-warm hover:text-accent-warm-foreground text-xs"
+          >
+            <Link to={`/saude?petId=${pet.id}`}>Carteira Saúde</Link>
+          </Button>
+        </div>
+
+        <div className="mt-2 grid grid-cols-2 gap-2">
           <button
             type="button"
             onClick={onOpenNext}
-            className="group/btn inline-flex items-center justify-center gap-1.5 rounded-xl border border-accent-warm/30 bg-accent-warm/10 px-2 py-2 text-[11px] font-bold text-accent-warm transition-all hover:-translate-y-0.5 hover:bg-accent-warm hover:text-accent-warm-foreground hover:shadow-warm"
+            className="group/btn inline-flex items-center justify-center gap-1.5 rounded-xl border border-border bg-card px-2 py-2 text-[11px] font-bold text-muted-foreground transition-all hover:border-accent-warm/50 hover:text-accent-warm"
           >
             <BellRing className="h-3.5 w-3.5 transition-transform group-hover/btn:rotate-12" />
             Próximas vacinas
@@ -847,7 +1020,7 @@ const PetCard = ({
           <button
             type="button"
             onClick={onOpenCard}
-            className="group/btn inline-flex items-center justify-center gap-1.5 rounded-xl border border-primary/30 bg-primary/10 px-2 py-2 text-[11px] font-bold text-primary transition-all hover:-translate-y-0.5 hover:bg-primary hover:text-primary-foreground hover:shadow-glow"
+            className="group/btn inline-flex items-center justify-center gap-1.5 rounded-xl border border-border bg-card px-2 py-2 text-[11px] font-bold text-muted-foreground transition-all hover:border-primary/50 hover:text-primary"
           >
             <Syringe className="h-3.5 w-3.5 transition-transform group-hover/btn:rotate-12" />
             Cartão virtual
@@ -855,11 +1028,14 @@ const PetCard = ({
         </div>
 
         <Button
+          asChild
           size="sm"
           className="shine mt-3 w-full rounded-full gradient-primary text-primary-foreground transition-all duration-300 hover:-translate-y-0.5 hover:shadow-glow"
         >
-          <PawPrint className="h-4 w-4" />
-          Quero conhecer
+          <Link to={`/historico-medico?petId=${pet.id}`}>
+            <ClipboardList className="mr-1.5 h-4 w-4" />
+            Ver Histórico Completo
+          </Link>
         </Button>
       </div>
     </article>

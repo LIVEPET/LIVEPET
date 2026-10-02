@@ -1,5 +1,5 @@
-import { useMemo, useState } from "react";
-import { Link } from "react-router-dom";
+import { useEffect, useMemo, useState } from "react";
+import { Link, useSearchParams } from "react-router-dom";
 import {
   ArrowLeft,
   Download,
@@ -13,28 +13,37 @@ import {
   ChevronRight,
   CalendarDays,
   CheckCircle2,
+  Plus,
+  Loader2,
+  PawPrint,
+  Clock,
 } from "lucide-react";
 import jsPDF from "jspdf";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import petThor from "@/assets/pet-thor.jpg";
-import petMia from "@/assets/pet-mia.jpg";
-import petBento from "@/assets/pet-bento.jpg";
-import petLuna from "@/assets/pet-luna.jpg";
-
-const PETS = [];
-
-// Build a week's worth of events relative to today
-const offsetDate = (dayOffset) => {
-  const d = new Date();
-  d.setHours(0, 0, 0, 0);
-  d.setDate(d.getDate() + dayOffset);
-  return d.toISOString().slice(0, 10);
-};
-
-const EVENTS = [];
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Textarea } from "@/components/ui/textarea";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import { getStoredUser, petsService } from "@/services/api";
+import petDefaultDog from "@/assets/pet-thor.jpg";
+import petDefaultCat from "@/assets/pet-mia.jpg";
 
 const typeMeta = {
   vacina: {
@@ -78,9 +87,182 @@ const getWeekStart = (d) => {
   return date;
 };
 
+const formatAge = (birthDateStr) => {
+  if (!birthDateStr) return "Idade não informada";
+  try {
+    const birth = new Date(birthDateStr);
+    const now = new Date();
+    const diffMonths =
+      (now.getFullYear() - birth.getFullYear()) * 12 +
+      (now.getMonth() - birth.getMonth());
+    if (diffMonths < 1) return "Menos de 1 mês";
+    if (diffMonths < 12)
+      return `${diffMonths} ${diffMonths === 1 ? "mês" : "meses"}`;
+    const years = Math.floor(diffMonths / 12);
+    const remainingMonths = diffMonths % 12;
+    if (remainingMonths === 0)
+      return `${years} ${years === 1 ? "ano" : "anos"}`;
+    return `${years}a ${remainingMonths}m`;
+  } catch {
+    return "Idade não informada";
+  }
+};
+
+const PET_COLORS = [
+  "from-blue-600 to-sky-700",
+  "from-emerald-600 to-teal-700",
+  "from-violet-600 to-purple-700",
+  "from-amber-600 to-orange-700",
+  "from-rose-600 to-pink-700",
+];
+
 const MedicalHistory = () => {
+  const [searchParams] = useSearchParams();
+  const urlPetId = searchParams.get("petId") || searchParams.get("id");
+
+  const [loading, setLoading] = useState(true);
+  const [pets, setPets] = useState([]);
+  const [events, setEvents] = useState([]);
   const [selectedPets, setSelectedPets] = useState([]);
   const [weekStart, setWeekStart] = useState(() => getWeekStart(new Date()));
+
+  // Dialog para adicionar registro médico
+  const [dialogOpen, setDialogOpen] = useState(false);
+  const [targetPetId, setTargetPetId] = useState("");
+  const [recordType, setRecordType] = useState("Consulta");
+  const [description, setDescription] = useState("");
+  const [weight, setWeight] = useState("");
+  const [saving, setSaving] = useState(false);
+
+  // Carrega pets reais do tutor e seus históricos
+  useEffect(() => {
+    let isMounted = true;
+    const loadData = async () => {
+      try {
+        setLoading(true);
+        const user = getStoredUser();
+        const data = await petsService.list();
+        if (!isMounted) return;
+
+        if (Array.isArray(data) && data.length > 0) {
+          const adaptedPets = data.map((p, index) => ({
+            id: p.id,
+            name: p.nome,
+            species: p.especie,
+            breed: p.raca || "SRD",
+            age: formatAge(p.data_nascimento),
+            tutor: user?.nome || "Tutor LivePet",
+            microchip: p.token_publico
+              ? `LP-${p.token_publico.slice(0, 8).toUpperCase()}`
+              : `LP-${p.id}`,
+            img:
+              p.foto_url ||
+              (p.especie?.toLowerCase() === "gato"
+                ? petDefaultCat
+                : petDefaultDog),
+            color: PET_COLORS[index % PET_COLORS.length],
+          }));
+
+          // Consolida eventos clínicos a partir de vacinas e prontuários médicos
+          const compiledEvents = [];
+
+          data.forEach((p) => {
+            // 1. Vacinas aplicadas
+            (p.vaccines || []).forEach((v) => {
+              if (v.data_aplicacao) {
+                compiledEvents.push({
+                  id: `v-app-${v.id}`,
+                  petId: p.id,
+                  date: v.data_aplicacao,
+                  time: "09:00",
+                  type: "vacina",
+                  title: `Vacina: ${v.nome}`,
+                  vet: v.veterinario || "Clínica Veterinária",
+                  notes: v.lote
+                    ? `Dose aplicada. Lote ${v.lote}`
+                    : "Dose aplicada com sucesso.",
+                  status: "Concluído",
+                });
+              }
+
+              // 2. Reforço agendado da vacina
+              if (v.proxima_dose) {
+                compiledEvents.push({
+                  id: `v-due-${v.id}`,
+                  petId: p.id,
+                  date: v.proxima_dose,
+                  time: "10:00",
+                  type: "vacina",
+                  title: `Reforço: ${v.nome}`,
+                  vet: v.veterinario || "Clínica Veterinária",
+                  notes: "Dose de reforço agendada pelo veterinário.",
+                  status: "Agendado",
+                });
+              }
+            });
+
+            // 3. Prontuários médicos
+            (p.medical_records || []).forEach((m) => {
+              const tipoStr = m.tipo?.toLowerCase() || "";
+              let tipoCategoria = "consulta";
+              if (tipoStr.includes("exame")) tipoCategoria = "exame";
+              else if (tipoStr.includes("medic")) tipoCategoria = "medicacao";
+              else if (tipoStr.includes("proced") || tipoStr.includes("cirurg"))
+                tipoCategoria = "procedimento";
+              else if (tipoStr.includes("vacina")) tipoCategoria = "vacina";
+
+              const dataStr = m.data_registro
+                ? m.data_registro.split("T")[0]
+                : new Date().toISOString().slice(0, 10);
+
+              compiledEvents.push({
+                id: `mr-${m.id}`,
+                petId: p.id,
+                date: dataStr,
+                time: "14:30",
+                type: tipoCategoria,
+                title: m.tipo || "Registro Médico",
+                vet: "Clínica Veterinária Parceira",
+                notes:
+                  m.descricao ||
+                  (m.peso_registrado
+                    ? `Peso registrado: ${m.peso_registrado} kg`
+                    : "Atendimento clínico realizado"),
+                status: "Concluído",
+              });
+            });
+          });
+
+          setPets(adaptedPets);
+          setEvents(compiledEvents);
+
+          // Seleciona o pet requisitado por query param ou todos por padrão
+          if (urlPetId) {
+            const match = adaptedPets.find(
+              (p) => String(p.id) === String(urlPetId),
+            );
+            setSelectedPets(match ? [match.id] : [adaptedPets[0].id]);
+            setTargetPetId(String(match ? match.id : adaptedPets[0].id));
+          } else {
+            setSelectedPets(adaptedPets.map((p) => p.id));
+            setTargetPetId(String(adaptedPets[0].id));
+          }
+        } else {
+          setPets([]);
+          setEvents([]);
+        }
+      } catch (err) {
+        console.error("Erro ao carregar histórico veterinário:", err);
+      } finally {
+        if (isMounted) setLoading(false);
+      }
+    };
+
+    loadData();
+    return () => {
+      isMounted = false;
+    };
+  }, [urlPetId]);
 
   const togglePet = (id) =>
     setSelectedPets((prev) =>
@@ -101,7 +283,7 @@ const MedicalHistory = () => {
     return d;
   }, [weekStart]);
 
-  const visiblePets = PETS.filter((p) => selectedPets.includes(p.id));
+  const visiblePets = pets.filter((p) => selectedPets.includes(p.id));
 
   const eventsByPetDay = useMemo(() => {
     const map = {};
@@ -109,13 +291,13 @@ const MedicalHistory = () => {
       map[p.id] = {};
       weekDays.forEach((d) => {
         const key = d.toISOString().slice(0, 10);
-        map[p.id][key] = EVENTS.filter(
-          (e) => e.petId === p.id && e.date === key,
-        ).sort((a, b) => a.time.localeCompare(b.time));
+        map[p.id][key] = events
+          .filter((e) => e.petId === p.id && e.date === key)
+          .sort((a, b) => a.time.localeCompare(b.time));
       });
     });
     return map;
-  }, [visiblePets, weekDays]);
+  }, [visiblePets, weekDays, events]);
 
   const todayKey = new Date().toISOString().slice(0, 10);
 
@@ -129,6 +311,61 @@ const MedicalHistory = () => {
     const fmt = (d) =>
       d.toLocaleDateString("pt-BR", { day: "2-digit", month: "short" });
     return `${fmt(weekStart)} — ${fmt(weekEnd)}`;
+  };
+
+  const handleAddRecord = async (e) => {
+    e.preventDefault();
+    if (!targetPetId || !description.trim()) {
+      toast.error("Preencha a descrição do atendimento.");
+      return;
+    }
+
+    try {
+      setSaving(true);
+      const petIdNum = Number(targetPetId);
+      const res = await petsService.addMedicalRecord(petIdNum, {
+        tipo: recordType,
+        descricao: description.trim(),
+        peso_registrado: weight ? Number(weight.replace(",", ".")) : null,
+      });
+
+      const today = new Date().toISOString().slice(0, 10);
+      let tipoCategoria = "consulta";
+      const t = recordType.toLowerCase();
+      if (t.includes("exame")) tipoCategoria = "exame";
+      else if (t.includes("medic")) tipoCategoria = "medicacao";
+      else if (t.includes("proced") || t.includes("cirurg"))
+        tipoCategoria = "procedimento";
+
+      const newEv = {
+        id: `mr-${res.id || Date.now()}`,
+        petId: petIdNum,
+        date: today,
+        time: new Date().toLocaleTimeString("pt-BR", {
+          hour: "2-digit",
+          minute: "2-digit",
+        }),
+        type: tipoCategoria,
+        title: recordType,
+        vet: "Clínica Veterinária Parceira",
+        notes: description.trim(),
+        status: "Concluído",
+      };
+
+      setEvents((prev) => [newEv, ...prev]);
+      toast.success("Registro clínico adicionado com sucesso!", {
+        description: `Vinculado ao pet no banco de dados Neon.`,
+      });
+
+      setDescription("");
+      setWeight("");
+      setDialogOpen(false);
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : "Erro ao salvar";
+      toast.error("Erro ao registrar no prontuário", { description: msg });
+    } finally {
+      setSaving(false);
+    }
   };
 
   const downloadCarteirinha = (pet) => {
@@ -145,7 +382,7 @@ const MedicalHistory = () => {
     doc.text("Carteirinha Médica Digital", margin, 18);
     doc.setFont("helvetica", "normal");
     doc.setFontSize(11);
-    doc.text("PetLove • Histórico veterinário completo", margin, 26);
+    doc.text("LivePet • Histórico veterinário completo", margin, 26);
     doc.setFontSize(9);
     doc.text(
       `Emitida em ${new Date().toLocaleDateString("pt-BR")}`,
@@ -170,7 +407,7 @@ const MedicalHistory = () => {
     y += 6;
     doc.text(`Tutor: ${pet.tutor}`, margin, y);
     y += 6;
-    doc.text(`Microchip: ${pet.microchip}`, margin, y);
+    doc.text(`Identificador/Token: ${pet.microchip}`, margin, y);
 
     // Divider
     y += 6;
@@ -184,50 +421,91 @@ const MedicalHistory = () => {
     doc.text("Histórico veterinário", margin, y);
     y += 8;
 
-    const petEvents = EVENTS.filter((e) => e.petId === pet.id).sort((a, b) =>
-      (a.date + a.time).localeCompare(b.date + b.time),
-    );
+    const petEvents = events
+      .filter((e) => e.petId === pet.id)
+      .sort((a, b) => (a.date + a.time).localeCompare(b.date + b.time));
 
     doc.setFontSize(10);
-    petEvents.forEach((e) => {
-      if (y > 270) {
-        doc.addPage();
-        y = 20;
-      }
-      const meta = typeMeta[e.type];
-      const dateStr = new Date(e.date + "T00:00:00").toLocaleDateString(
-        "pt-BR",
-      );
-      doc.setFont("helvetica", "bold");
-      doc.setTextColor(40, 40, 40);
-      doc.text(`${dateStr} • ${e.time}  —  ${meta.label}`, margin, y);
-      y += 5;
-      doc.setFont("helvetica", "normal");
-      doc.text(e.title, margin, y);
-      y += 5;
-      doc.setTextColor(110, 110, 110);
-      const notes = doc.splitTextToSize(
-        `${e.vet} — ${e.notes}`,
-        w - margin * 2,
-      );
-      doc.text(notes, margin, y);
-      y += notes.length * 4.5 + 4;
-      doc.setTextColor(40, 40, 40);
-    });
+    if (petEvents.length === 0) {
+      doc.setFont("helvetica", "italic");
+      doc.text("Nenhum atendimento ou vacina registrada até o momento.", margin, y);
+      y += 8;
+    } else {
+      petEvents.forEach((e) => {
+        if (y > 270) {
+          doc.addPage();
+          y = 20;
+        }
+        const meta = typeMeta[e.type] || typeMeta.consulta;
+        const dateStr = new Date(e.date + "T00:00:00").toLocaleDateString(
+          "pt-BR",
+        );
+        doc.setFont("helvetica", "bold");
+        doc.setTextColor(40, 40, 40);
+        doc.text(`${dateStr} • ${e.time}  —  ${meta.label}`, margin, y);
+        y += 5;
+        doc.setFont("helvetica", "normal");
+        doc.text(e.title, margin, y);
+        y += 5;
+        doc.setTextColor(110, 110, 110);
+        const notes = doc.splitTextToSize(
+          `${e.vet} — ${e.notes}`,
+          w - margin * 2,
+        );
+        doc.text(notes, margin, y);
+        y += notes.length * 4.5 + 4;
+        doc.setTextColor(40, 40, 40);
+      });
+    }
 
     // Footer
     doc.setFontSize(8);
     doc.setTextColor(140, 140, 140);
-    doc.text("Documento gerado eletronicamente — PetLove", margin, 290);
+    doc.text("Documento gerado eletronicamente — LivePet Oficial", margin, 290);
 
     doc.save(`carteirinha-${pet.name.toLowerCase()}.pdf`);
     toast.success(`Carteirinha de ${pet.name} baixada com sucesso!`);
   };
 
+  if (loading) {
+    return (
+      <div className="flex min-h-[60vh] flex-col items-center justify-center gap-3">
+        <Loader2 className="h-8 w-8 animate-spin text-primary" />
+        <p className="text-sm text-muted-foreground">
+          Carregando histórico médico dos pets...
+        </p>
+      </div>
+    );
+  }
+
+  if (pets.length === 0) {
+    return (
+      <div className="container max-w-2xl py-20 text-center">
+        <div className="mx-auto mb-4 flex h-16 w-16 items-center justify-center rounded-full bg-primary/10 text-primary">
+          <PawPrint className="h-8 w-8" />
+        </div>
+        <h2 className="text-2xl font-bold tracking-tight">
+          Nenhum pet cadastrado ainda
+        </h2>
+        <p className="mt-2 text-muted-foreground">
+          Cadastre seu primeiro pet para acompanhar consultas, vacinas e o
+          prontuário clínico em tempo real.
+        </p>
+        <div className="mt-6 flex justify-center gap-3">
+          <Button asChild className="rounded-full gradient-primary">
+            <Link to="/pets/novo">
+              <Plus className="mr-2 h-4 w-4" /> Cadastrar Pet
+            </Link>
+          </Button>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="min-h-screen bg-background">
       <main className="container py-10">
-        <div className="mb-6 flex items-center justify-between gap-4">
+        <div className="mb-6 flex flex-wrap items-center justify-between gap-4">
           <div>
             <Link
               to="/pets"
@@ -243,16 +521,56 @@ const MedicalHistory = () => {
               linha do tempo semanal.
             </p>
           </div>
+
+          <div className="flex items-center gap-2">
+            <Button
+              asChild
+              variant="outline"
+              size="sm"
+              className="rounded-full"
+            >
+              <Link to="/saude">
+                <Syringe className="mr-1.5 h-3.5 w-3.5" />
+                Carteira de Vacinas
+              </Link>
+            </Button>
+            <Button
+              onClick={() => setDialogOpen(true)}
+              size="sm"
+              className="rounded-full gradient-primary text-primary-foreground shadow-soft"
+            >
+              <Plus className="mr-1.5 h-3.5 w-3.5" />
+              Novo Atendimento
+            </Button>
+          </div>
         </div>
 
         {/* Pet selector */}
         <Card className="mb-6 p-5">
-          <div className="mb-3 flex items-center gap-2 text-sm font-medium text-muted-foreground">
-            <ClipboardList className="h-4 w-4" /> Selecione os pets que deseja
-            visualizar
+          <div className="mb-3 flex items-center justify-between gap-2 text-sm font-medium text-muted-foreground">
+            <span className="flex items-center gap-2">
+              <ClipboardList className="h-4 w-4" /> Selecione os pets que deseja
+              visualizar
+            </span>
+            <Button
+              variant="ghost"
+              size="sm"
+              className="text-xs h-7"
+              onClick={() =>
+                setSelectedPets(
+                  selectedPets.length === pets.length
+                    ? [pets[0]?.id]
+                    : pets.map((p) => p.id),
+                )
+              }
+            >
+              {selectedPets.length === pets.length
+                ? "Deselecionar todos"
+                : "Selecionar todos"}
+            </Button>
           </div>
           <div className="flex flex-wrap gap-3">
-            {PETS.map((pet) => {
+            {pets.map((pet) => {
               const active = selectedPets.includes(pet.id);
               return (
                 <button
@@ -338,8 +656,8 @@ const MedicalHistory = () => {
 
         {visiblePets.length === 0 ? (
           <Card className="p-10 text-center text-muted-foreground">
-            Selecione ao menos um pet para visualizar o histórico médico da
-            semana.
+            Selecione ao menos um pet acima para visualizar o histórico médico
+            da semana.
           </Card>
         ) : (
           <div className="space-y-6">
@@ -366,14 +684,24 @@ const MedicalHistory = () => {
                       </div>
                     </div>
                   </div>
-                  <Button
-                    variant="secondary"
-                    size="sm"
-                    onClick={() => downloadCarteirinha(pet)}
-                    className="gap-2 bg-white/95 text-foreground hover:bg-white"
-                  >
-                    <Download className="h-4 w-4" /> Carteirinha PDF
-                  </Button>
+                  <div className="flex items-center gap-2">
+                    <Button
+                      asChild
+                      variant="secondary"
+                      size="sm"
+                      className="bg-white/20 text-white hover:bg-white/30"
+                    >
+                      <Link to={`/cartao?id=${pet.id}`}>Ver Cartão</Link>
+                    </Button>
+                    <Button
+                      variant="secondary"
+                      size="sm"
+                      onClick={() => downloadCarteirinha(pet)}
+                      className="gap-2 bg-white/95 text-foreground hover:bg-white"
+                    >
+                      <Download className="h-4 w-4" /> Carteirinha PDF
+                    </Button>
+                  </div>
                 </div>
 
                 {/* Weekly timeline */}
@@ -399,37 +727,52 @@ const MedicalHistory = () => {
                             {day.getDate().toString().padStart(2, "0")}
                           </span>
                         </div>
-                        <div className="space-y-2">
-                          {dayEvents.length === 0 ? (
-                            <div className="rounded-md border border-dashed border-border/60 px-2 py-3 text-center text-[10px] text-muted-foreground/60">
+
+                        {dayEvents.length === 0 ? (
+                          <div className="flex h-[130px] items-center justify-center">
+                            <span className="text-[11px] text-muted-foreground/40">
                               —
-                            </div>
-                          ) : (
-                            dayEvents.map((e) => {
-                              const meta = typeMeta[e.type];
+                            </span>
+                          </div>
+                        ) : (
+                          <div className="space-y-2">
+                            {dayEvents.map((e) => {
+                              const meta = typeMeta[e.type] || typeMeta.consulta;
                               const Icon = meta.icon;
                               return (
                                 <div
                                   key={e.id}
-                                  className={`group rounded-lg border border-border/60 p-2 transition-all hover:shadow-soft ${meta.bg}`}
+                                  className="group rounded-lg border border-border bg-card p-2 text-xs shadow-sm transition-all hover:border-primary/40 hover:shadow-md"
                                 >
-                                  <div
-                                    className={`flex items-center gap-1 text-[10px] font-semibold ${meta.color}`}
-                                  >
-                                    <Icon className="h-3 w-3" />
-                                    {e.time}
+                                  <div className="flex items-center gap-1.5 font-medium">
+                                    <span
+                                      className={`inline-flex h-4 w-4 items-center justify-center rounded-full ${meta.bg}`}
+                                    >
+                                      <Icon
+                                        className={`h-2.5 w-2.5 ${meta.color}`}
+                                      />
+                                    </span>
+                                    <span className="truncate">{e.title}</span>
                                   </div>
-                                  <div className="mt-1 text-xs font-semibold leading-tight text-foreground">
-                                    {e.title}
+                                  <div className="mt-1 flex items-center justify-between text-[10px] text-muted-foreground">
+                                    <span>{e.time}</span>
+                                    <Badge
+                                      variant="outline"
+                                      className="px-1 py-0 text-[9px]"
+                                    >
+                                      {e.status}
+                                    </Badge>
                                   </div>
-                                  <div className="mt-1 text-[10px] text-muted-foreground line-clamp-2">
-                                    {e.vet}
-                                  </div>
+                                  {e.notes && (
+                                    <p className="mt-1 line-clamp-2 text-[10px] text-muted-foreground">
+                                      {e.notes}
+                                    </p>
+                                  )}
                                 </div>
                               );
-                            })
-                          )}
-                        </div>
+                            })}
+                          </div>
+                        )}
                       </div>
                     );
                   })}
@@ -438,29 +781,126 @@ const MedicalHistory = () => {
             ))}
           </div>
         )}
-
-        {/* Quick summary */}
-        {visiblePets.length > 0 && (
-          <Card className="mt-6 p-5">
-            <div className="flex flex-wrap items-center gap-4">
-              <Badge variant="secondary" className="gap-1">
-                <ClipboardList className="h-3 w-3" />
-                {visiblePets.reduce(
-                  (acc, p) =>
-                    acc +
-                    Object.values(eventsByPetDay[p.id] || {}).flat().length,
-                  0,
-                )}{" "}
-                eventos na semana
-              </Badge>
-              <span className="text-sm text-muted-foreground">
-                Baixe a carteirinha em PDF para levar ao veterinário ou
-                compartilhar com cuidadores.
-              </span>
-            </div>
-          </Card>
-        )}
       </main>
+
+      {/* DIALOG DE NOVO REGISTRO CLÍNICO VINCULADO AO BANCO */}
+      <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <Stethoscope className="h-5 w-5 text-primary" />
+              Novo Registro no Prontuário
+            </DialogTitle>
+            <DialogDescription>
+              Adicione uma consulta, exame ou procedimento veterinário ao
+              banco de dados do animal.
+            </DialogDescription>
+          </DialogHeader>
+
+          <form onSubmit={handleAddRecord} className="space-y-4 pt-2">
+            <div className="space-y-1.5">
+              <Label htmlFor="rec-pet">Pet *</Label>
+              <Select
+                value={targetPetId}
+                onValueChange={(val) => setTargetPetId(val)}
+              >
+                <SelectTrigger id="rec-pet">
+                  <SelectValue placeholder="Selecione o pet" />
+                </SelectTrigger>
+                <SelectContent>
+                  {pets.map((p) => (
+                    <SelectItem key={p.id} value={String(p.id)}>
+                      {p.name} ({p.species} · {p.breed})
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+
+            <div className="grid grid-cols-2 gap-3">
+              <div className="space-y-1.5">
+                <Label htmlFor="rec-tipo">Tipo de Atendimento *</Label>
+                <Select
+                  value={recordType}
+                  onValueChange={(val) => setRecordType(val)}
+                >
+                  <SelectTrigger id="rec-tipo">
+                    <SelectValue placeholder="Selecione o tipo" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="Consulta de Rotina">
+                      Consulta de Rotina
+                    </SelectItem>
+                    <SelectItem value="Exame de Sangue">
+                      Exame de Sangue
+                    </SelectItem>
+                    <SelectItem value="Medicação Prescrita">
+                      Medicação Prescrita
+                    </SelectItem>
+                    <SelectItem value="Procedimento Cirúrgico">
+                      Procedimento Cirúrgico
+                    </SelectItem>
+                    <SelectItem value="Limpeza de Tártaro">
+                      Limpeza de Tártaro
+                    </SelectItem>
+                    <SelectItem value="Alergia Identificada">
+                      Alergia Identificada
+                    </SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+
+              <div className="space-y-1.5">
+                <Label htmlFor="rec-peso">Peso Aferido (kg)</Label>
+                <Input
+                  id="rec-peso"
+                  placeholder="Ex: 12.5"
+                  value={weight}
+                  onChange={(e) => setWeight(e.target.value)}
+                />
+              </div>
+            </div>
+
+            <div className="space-y-1.5">
+              <Label htmlFor="rec-desc">Descrição / Laudo Clínico *</Label>
+              <Textarea
+                id="rec-desc"
+                rows={3}
+                placeholder="Detalhes da consulta, prescrições, cuidados ou orientações..."
+                value={description}
+                onChange={(e) => setDescription(e.target.value)}
+                required
+              />
+            </div>
+
+            <DialogFooter className="pt-2">
+              <Button
+                type="button"
+                variant="outline"
+                onClick={() => setDialogOpen(false)}
+                disabled={saving}
+              >
+                Cancelar
+              </Button>
+              <Button
+                type="submit"
+                className="gradient-primary text-primary-foreground"
+                disabled={saving}
+              >
+                {saving ? (
+                  <>
+                    <Loader2 className="mr-2 h-4 w-4 animate-spin" /> Salvando...
+                  </>
+                ) : (
+                  <>
+                    <CheckCircle2 className="mr-2 h-4 w-4" /> Salvar no Histórico
+                  </>
+                )}
+              </Button>
+            </DialogFooter>
+          </form>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 };
