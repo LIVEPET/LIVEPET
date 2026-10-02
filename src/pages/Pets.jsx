@@ -956,6 +956,7 @@ const PetCard = ({
             ))}
           </div>
         </div>
+      </div>
 
         {/* Bottom species + vaccine status badges */}
         <div className="absolute inset-x-0 bottom-0 flex items-end justify-between gap-2 p-3">
