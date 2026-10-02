@@ -26,6 +26,7 @@ import {
   Plus,
   Loader2,
   ClipboardList,
+  Camera,
 } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
@@ -38,6 +39,7 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { petsService } from "@/services/api";
+import { compressImage } from "@/lib/image";
 // Fotos autênticas de pets — Unsplash
 const petThor =
   "https://images.unsplash.com/photo-1552053831-71594a27632d?auto=format&fit=crop&w=800&q=80";
@@ -303,6 +305,30 @@ const Pets = () => {
       toast.error(`Erro ao salvar vacina no servidor`, {
         description: err instanceof Error ? err.message : "Tente novamente",
       });
+    }
+  };
+
+  const handleUpdatePhoto = async (petId, file) => {
+    if (!file) return;
+    const toastId = toast.loading("Comprimindo e salvando nova foto...");
+    try {
+      const compressed = await compressImage(file, 600, 600, 0.75);
+      if (!compressed) {
+        toast.dismiss(toastId);
+        return;
+      }
+      await petsService.update(petId, { foto_url: compressed });
+      setPets((prev) =>
+        prev.map((p) =>
+          p.id === petId ? { ...p, image: compressed, img: compressed } : p,
+        ),
+      );
+      toast.dismiss(toastId);
+      toast.success("Foto do pet atualizada com sucesso!");
+    } catch (err) {
+      console.error("Erro ao atualizar foto:", err);
+      toast.dismiss(toastId);
+      toast.error("Não foi possível atualizar a foto.");
     }
   };
 
@@ -717,6 +743,7 @@ const Pets = () => {
               onToggleFavorite={() => toggleFavorite(p.id)}
               onOpenNext={() => setVaxDialog({ petId: p.id, mode: "next" })}
               onOpenCard={() => setVaxDialog({ petId: p.id, mode: "card" })}
+              onUpdatePhoto={handleUpdatePhoto}
             />
           ))}
         </div>
@@ -806,9 +833,11 @@ const PetCard = ({
   onToggleFavorite,
   onOpenNext,
   onOpenCard,
+  onUpdatePhoto,
 }) => {
   const [hearts, setHearts] = useState([]);
   const lastBurst = useRef(0);
+  const fileInputRef = useRef(null);
 
   useEffect(() => {
     if (burstCount > lastBurst.current) {
@@ -871,25 +900,48 @@ const PetCard = ({
             )}
           </div>
 
-          {/* Favorite button with heart bursts */}
-          <div className="relative">
+          {/* Action buttons (Camera + Favorite) */}
+          <div className="flex items-center gap-1.5">
+            <input
+              type="file"
+              ref={fileInputRef}
+              accept="image/*"
+              className="hidden"
+              onChange={(e) => {
+                const file = e.target.files?.[0];
+                if (file) {
+                  onUpdatePhoto(pet.id, file);
+                  e.target.value = "";
+                }
+              }}
+            />
             <button
-              onClick={onToggleFavorite}
-              aria-label={
-                isFavorite
-                  ? `Desfavoritar ${pet.name}`
-                  : `Favoritar ${pet.name}`
-              }
-              className={`relative flex h-10 w-10 items-center justify-center rounded-full backdrop-blur transition-all duration-300 hover:scale-110 ${
-                isFavorite
-                  ? "bg-accent-warm text-accent-warm-foreground shadow-warm"
-                  : "bg-card/95 text-accent-warm hover:bg-accent-warm hover:text-accent-warm-foreground"
-              }`}
+              type="button"
+              onClick={() => fileInputRef.current?.click()}
+              title="Trocar foto do pet"
+              aria-label={`Trocar foto de ${pet.name}`}
+              className="flex h-10 w-10 items-center justify-center rounded-full bg-card/95 text-foreground shadow-soft backdrop-blur transition-all duration-300 hover:scale-110 hover:bg-primary hover:text-primary-foreground"
             >
-              <Heart
-                className={`h-4 w-4 transition-all ${isFavorite ? "fill-current scale-110" : ""}`}
-              />
+              <Camera className="h-4 w-4" />
             </button>
+            <div className="relative">
+              <button
+                onClick={onToggleFavorite}
+                aria-label={
+                  isFavorite
+                    ? `Desfavoritar ${pet.name}`
+                    : `Favoritar ${pet.name}`
+                }
+                className={`relative flex h-10 w-10 items-center justify-center rounded-full backdrop-blur transition-all duration-300 hover:scale-110 ${
+                  isFavorite
+                    ? "bg-accent-warm text-accent-warm-foreground shadow-warm"
+                    : "bg-card/95 text-accent-warm hover:bg-accent-warm hover:text-accent-warm-foreground"
+                }`}
+              >
+                <Heart
+                  className={`h-4 w-4 transition-all ${isFavorite ? "fill-current scale-110" : ""}`}
+                />
+              </button>
             {/* Flying hearts */}
             {hearts.map((h) => (
               <Heart

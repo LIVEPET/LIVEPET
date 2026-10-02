@@ -32,6 +32,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { authService, petsService } from "@/services/api";
+import { compressImage } from "@/lib/image";
 
 const petSchema = z.object({
   name: z.string().trim().min(1, "Informe o nome do pet").max(60),
@@ -130,7 +131,7 @@ const PetRegister = () => {
     return unsubscribe;
   }, [navigate]);
 
-  const handlePhoto = (file) => {
+  const handlePhoto = async (file) => {
     if (!file) {
       setPhotoFile(null);
       setPhotoPreview("");
@@ -140,12 +141,18 @@ const PetRegister = () => {
       toast.error("Selecione um arquivo de imagem.");
       return;
     }
-    if (file.size > 5 * 1024 * 1024) {
-      toast.error("A imagem deve ter no máximo 5MB.");
+    if (file.size > 10 * 1024 * 1024) {
+      toast.error("A imagem deve ter no máximo 10MB.");
       return;
     }
-    setPhotoFile(file);
-    setPhotoPreview(URL.createObjectURL(file));
+    try {
+      setPhotoFile(file);
+      const compressed = await compressImage(file, 600, 600, 0.75);
+      setPhotoPreview(compressed || URL.createObjectURL(file));
+    } catch (err) {
+      console.error("Erro ao comprimir foto:", err);
+      setPhotoPreview(URL.createObjectURL(file));
+    }
   };
 
   const reset = () => {
@@ -189,7 +196,11 @@ const PetRegister = () => {
 
     try {
       let foto_url = null;
-      if (photoPreview && photoPreview.startsWith("http") && photoPreview.length < 500) {
+      if (
+        photoPreview &&
+        (photoPreview.startsWith("data:image/") ||
+          photoPreview.startsWith("http"))
+      ) {
         foto_url = photoPreview;
       }
 

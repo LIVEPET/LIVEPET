@@ -39,10 +39,32 @@ import {
 import { Label } from "@/components/ui/label";
 import { petsService } from "@/services/api";
 import petDefaultDog from "@/assets/pet-thor.jpg";
+import petDefaultCat from "@/assets/pet-mia.jpg";
 
 const SIZES = ["Todos", "Pequeno", "Médio", "Grande"];
 const GROUPS = ["Todos", "Trabalho", "Pastor", "Toy", "Esportivo", "Companhia"];
 const ENTITIES = ["Todos", "CBKC", "FCI", "AKC"];
+
+const formatAge = (birthDateStr) => {
+  if (!birthDateStr) return "Idade não informada";
+  try {
+    const birth = new Date(birthDateStr);
+    const now = new Date();
+    const diffMonths =
+      (now.getFullYear() - birth.getFullYear()) * 12 +
+      (now.getMonth() - birth.getMonth());
+    if (diffMonths < 1) return "Menos de 1 mês";
+    if (diffMonths < 12)
+      return `${diffMonths} ${diffMonths === 1 ? "mês" : "meses"}`;
+    const years = Math.floor(diffMonths / 12);
+    const remainingMonths = diffMonths % 12;
+    if (remainingMonths === 0)
+      return `${years} ${years === 1 ? "ano" : "anos"}`;
+    return `${years}a ${remainingMonths}m`;
+  } catch {
+    return "Idade não informada";
+  }
+};
 
 const Pedigree = () => {
   const [searchParams] = useSearchParams();
@@ -70,6 +92,9 @@ const Pedigree = () => {
             const regNum = p.token_publico
               ? `CBKC-${p.token_publico.slice(0, 8).toUpperCase()}`
               : `CBKC-${p.id}`;
+            const isCat = p.especie?.toLowerCase() === "gato";
+            const defaultPhoto = isCat ? petDefaultCat : petDefaultDog;
+
             return {
               id: p.id,
               name: p.nome,
@@ -80,17 +105,26 @@ const Pedigree = () => {
               group: "Companhia",
               champion: false,
               sex: p.sexo || "Macho",
+              gender: p.sexo || "Macho",
+              age: formatAge(p.data_nascimento),
               microchip: p.token_publico
                 ? p.token_publico.slice(0, 12).toUpperCase()
                 : String(p.id),
               color: p.cor || "Padrão",
-              birth: p.data_nascimento || "2024-01-01",
+              birth: p.data_nascimento ? String(p.data_nascimento) : "2024-01-01",
               kennel: "Canil Oficial LivePet",
               breeder: "Tutor Responsável",
               owner: "Tutor Oficial",
               city: "Goiânia, GO",
               qr: `https://livepet.app/cartao?token=${p.token_publico || p.id}`,
-              img: p.foto_url || petDefaultDog,
+              img: p.foto_url || defaultPhoto,
+              rating: 5.0,
+              reviews: 1,
+              vetNote: "Laudo veterinário e vacinação preventiva em dia.",
+              parents: {
+                father: "Pai Sob Consulta Genealógica",
+                mother: "Mãe Sob Consulta Genealógica",
+              },
               health: {
                 hip: "Laudo Normal (A)",
                 elbows: "Grau 0 (Normal)",
@@ -436,7 +470,7 @@ const Pedigree = () => {
                                 </div>
                                 <span className="inline-flex items-center gap-1 rounded-full bg-black/45 px-2 py-1 text-[10px] font-bold text-primary-foreground backdrop-blur">
                                   <Star className="h-3 w-3 fill-warm text-warm" />
-                                  {dog.rating.toFixed(1)}
+                                  {(dog.rating ?? 5.0).toFixed(1)}
                                 </span>
                               </div>
 
@@ -471,7 +505,7 @@ const Pedigree = () => {
                                     Pai
                                   </p>
                                   <p className="truncate font-semibold text-foreground">
-                                    {dog.parents.father}
+                                    {dog.parents?.father || "Pai Sob Consulta"}
                                   </p>
                                 </div>
                                 <div className="rounded-lg border border-warm/20 bg-warm/10 px-2.5 py-1.5">
@@ -479,7 +513,7 @@ const Pedigree = () => {
                                     Mãe
                                   </p>
                                   <p className="truncate font-semibold text-foreground">
-                                    {dog.parents.mother}
+                                    {dog.parents?.mother || "Mãe Sob Consulta"}
                                   </p>
                                 </div>
                               </div>
@@ -575,9 +609,9 @@ const DogDetailModal = ({ dog, onClose, onViewCertificate, onViewTree }) => {
                   </div>
                   <span className="inline-flex items-center gap-1 rounded-full bg-black/45 px-2 py-1 text-[11px] font-bold text-primary-foreground backdrop-blur">
                     <Star className="h-3 w-3 fill-warm text-warm" />
-                    {dog.rating.toFixed(1)}
+                    {(dog.rating ?? 5.0).toFixed(1)}
                     <span className="font-normal opacity-80">
-                      ({dog.reviews})
+                      ({dog.reviews ?? 1})
                     </span>
                   </span>
                 </div>
@@ -599,9 +633,9 @@ const DogDetailModal = ({ dog, onClose, onViewCertificate, onViewTree }) => {
               <div className="flex max-h-[80vh] flex-col overflow-y-auto p-5 sm:p-6">
                 {/* meta chips */}
                 <div className="flex flex-wrap gap-1.5">
-                  <MetaChip>{dog.age}</MetaChip>
-                  <MetaChip>{dog.gender}</MetaChip>
-                  <MetaChip>Porte {dog.size}</MetaChip>
+                  <MetaChip>{dog.age || "2 anos"}</MetaChip>
+                  <MetaChip>{dog.gender || "Macho"}</MetaChip>
+                  <MetaChip>Porte {dog.size || "Médio"}</MetaChip>
                 </div>
 
                 {/* identity grid */}
@@ -633,7 +667,7 @@ const DogDetailModal = ({ dog, onClose, onViewCertificate, onViewTree }) => {
                       Pai
                     </p>
                     <p className="truncate text-sm font-semibold text-foreground">
-                      {dog.parents.father}
+                      {dog.parents?.father || "Pai Sob Consulta"}
                     </p>
                   </div>
                   <div className="rounded-xl border border-warm/20 bg-warm/10 px-3 py-2.5">
@@ -641,7 +675,7 @@ const DogDetailModal = ({ dog, onClose, onViewCertificate, onViewTree }) => {
                       Mãe
                     </p>
                     <p className="truncate text-sm font-semibold text-foreground">
-                      {dog.parents.mother}
+                      {dog.parents?.mother || "Mãe Sob Consulta"}
                     </p>
                   </div>
                 </div>
@@ -649,7 +683,9 @@ const DogDetailModal = ({ dog, onClose, onViewCertificate, onViewTree }) => {
                 {/* Vet note */}
                 <div className="mt-4 flex items-start gap-2 rounded-xl border border-border bg-muted/40 px-3 py-2.5 text-[12px] text-foreground">
                   <HeartPulse className="mt-0.5 h-4 w-4 shrink-0 text-primary" />
-                  <p className="leading-snug">{dog.vetNote}</p>
+                  <p className="leading-snug">
+                    {dog.vetNote || "Acompanhamento veterinário e vacinas em dia."}
+                  </p>
                 </div>
 
                 {/* CTAs */}
@@ -902,8 +938,8 @@ const DigitalCertificate = ({ dog, certificateUrl }) => {
               label="Registro"
               value={dog.registry}
             />
-            <InfoCell icon={Dna} label="Pai" value={dog.parents.father} />
-            <InfoCell icon={Dna} label="Mãe" value={dog.parents.mother} />
+            <InfoCell icon={Dna} label="Pai" value={dog.parents?.father || "Pai Sob Consulta"} />
+            <InfoCell icon={Dna} label="Mãe" value={dog.parents?.mother || "Mãe Sob Consulta"} />
           </div>
 
           {/* Vet note */}
@@ -987,7 +1023,7 @@ const FamilyTree = ({ dog }) => {
   };
   const father = {
     id: "f",
-    name: dog.parents.father,
+    name: dog.parents?.father || "Pai Sob Consulta Genealógica",
     role: "Pai",
     gen: 1,
     side: "paternal",
@@ -999,7 +1035,7 @@ const FamilyTree = ({ dog }) => {
   };
   const mother = {
     id: "m",
-    name: dog.parents.mother,
+    name: dog.parents?.mother || "Mãe Sob Consulta Genealógica",
     role: "Mãe",
     gen: 1,
     side: "maternal",

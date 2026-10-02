@@ -13,7 +13,7 @@ class PetBase(BaseModel):
     data_nascimento: Optional[date] = Field(None, description="Data de nascimento do animal")
     cor: Optional[str] = Field(None, max_length=80, description="Cor da pelagem/penas")
     peso: Optional[float] = Field(None, ge=0, description="Peso em kg")
-    foto_url: Optional[str] = Field(None, max_length=500, description="URL da foto do animal")
+    foto_url: Optional[str] = Field(None, description="URL ou data-url da foto do animal")
 
 
 class PetCreate(PetBase):
@@ -32,7 +32,7 @@ class PetUpdate(BaseModel):
     data_nascimento: Optional[date] = None
     cor: Optional[str] = Field(None, max_length=80)
     peso: Optional[float] = Field(None, ge=0)
-    foto_url: Optional[str] = Field(None, max_length=500)
+    foto_url: Optional[str] = Field(None, description="URL ou data-url da foto do animal")
 
 
 from app.schemas.medical_record import MedicalRecordResponse
