@@ -270,6 +270,50 @@ const PetCard = () => {
     return selectedPet?.medical_records || [];
   }, [selectedPet]);
 
+  // Informações veterinárias vinculadas ao pet / histórico clínico
+  const vetInfo = useMemo(() => {
+    const vetContact = customContacts.find(
+      (c) =>
+        c.funcao?.toLowerCase().includes("vet") ||
+        c.funcao?.toLowerCase().includes("clínica") ||
+        c.funcao?.toLowerCase().includes("clinica") ||
+        c.nome?.toLowerCase().includes("vet") ||
+        c.nome?.toLowerCase().includes("dr.") ||
+        c.nome?.toLowerCase().includes("dra.")
+    );
+    if (vetContact) {
+      return {
+        name: vetContact.nome,
+        phone: vetContact.telefone || "Apoio clínico",
+        crmv: vetContact.crmv || "Médico Veterinário",
+      };
+    }
+
+    const vetFromVac = (selectedPet?.vaccines || []).find((v) => v.veterinario)?.veterinario;
+    if (vetFromVac) {
+      return {
+        name: vetFromVac,
+        phone: "Registrado em Vacinação",
+        crmv: "CRMV Ativo",
+      };
+    }
+
+    const vetFromMed = (selectedPet?.medical_records || []).find((m) => m.veterinario)?.veterinario;
+    if (vetFromMed) {
+      return {
+        name: vetFromMed,
+        phone: "Registrado em Prontuário",
+        crmv: "CRMV Ativo",
+      };
+    }
+
+    return {
+      name: "Clínica Parceira LivePet",
+      phone: tutorData.phone,
+      crmv: "Rede de Atendimento",
+    };
+  }, [customContacts, selectedPet, tutorData.phone]);
+
   const resetContactForm = () => {
     setNewContactName("");
     setNewContactRole("");
