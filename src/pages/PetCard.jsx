@@ -26,6 +26,7 @@ import {
 } from "@/components/ui/select";
 import { toast } from "sonner";
 import { getStoredUser, petsService } from "@/services/api";
+import PetsCategoryHub from "@/components/PetsCategoryHub";
 
 import {
   Printer,
@@ -873,35 +874,8 @@ const PetCard = () => {
   return (
     <div className="min-h-screen bg-background">
       <main className="container py-10 md:py-14">
-        {/* Hub Navigation: Pets / Pedigree / Tarefas / Cartão */}
-        <div className="mx-auto mb-8 flex justify-center">
-          <div className="inline-flex flex-wrap items-center justify-center gap-1 rounded-full border border-border/80 bg-card/80 p-1.5 shadow-sm backdrop-blur">
-            <Link
-              to="/pets"
-              className="inline-flex items-center gap-1.5 rounded-full px-3.5 py-1.5 text-xs sm:text-sm font-medium text-muted-foreground hover:bg-muted hover:text-foreground transition-smooth"
-            >
-              <PawPrint className="h-4 w-4" /> Meus Pets
-            </Link>
-            <Link
-              to="/pedigree"
-              className="inline-flex items-center gap-1.5 rounded-full px-3.5 py-1.5 text-xs sm:text-sm font-medium text-muted-foreground hover:bg-muted hover:text-foreground transition-smooth"
-            >
-              <Award className="h-4 w-4" /> Pedigree & Linhagem
-            </Link>
-            <Link
-              to="/tasks"
-              className="inline-flex items-center gap-1.5 rounded-full px-3.5 py-1.5 text-xs sm:text-sm font-medium text-muted-foreground hover:bg-muted hover:text-foreground transition-smooth"
-            >
-              <ClipboardList className="h-4 w-4" /> Tarefas da Rotina
-            </Link>
-            <Link
-              to="/cartao"
-              className="inline-flex items-center gap-1.5 rounded-full px-3.5 py-1.5 text-xs sm:text-sm font-semibold gradient-primary text-primary-foreground shadow-sm"
-            >
-              <FileText className="h-4 w-4" /> Cartão Digital
-            </Link>
-          </div>
-        </div>
+        {/* Hub Navigation Padronizado: Pets / Pedigree / Tarefas / Cartão */}
+        <PetsCategoryHub />
 
         {/* Cabeçalho da Página */}
         <div className="mb-6 flex flex-col items-start justify-between gap-4 md:flex-row md:items-end">

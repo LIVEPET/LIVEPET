@@ -21,6 +21,7 @@ import {
   FileText,
   Award,
 } from "lucide-react";
+import PetsCategoryHub from "@/components/PetsCategoryHub";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Progress } from "@/components/ui/progress";
@@ -236,35 +237,8 @@ const Tasks = () => {
   return (
     <main className="min-h-screen bg-gradient-to-b from-background via-muted/30 to-background py-8 px-4 sm:px-6 lg:px-8">
       <div className="max-w-4xl mx-auto space-y-6">
-        {/* Hub Navigation: Pets / Pedigree / Tarefas / Cartão */}
-        <div className="flex justify-center">
-          <div className="inline-flex flex-wrap items-center justify-center gap-1 rounded-full border border-border/80 bg-card/80 p-1.5 shadow-sm backdrop-blur">
-            <Link
-              to="/pets"
-              className="inline-flex items-center gap-1.5 rounded-full px-3.5 py-1.5 text-xs sm:text-sm font-medium text-muted-foreground hover:bg-muted hover:text-foreground transition-smooth"
-            >
-              <PawPrint className="h-4 w-4" /> Meus Pets
-            </Link>
-            <Link
-              to="/pedigree"
-              className="inline-flex items-center gap-1.5 rounded-full px-3.5 py-1.5 text-xs sm:text-sm font-medium text-muted-foreground hover:bg-muted hover:text-foreground transition-smooth"
-            >
-              <Award className="h-4 w-4" /> Pedigree & Linhagem
-            </Link>
-            <Link
-              to="/tasks"
-              className="inline-flex items-center gap-1.5 rounded-full px-3.5 py-1.5 text-xs sm:text-sm font-semibold gradient-primary text-primary-foreground shadow-sm"
-            >
-              <ListChecks className="h-4 w-4" /> Tarefas da Rotina
-            </Link>
-            <Link
-              to="/cartao"
-              className="inline-flex items-center gap-1.5 rounded-full px-3.5 py-1.5 text-xs sm:text-sm font-medium text-muted-foreground hover:bg-muted hover:text-foreground transition-smooth"
-            >
-              <FileText className="h-4 w-4" /> Cartão Digital
-            </Link>
-          </div>
-        </div>
+        {/* Hub Navigation Padronizado: Pets / Pedigree / Tarefas / Cartão */}
+        <PetsCategoryHub className="!mb-0" />
 
         {/* Top Header Card */}
         <header className="rounded-2xl border border-border bg-card/80 backdrop-blur shadow-sm p-6 sm:p-8">

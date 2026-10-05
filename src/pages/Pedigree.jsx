@@ -38,6 +38,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card } from "@/components/ui/card";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
+import PetsCategoryHub from "@/components/PetsCategoryHub";
 import {
   Dialog,
   DialogContent,
@@ -306,40 +307,10 @@ const Pedigree = () => {
 
   return (
     <div className="min-h-screen bg-background">
-      {/* Sub-navegação da Categoria Pets */}
-      <div className="border-b border-border/40 bg-muted/30">
-        <div className="container flex flex-wrap items-center gap-2 py-2.5">
-          <span className="text-xs font-semibold uppercase tracking-wider text-muted-foreground mr-2">
-            Pets:
-          </span>
-          <Link
-            to="/pets"
-            className="inline-flex items-center gap-1.5 rounded-full px-3.5 py-1 text-xs font-medium text-muted-foreground hover:bg-muted hover:text-foreground transition-colors"
-          >
-            <PawPrint className="h-3.5 w-3.5" />
-            Meus Pets
-          </Link>
-          <Link
-            to="/pedigree"
-            className="inline-flex items-center gap-1.5 rounded-full bg-primary px-3.5 py-1 text-xs font-medium text-primary-foreground shadow-sm"
-          >
-            <Award className="h-3.5 w-3.5" />
-            Pedigree & Linhagem
-          </Link>
-          <Link
-            to="/tasks"
-            className="inline-flex items-center gap-1.5 rounded-full px-3.5 py-1 text-xs font-medium text-muted-foreground hover:bg-muted hover:text-foreground transition-colors"
-          >
-            <Clock className="h-3.5 w-3.5" />
-            Tarefas da Rotina
-          </Link>
-          <Link
-            to="/cartao"
-            className="inline-flex items-center gap-1.5 rounded-full px-3.5 py-1 text-xs font-medium text-muted-foreground hover:bg-muted hover:text-foreground transition-colors"
-          >
-            <FileText className="h-3.5 w-3.5" />
-            Cartão Digital
-          </Link>
+      {/* Hub Navigation Padronizado: Pets / Pedigree / Tarefas / Cartão */}
+      <div className="border-b border-border/40 bg-card/60 py-4 backdrop-blur">
+        <div className="container">
+          <PetsCategoryHub className="!mb-0" />
         </div>
       </div>
 

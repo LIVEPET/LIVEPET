@@ -29,6 +29,7 @@ import {
   Camera,
 } from "lucide-react";
 import { toast } from "sonner";
+import PetsCategoryHub from "@/components/PetsCategoryHub";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
@@ -430,38 +431,8 @@ const Pets = () => {
       />
 
       <main className="container relative z-10 py-12">
-        {/* Hub Navigation: Pets / Pedigree / Tarefas / Cartão */}
-        <div className="mx-auto mb-8 flex justify-center">
-          <div className="inline-flex flex-wrap items-center justify-center gap-1 rounded-full border border-border/80 bg-card/80 p-1.5 shadow-sm backdrop-blur">
-            <Link
-              to="/pets"
-              className="inline-flex items-center gap-1.5 rounded-full px-3.5 py-2 text-xs sm:text-sm font-semibold gradient-primary text-primary-foreground shadow-sm"
-            >
-              <PawPrint className="h-4 w-4" /> Meus Pets
-              <Badge variant="secondary" className="ml-1 h-5 rounded-full px-1.5 text-[10px]">
-                {totalCount}
-              </Badge>
-            </Link>
-            <Link
-              to="/pedigree"
-              className="inline-flex items-center gap-1.5 rounded-full px-3.5 py-2 text-xs sm:text-sm font-medium text-muted-foreground hover:bg-muted hover:text-foreground transition-smooth"
-            >
-              <Award className="h-4 w-4" /> Pedigree & Linhagem
-            </Link>
-            <Link
-              to="/tasks"
-              className="inline-flex items-center gap-1.5 rounded-full px-3.5 py-2 text-xs sm:text-sm font-medium text-muted-foreground hover:bg-muted hover:text-foreground transition-smooth"
-            >
-              <ClipboardList className="h-4 w-4" /> Tarefas da Rotina
-            </Link>
-            <Link
-              to="/cartao"
-              className="inline-flex items-center gap-1.5 rounded-full px-3.5 py-2 text-xs sm:text-sm font-medium text-muted-foreground hover:bg-muted hover:text-foreground transition-smooth"
-            >
-              <FileText className="h-4 w-4" /> Cartão Digital
-            </Link>
-          </div>
-        </div>
+        {/* Hub Navigation Padronizado: Pets / Pedigree / Tarefas / Cartão */}
+        <PetsCategoryHub petsCount={totalCount} />
 
         {/* Hero */}
         <div className="mx-auto max-w-3xl text-center animate-pop-in">
