@@ -238,7 +238,6 @@ const MatchPet = () => {
 
   const userDisplayName =
     currentUser?.nome || currentUser?.email?.split("@")[0] || "Tutor";
-  const userInitials = initials(userDisplayName);
 
   // -------- Estados de pets --------
   const [tab, setTab] = useState("descobrir");
@@ -866,56 +865,6 @@ const MatchPet = () => {
                 </Badge>
               )}
             </Button>
-
-            <Popover>
-              <PopoverTrigger asChild>
-                <button className="group flex items-center gap-2 rounded-full border bg-card px-1 py-1 pr-3 shadow-soft transition-smooth hover:shadow-glow">
-                  <Avatar className="h-8 w-8">
-                    {currentUser?.foto_url && (
-                      <AvatarImage
-                        src={currentUser.foto_url}
-                        alt={userDisplayName}
-                      />
-                    )}
-                    <AvatarFallback className="bg-gradient-to-br from-primary to-primary-glow text-xs text-primary-foreground">
-                      {userInitials}
-                    </AvatarFallback>
-                  </Avatar>
-                  <span className="hidden text-sm font-medium sm:inline">
-                    {userDisplayName}
-                  </span>
-                </button>
-              </PopoverTrigger>
-              <PopoverContent align="end" className="w-56 rounded-2xl p-2">
-                <button
-                  onClick={() => navigate("/perfil")}
-                  className="w-full rounded-xl p-2 text-left text-sm hover:bg-muted"
-                >
-                  Meu perfil
-                </button>
-                <button
-                  onClick={() => setTab("matches")}
-                  className="w-full rounded-xl p-2 text-left text-sm hover:bg-muted"
-                >
-                  Meus matches
-                </button>
-                <button
-                  onClick={() => navigate("/configuracoes")}
-                  className="w-full rounded-xl p-2 text-left text-sm hover:bg-muted"
-                >
-                  Configurações
-                </button>
-                <button
-                  onClick={async () => {
-                    await authService.logout();
-                    navigate("/login");
-                  }}
-                  className="w-full rounded-xl p-2 text-left text-sm text-destructive hover:bg-destructive/10"
-                >
-                  Sair
-                </button>
-              </PopoverContent>
-            </Popover>
           </div>
 
           {/* Stats Bar */}
