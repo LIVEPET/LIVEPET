@@ -31,6 +31,14 @@ import {
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { Badge } from "@/components/ui/badge";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import {
   Dialog,
   DialogContent,
@@ -41,30 +49,6 @@ import {
 import { petsService } from "@/services/api";
 import { compressImage } from "@/lib/image";
 import { BLANK_PET_IMAGE, getPetPhoto } from "@/lib/petPlaceholder";
-// Fotos autênticas de pets — Unsplash
-const petThor =
-  "https://images.unsplash.com/photo-1552053831-71594a27632d?auto=format&fit=crop&w=800&q=80";
-const petMia =
-  "https://images.unsplash.com/photo-1574158622682-e40e69881006?auto=format&fit=crop&w=800&q=80";
-const petBento =
-  "https://images.unsplash.com/photo-1551717743-49959800b1f6?auto=format&fit=crop&w=800&q=80";
-const petLuna =
-  "https://images.unsplash.com/photo-1605568427561-40dd23c2acea?auto=format&fit=crop&w=800&q=80";
-const petAmora =
-  "https://images.unsplash.com/photo-1592194996308-7b43878e84a6?auto=format&fit=crop&w=800&q=80";
-const petSimba =
-  "https://images.unsplash.com/photo-1543852786-1cf6624b9987?auto=format&fit=crop&w=800&q=80";
-const petZeca =
-  "https://images.unsplash.com/photo-1505628346881-b72b27e84530?auto=format&fit=crop&w=800&q=80";
-const petNina =
-  "https://images.unsplash.com/photo-1583337130417-3346a1be7dee?auto=format&fit=crop&w=800&q=80";
-
-// Helper to build dates relative to today for realistic demo data
-const daysFromNow = (n) => {
-  const d = new Date();
-  d.setDate(d.getDate() + n);
-  return d.toISOString().slice(0, 10);
-};
 
 const PETS = [];
 
@@ -196,14 +180,30 @@ const Pets = () => {
   const [loading, setLoading] = useState(true);
   const [query, setQuery] = useState("");
   const [species, setSpecies] = useState("Todos");
-  const [ageGroup, setAgeGroup] = useState("Todos");
+  const [breed, setBreed] = useState("Todas");
   const [size, setSize] = useState("Todos");
   const [pedigreeOnly, setPedigreeOnly] = useState(false);
-  const [vetOnly, setVetOnly] = useState(false);
   const [favorites, setFavorites] = useState(new Set());
   const [bursts, setBursts] = useState({});
   const [vaxDialog, setVaxDialog] = useState(null);
   const [alertsOpen, setAlertsOpen] = useState(false);
+
+  // Opções dinâmicas de filtro extraídas exclusivamente dos pets que o usuário realmente possui
+  const availableSpecies = useMemo(() => {
+    return Array.from(new Set(pets.map((p) => p.species).filter(Boolean))).sort();
+  }, [pets]);
+
+  const availableBreeds = useMemo(() => {
+    return Array.from(new Set(pets.map((p) => p.breed).filter(Boolean))).sort();
+  }, [pets]);
+
+  const availableSizes = useMemo(() => {
+    return Array.from(new Set(pets.map((p) => p.size).filter(Boolean))).sort();
+  }, [pets]);
+
+  const hasPedigreePets = useMemo(() => {
+    return pets.some((p) => p.pedigree);
+  }, [pets]);
 
   useEffect(() => {
     let isMounted = true;
@@ -343,23 +343,20 @@ const Pets = () => {
   const filtered = useMemo(() => {
     return pets.filter((p) => {
       if (species !== "Todos" && p.species !== species) return false;
-      if (ageGroup !== "Todos" && p.ageGroup !== ageGroup) return false;
+      if (breed !== "Todas" && p.breed !== breed) return false;
       if (size !== "Todos" && p.size !== size) return false;
       if (pedigreeOnly && !p.pedigree) return false;
-      if (vetOnly && !p.vetCertified) return false;
       if (query) {
         const q = query.toLowerCase();
-        if (
-          !p.name.toLowerCase().includes(q) &&
-          !p.city.toLowerCase().includes(q) &&
-          !p.description.toLowerCase().includes(q) &&
-          !p.personality.some((t) => t.toLowerCase().includes(q))
-        )
-          return false;
+        const matchName = p.name?.toLowerCase().includes(q);
+        const matchBreed = p.breed?.toLowerCase().includes(q);
+        const matchSpecies = p.species?.toLowerCase().includes(q);
+        const matchCity = p.city?.toLowerCase().includes(q);
+        if (!matchName && !matchBreed && !matchSpecies && !matchCity) return false;
       }
       return true;
     });
-  }, [pets, query, species, ageGroup, size, pedigreeOnly, vetOnly]);
+  }, [pets, query, species, breed, size, pedigreeOnly]);
 
   // Compute global alerts across all pets
   const allAlerts = useMemo(() => {
@@ -387,18 +384,16 @@ const Pets = () => {
   const totalCount = pets.length;
   const activeFilters = [
     species !== "Todos" && species,
-    ageGroup !== "Todos" && ageGroup,
+    breed !== "Todas" && breed,
     size !== "Todos" && size,
     pedigreeOnly && "Pedigree",
-    vetOnly && "Vet",
   ].filter(Boolean);
 
   const clearFilters = () => {
     setSpecies("Todos");
-    setAgeGroup("Todos");
+    setBreed("Todas");
     setSize("Todos");
     setPedigreeOnly(false);
-    setVetOnly(false);
     setQuery("");
   };
 
@@ -435,6 +430,33 @@ const Pets = () => {
       />
 
       <main className="container relative z-10 py-12">
+        {/* Hub Navigation: Pets / Tarefas / Cartão */}
+        <div className="mx-auto mb-8 flex justify-center">
+          <div className="inline-flex items-center gap-1 rounded-full border border-border/80 bg-card/80 p-1.5 shadow-sm backdrop-blur">
+            <Link
+              to="/pets"
+              className="inline-flex items-center gap-2 rounded-full px-4 py-2 text-xs sm:text-sm font-semibold gradient-primary text-primary-foreground shadow-sm"
+            >
+              <PawPrint className="h-4 w-4" /> Meus Pets
+              <Badge variant="secondary" className="ml-1 h-5 rounded-full px-1.5 text-[10px]">
+                {totalCount}
+              </Badge>
+            </Link>
+            <Link
+              to="/tasks"
+              className="inline-flex items-center gap-2 rounded-full px-4 py-2 text-xs sm:text-sm font-medium text-muted-foreground hover:bg-muted hover:text-foreground transition-smooth"
+            >
+              <ClipboardList className="h-4 w-4" /> Tarefas da Rotina
+            </Link>
+            <Link
+              to="/cartao"
+              className="inline-flex items-center gap-2 rounded-full px-4 py-2 text-xs sm:text-sm font-medium text-muted-foreground hover:bg-muted hover:text-foreground transition-smooth"
+            >
+              <FileText className="h-4 w-4" /> Cartão Digital
+            </Link>
+          </div>
+        </div>
+
         {/* Hero */}
         <div className="mx-auto max-w-3xl text-center animate-pop-in">
           <div className="flex flex-wrap items-center justify-center gap-2">
@@ -522,201 +544,110 @@ const Pets = () => {
           </button>
         )}
 
-        {/* Search */}
-        <div
-          className="mx-auto mt-8 max-w-2xl animate-pop-in"
-          style={{ animationDelay: "0.1s" }}
-        >
-          <div className="group relative">
-            <div className="absolute inset-0 rounded-full bg-gradient-to-r from-primary/20 via-accent-warm/20 to-accent-yellow/20 opacity-0 blur-xl transition-opacity duration-500 group-focus-within:opacity-100" />
-            <Search className="pointer-events-none absolute left-5 top-1/2 z-10 h-5 w-5 -translate-y-1/2 text-muted-foreground transition-colors group-focus-within:text-primary" />
-            <Input
-              value={query}
-              onChange={(e) => setQuery(e.target.value)}
-              placeholder="Busque por nome, cidade ou personalidade..."
-              className="relative h-14 rounded-full border-border bg-card/90 pl-14 pr-14 text-base shadow-soft backdrop-blur transition-smooth focus-visible:border-primary focus-visible:ring-primary/30"
-            />
-
-            {query && (
-              <button
-                onClick={() => setQuery("")}
-                aria-label="Limpar busca"
-                className="absolute right-4 top-1/2 z-10 flex h-8 w-8 -translate-y-1/2 items-center justify-center rounded-full text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
-              >
-                <X className="h-4 w-4" />
-              </button>
-            )}
-          </div>
-        </div>
-
-        {/* Filters */}
-        <div
-          className="relative mx-auto mt-10 max-w-5xl animate-pop-in"
-          style={{ animationDelay: "0.2s" }}
-        >
-          {/* Decorative glow */}
-          <div className="absolute -inset-1 rounded-[2rem] bg-gradient-to-r from-primary/30 via-accent-warm/20 to-accent-yellow/30 opacity-60 blur-2xl" />
-
-          <div className="relative rounded-[1.75rem] border border-border/60 bg-card/90 p-6 shadow-card backdrop-blur-xl sm:p-8">
-            {/* Header */}
-            <div className="mb-6 flex flex-wrap items-center justify-between gap-3">
-              <div className="flex items-center gap-3">
-                <span className="relative flex h-11 w-11 items-center justify-center rounded-2xl gradient-primary text-primary-foreground shadow-glow">
-                  <Filter className="h-5 w-5" />
-                  <span className="absolute inset-0 rounded-2xl animate-pulse-ring border-2 border-primary/40" />
-                </span>
-                <div>
-                  <p className="font-display text-lg font-bold text-foreground">
-                    Refine sua busca
-                  </p>
-                  <p className="text-xs text-muted-foreground">
-                    Escolha as características do seu novo amigo
-                  </p>
-                </div>
+        {/* Dynamic Compact Filters - Only rendered if user has pets */}
+        {pets.length > 0 && (
+          <div className="mx-auto mt-8 max-w-4xl rounded-2xl border border-border/70 bg-card/80 p-3 shadow-soft backdrop-blur animate-pop-in">
+            <div className="flex flex-wrap items-center gap-2.5">
+              {/* Search input */}
+              <div className="relative flex-1 min-w-[200px]">
+                <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+                <Input
+                  value={query}
+                  onChange={(e) => setQuery(e.target.value)}
+                  placeholder="Buscar por nome, raça..."
+                  className="h-10 rounded-xl pl-9 pr-8 text-sm bg-background/60"
+                />
+                {query && (
+                  <button
+                    onClick={() => setQuery("")}
+                    className="absolute right-2.5 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
+                    title="Limpar busca"
+                  >
+                    <X className="h-3.5 w-3.5" />
+                  </button>
+                )}
               </div>
 
-              {(activeFilters.length > 0 || query) && (
+              {/* Filtro Dinâmico de Espécie (apenas espécies reais existentes) */}
+              {availableSpecies.length > 1 && (
+                <Select value={species} onValueChange={setSpecies}>
+                  <SelectTrigger className="h-10 w-[140px] rounded-xl text-xs font-medium">
+                    <SelectValue placeholder="Espécie" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="Todos">Todas espécies</SelectItem>
+                    {availableSpecies.map((sp) => (
+                      <SelectItem key={sp} value={sp}>
+                        {sp}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              )}
+
+              {/* Filtro Dinâmico de Raça (apenas se houver mais de uma raça) */}
+              {availableBreeds.length > 1 && (
+                <Select value={breed} onValueChange={setBreed}>
+                  <SelectTrigger className="h-10 w-[140px] rounded-xl text-xs font-medium">
+                    <SelectValue placeholder="Raça" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="Todas">Todas raças</SelectItem>
+                    {availableBreeds.map((br) => (
+                      <SelectItem key={br} value={br}>
+                        {br}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              )}
+
+              {/* Filtro Dinâmico de Porte (se houver variação de portes) */}
+              {availableSizes.length > 1 && (
+                <Select value={size} onValueChange={setSize}>
+                  <SelectTrigger className="h-10 w-[120px] rounded-xl text-xs font-medium">
+                    <SelectValue placeholder="Porte" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="Todos">Todos portes</SelectItem>
+                    {availableSizes.map((sz) => (
+                      <SelectItem key={sz} value={sz}>
+                        {sz}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              )}
+
+              {/* Toggle Pedigree (apenas se houver animais com pedigree) */}
+              {hasPedigreePets && (
                 <button
-                  onClick={clearFilters}
-                  className="group inline-flex items-center gap-1.5 rounded-full border border-border bg-background px-4 py-2 text-xs font-semibold text-muted-foreground transition-all hover:border-destructive/40 hover:bg-destructive/5 hover:text-destructive"
+                  type="button"
+                  onClick={() => setPedigreeOnly((v) => !v)}
+                  className={`inline-flex h-10 items-center gap-1.5 rounded-xl border px-3 text-xs font-medium transition-smooth ${
+                    pedigreeOnly
+                      ? "border-primary bg-primary text-primary-foreground shadow-sm"
+                      : "border-border bg-background/60 text-muted-foreground hover:bg-muted hover:text-foreground"
+                  }`}
                 >
-                  <X className="h-3.5 w-3.5 transition-transform group-hover:rotate-90" />
-                  Limpar tudo
+                  <ShieldCheck className="h-3.5 w-3.5" /> Pedigree
                 </button>
               )}
-            </div>
 
-            {/* Active chips bar */}
-            {activeFilters.length > 0 && (
-              <div className="mb-6 flex flex-wrap items-center gap-2 rounded-2xl border border-dashed border-primary/30 bg-primary-soft/50 p-3">
-                <span className="text-[11px] font-bold uppercase tracking-wider text-primary">
-                  Ativos:
-                </span>
-                {activeFilters.map((f, i) => (
-                  <span
-                    key={f}
-                    style={{ animationDelay: `${i * 60}ms` }}
-                    className="animate-chip-pop inline-flex items-center gap-1 rounded-full bg-card px-3 py-1 text-xs font-semibold text-foreground shadow-soft"
-                  >
-                    <Sparkles className="h-3 w-3 text-accent-warm" />
-                    {f}
-                  </span>
-                ))}
-              </div>
-            )}
-
-            {/* Espécie - Tile grid */}
-            <FilterSection
-              icon={<PawPrint className="h-4 w-4" />}
-              title="Espécie"
-              subtitle="Que tipo de companheiro?"
-            >
-              <div className="grid grid-cols-3 gap-2.5">
-                <TileFilter
-                  active={species === "Todos"}
-                  onClick={() => setSpecies("Todos")}
-                  icon={<PawPrint className="h-5 w-5" />}
-                  label="Todos"
-                />
-                <TileFilter
-                  active={species === "Cachorro"}
-                  onClick={() => setSpecies("Cachorro")}
-                  icon={<Dog className="h-5 w-5" />}
-                  label="Cachorro"
-                />
-                <TileFilter
-                  active={species === "Gato"}
-                  onClick={() => setSpecies("Gato")}
-                  icon={<Cat className="h-5 w-5" />}
-                  label="Gato"
-                />
-              </div>
-            </FilterSection>
-
-            <div className="my-6 h-px bg-gradient-to-r from-transparent via-border to-transparent" />
-
-            {/* Idade + Porte side by side */}
-            <div className="grid gap-6 md:grid-cols-2">
-              <FilterSection
-                icon={<Sparkles className="h-4 w-4" />}
-                title="Idade"
-                subtitle="Fase de vida"
-              >
-                <div className="grid grid-cols-4 gap-2">
-                  {["Todos", "Filhote", "Adulto", "Idoso"].map((a) => (
-                    <PillFilter
-                      key={a}
-                      active={ageGroup === a}
-                      onClick={() => setAgeGroup(a)}
-                    >
-                      {a}
-                    </PillFilter>
-                  ))}
-                </div>
-              </FilterSection>
-
-              <FilterSection
-                icon={<Award className="h-4 w-4" />}
-                title="Porte"
-                subtitle="Tamanho ideal"
-              >
-                <div className="grid grid-cols-4 gap-2">
-                  {["Todos", "Pequeno", "Médio", "Grande"].map((s) => (
-                    <PillFilter
-                      key={s}
-                      active={size === s}
-                      onClick={() => setSize(s)}
-                    >
-                      {s}
-                    </PillFilter>
-                  ))}
-                </div>
-              </FilterSection>
-            </div>
-
-            <div className="my-6 h-px bg-gradient-to-r from-transparent via-border to-transparent" />
-
-            {/* Certificações - Toggle cards */}
-            <FilterSection
-              icon={<ShieldCheck className="h-4 w-4" />}
-              title="Certificações"
-              subtitle="Selo de confiança"
-            >
-              <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-                <ToggleCard
-                  active={pedigreeOnly}
-                  onClick={() => setPedigreeOnly((v) => !v)}
-                  icon={<ShieldCheck className="h-5 w-5" />}
-                  title="Pedigree"
-                  desc="Linhagem certificada"
-                />
-
-                <ToggleCard
-                  active={vetOnly}
-                  onClick={() => setVetOnly((v) => !v)}
-                  icon={<Stethoscope className="h-5 w-5" />}
-                  title="Avaliação Vet"
-                  desc="Aprovado por veterinário"
-                />
-              </div>
-            </FilterSection>
-
-            {/* Live count */}
-            <div className="mt-7 flex items-center justify-center gap-2 rounded-2xl border border-border/50 bg-secondary/40 px-4 py-3">
-              <PawPrint className="h-4 w-4 text-primary animate-wiggle-slow" />
-              <p className="text-sm text-muted-foreground">
-                <span
-                  key={filtered.length}
-                  className="animate-count-up inline-block min-w-[1.5rem] text-center font-display text-lg font-bold text-primary"
+              {/* Limpar filtros ativos */}
+              {(activeFilters.length > 0 || query) && (
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={clearFilters}
+                  className="h-10 gap-1 rounded-xl px-2.5 text-xs text-muted-foreground hover:text-destructive"
                 >
-                  {filtered.length}
-                </span>{" "}
-                pet{filtered.length === 1 ? "" : "s"} correspondem aos seus
-                filtros
-              </p>
+                  <X className="h-3.5 w-3.5" /> Limpar
+                </Button>
+              )}
             </div>
           </div>
-        </div>
+        )}
 
         {/* Results header */}
         <div className="mt-8 flex flex-wrap items-center justify-between gap-3">

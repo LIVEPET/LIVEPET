@@ -17,6 +17,7 @@ import {
   Loader2,
   PawPrint,
   Clock,
+  History,
 } from "lucide-react";
 import jsPDF from "jspdf";
 import { toast } from "sonner";
@@ -499,6 +500,29 @@ const MedicalHistory = () => {
 
   return (
     <div className="min-h-screen bg-background">
+      {/* Sub-navegação da Categoria Saúde */}
+      <div className="border-b border-border/40 bg-muted/30">
+        <div className="container flex items-center gap-2 py-2.5">
+          <span className="text-xs font-semibold uppercase tracking-wider text-muted-foreground mr-2">
+            Saúde:
+          </span>
+          <Link
+            to="/saude"
+            className="inline-flex items-center gap-1.5 rounded-full px-3.5 py-1 text-xs font-medium text-muted-foreground hover:bg-muted hover:text-foreground transition-colors"
+          >
+            <Syringe className="h-3.5 w-3.5" />
+            Saúde & Vacinas
+          </Link>
+          <Link
+            to="/historico-medico"
+            className="inline-flex items-center gap-1.5 rounded-full bg-primary px-3.5 py-1 text-xs font-medium text-primary-foreground shadow-sm"
+          >
+            <History className="h-3.5 w-3.5" />
+            Histórico Médico
+          </Link>
+        </div>
+      </div>
+
       <main className="container py-10">
         <div className="mb-6 flex flex-wrap items-center justify-between gap-4">
           <div>

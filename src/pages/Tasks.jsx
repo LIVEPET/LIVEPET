@@ -83,62 +83,7 @@ const CATEGORIES = {
   },
 };
 
-const DEFAULT_TASKS = [
-  {
-    id: "def-1",
-    label: "Ração matinal e reposição de água fresca",
-    petName: "Todos os Pets",
-    category: "alimentacao",
-    time: "07:30",
-    done: true,
-    notes: "Higienizar os bebedouros antes de colocar água fresca.",
-  },
-  {
-    id: "def-2",
-    label: "Passeio matinal no parque (30 min)",
-    petName: "Thor",
-    category: "passeio",
-    time: "08:15",
-    done: true,
-    notes: "Levar saquinhos higiênicos e garrafinha de água.",
-  },
-  {
-    id: "def-3",
-    label: "Administrar suplemento vitamínico",
-    petName: "Mia",
-    category: "saude",
-    time: "12:00",
-    done: false,
-    notes: "Misturar 1 gota no sachê úmido.",
-  },
-  {
-    id: "def-4",
-    label: "Escovação da pelagem e checagem de ectoparasitas",
-    petName: "Thor",
-    category: "higiene",
-    time: "17:30",
-    done: false,
-    notes: "Usar a rasqueadeira macia.",
-  },
-  {
-    id: "def-5",
-    label: "Ração do jantar e sachê",
-    petName: "Todos os Pets",
-    category: "alimentacao",
-    time: "19:30",
-    done: false,
-    notes: "Porções pesadas conforme orientação do veterinário.",
-  },
-  {
-    id: "def-6",
-    label: "Passeio noturno higiênico",
-    petName: "Thor",
-    category: "passeio",
-    time: "21:00",
-    done: false,
-    notes: "Volta curta pelo quarteirão para necessidades.",
-  },
-];
+const DEFAULT_TASKS = [];
 
 const STORAGE_KEY = "livepet_routine_tasks_v2";
 
@@ -146,11 +91,21 @@ const Tasks = () => {
   const [tasks, setTasks] = useState(() => {
     try {
       const saved = localStorage.getItem(STORAGE_KEY);
-      if (saved) return JSON.parse(saved);
+      if (saved) {
+        const parsed = JSON.parse(saved);
+        if (Array.isArray(parsed)) {
+          // Filtra tarefas legadas que faziam referência aos pets mockados Thor ou Mia
+          return parsed.filter(
+            (t) =>
+              !["def-1", "def-2", "def-3", "def-4", "def-5", "def-6"].includes(t.id) &&
+              !["Thor", "Mia"].includes(t.petName)
+          );
+        }
+      }
     } catch {
       // fallback
     }
-    return DEFAULT_TASKS;
+    return [];
   });
 
   const [pets, setPets] = useState([]);
@@ -264,11 +219,6 @@ const Tasks = () => {
     });
   };
 
-  const resetToDefault = () => {
-    setTasks(DEFAULT_TASKS);
-    toast.info("Rotina padrão restaurada!");
-  };
-
   const clearCompleted = () => {
     setTasks((prev) => prev.filter((t) => !t.done));
     toast.info("Tarefas concluídas foram limpas.");
@@ -284,6 +234,30 @@ const Tasks = () => {
   return (
     <main className="min-h-screen bg-gradient-to-b from-background via-muted/30 to-background py-8 px-4 sm:px-6 lg:px-8">
       <div className="max-w-4xl mx-auto space-y-6">
+        {/* Hub Navigation: Pets / Tarefas / Cartão */}
+        <div className="flex justify-center">
+          <div className="inline-flex items-center gap-1 rounded-full border border-border/80 bg-card/80 p-1.5 shadow-sm backdrop-blur">
+            <Link
+              to="/pets"
+              className="inline-flex items-center gap-2 rounded-full px-4 py-2 text-xs sm:text-sm font-medium text-muted-foreground hover:bg-muted hover:text-foreground transition-smooth"
+            >
+              <PawPrint className="h-4 w-4" /> Meus Pets
+            </Link>
+            <Link
+              to="/tasks"
+              className="inline-flex items-center gap-2 rounded-full px-4 py-2 text-xs sm:text-sm font-semibold gradient-primary text-primary-foreground shadow-sm"
+            >
+              <ListChecks className="h-4 w-4" /> Tarefas da Rotina
+            </Link>
+            <Link
+              to="/cartao"
+              className="inline-flex items-center gap-2 rounded-full px-4 py-2 text-xs sm:text-sm font-medium text-muted-foreground hover:bg-muted hover:text-foreground transition-smooth"
+            >
+              <FileText className="h-4 w-4" /> Cartão Digital
+            </Link>
+          </div>
+        </div>
+
         {/* Top Header Card */}
         <header className="rounded-2xl border border-border bg-card/80 backdrop-blur shadow-sm p-6 sm:p-8">
           <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
@@ -446,15 +420,6 @@ const Tasks = () => {
                 Limpar Concluídas
               </Button>
             )}
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={resetToDefault}
-              title="Restaurar lista padrão"
-              className="text-xs h-8 gap-1.5"
-            >
-              <RotateCcw className="h-3 w-3" /> Padrão
-            </Button>
           </div>
         </section>
 

@@ -254,6 +254,29 @@ const PetHealth = ({ pets: initialPets, petInicial }) => {
 
   return (
     <div className="min-h-screen bg-background">
+      {/* Sub-navegação da Categoria Saúde */}
+      <div className="border-b border-border/40 bg-muted/30">
+        <div className="container flex items-center gap-2 py-2.5">
+          <span className="text-xs font-semibold uppercase tracking-wider text-muted-foreground mr-2">
+            Saúde:
+          </span>
+          <Link
+            to="/saude"
+            className="inline-flex items-center gap-1.5 rounded-full bg-primary px-3.5 py-1 text-xs font-medium text-primary-foreground shadow-sm"
+          >
+            <Syringe className="h-3.5 w-3.5" />
+            Saúde & Vacinas
+          </Link>
+          <Link
+            to="/historico-medico"
+            className="inline-flex items-center gap-1.5 rounded-full px-3.5 py-1 text-xs font-medium text-muted-foreground hover:bg-muted hover:text-foreground transition-colors"
+          >
+            <History className="h-3.5 w-3.5" />
+            Histórico Médico
+          </Link>
+        </div>
+      </div>
+
       {/* Hero */}
       <section className="relative overflow-hidden border-b border-border/60 bg-foreground py-14 text-primary-foreground">
         <div className="blob -left-20 top-0 h-[360px] w-[360px] bg-primary/40 animate-blob" />

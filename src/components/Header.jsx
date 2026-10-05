@@ -20,12 +20,9 @@ const publicNavItems = [
 const memberNavItems = [
   { label: "Início", to: "/" },
   { label: "Pets", to: "/pets" },
+  { label: "Saúde", to: "/saude" },
   { label: "Pedigree", to: "/pedigree" },
   { label: "MatchPet", to: "/matchpet" },
-  { label: "Tarefas", to: "/tasks" },
-  { label: "Histórico", to: "/historico-medico" },
-  { label: "Saúde", to: "/saude" },
-  { label: "Cartão", to: "/cartao" },
   { label: "Parcerias", to: "/parcerias" },
 ];
 
@@ -54,6 +51,8 @@ const Header = () => {
 
   const isActive = (to) => {
     if (to === "/") return pathname === "/";
+    if (to === "/pets") return pathname === "/pets" || pathname === "/tasks" || pathname === "/cartao";
+    if (to === "/saude") return pathname === "/saude" || pathname === "/historico-medico";
     return pathname.startsWith(to);
   };
 
