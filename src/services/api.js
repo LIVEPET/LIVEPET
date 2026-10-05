@@ -413,8 +413,82 @@ export const lineageService = {
   },
 };
 
+/**
+ * Serviço de Marketplace de Filhotes e Ninhadas integrado ao FastAPI / PostgreSQL Neon
+ */
+export const marketplaceService = {
+  /**
+   * Lista anúncios reais do catálogo público no banco de dados
+   */
+  async list(filters = {}) {
+    const params = new URLSearchParams();
+    if (filters.q) params.set("q", filters.q);
+    if (filters.especie && filters.especie !== "Todas") params.set("especie", filters.especie);
+    if (filters.tipo && filters.tipo !== "todos") params.set("tipo", filters.tipo);
+    if (filters.pedigree) params.set("pedigree", "true");
+
+    const queryStr = params.toString() ? `?${params.toString()}` : "";
+    return apiFetch(`/api/v1/marketplace/listings${queryStr}`);
+  },
+
+  /**
+   * Lista anúncios criados pelo usuário autenticado
+   */
+  async myListings() {
+    return apiFetch("/api/v1/marketplace/my-listings");
+  },
+
+  /**
+   * Cria um novo anúncio de filhote ou ninhada no banco de dados
+   */
+  async create(listingData) {
+    return apiFetch("/api/v1/marketplace/listings", {
+      method: "POST",
+      body: listingData,
+    });
+  },
+
+  /**
+   * Exclui um anúncio do banco de dados
+   */
+  async delete(listingId) {
+    return apiFetch(`/api/v1/marketplace/listings/${listingId}`, {
+      method: "DELETE",
+    });
+  },
+
+  /**
+   * Responde à confirmação pré-definida de 30 dias: 'renovar' ou 'encerrar'
+   */
+  async confirm(listingId, acao) {
+    return apiFetch(`/api/v1/marketplace/listings/${listingId}/confirm`, {
+      method: "POST",
+      body: { acao },
+    });
+  },
+
+  /**
+   * Ambiente de Teste: Simula passagem de 30 dias para disparar confirmação via chat
+   */
+  async simulate30Days(listingId) {
+    return apiFetch(`/api/v1/marketplace/listings/${listingId}/simulate-30-days`, {
+      method: "POST",
+    });
+  },
+
+  /**
+   * Ambiente de Teste: Simula passagem de 24h sem resposta para exclusão automática
+   */
+  async simulateExpire24h(listingId) {
+    return apiFetch(`/api/v1/marketplace/listings/${listingId}/simulate-expire-24h`, {
+      method: "POST",
+    });
+  },
+};
+
 export default {
   auth: authService,
   pets: petsService,
   lineages: lineageService,
+  marketplace: marketplaceService,
 };

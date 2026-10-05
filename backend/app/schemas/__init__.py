@@ -23,6 +23,14 @@ from app.schemas.medical_record import (
     MedicalRecordResponse,
 )
 
+from app.schemas.marketplace_listing import (
+    MarketplaceListingBase,
+    MarketplaceListingCreate,
+    MarketplaceListingUpdate,
+    MarketplaceListingResponse,
+    MarketplaceConfirmAction,
+)
+
 __all__ = [
     "UserBase",
     "UserCreate",
@@ -40,4 +48,9 @@ __all__ = [
     "MedicalRecordCreate",
     "MedicalRecordUpdate",
     "MedicalRecordResponse",
+    "MarketplaceListingBase",
+    "MarketplaceListingCreate",
+    "MarketplaceListingUpdate",
+    "MarketplaceListingResponse",
+    "MarketplaceConfirmAction",
 ]

@@ -32,5 +32,13 @@ class User(Base):
         lazy="selectin",
     )
 
+    # Relacionamento 1:N com Anúncios no Marketplace
+    marketplace_listings = relationship(
+        "MarketplaceListing",
+        back_populates="tutor",
+        cascade="all, delete-orphan",
+        lazy="selectin",
+    )
+
     def __repr__(self) -> str:
         return f"<User id={self.id} email='{self.email}'>"

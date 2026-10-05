@@ -20,6 +20,9 @@ import {
   CheckCircle2,
   Trash2,
   ExternalLink,
+  Clock,
+  AlertTriangle,
+  RotateCw,
 } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
@@ -44,11 +47,9 @@ import {
   DialogDescription,
   DialogFooter,
 } from "@/components/ui/dialog";
-import { petsService, authService } from "@/services/api";
+import { petsService, authService, marketplaceService } from "@/services/api";
 import { BLANK_PET_IMAGE, getPetPhoto } from "@/lib/petPlaceholder";
 import { startOrOpenConversation, getStoredConversations } from "./Chat";
-
-const STORAGE_KEY_LISTINGS = "livepet_puppy_listings_v2";
 
 const formatBRL = (n) => {
   const num = Number(n);
@@ -60,31 +61,15 @@ const formatBRL = (n) => {
   });
 };
 
-const getStoredListings = () => {
-  try {
-    return JSON.parse(localStorage.getItem(STORAGE_KEY_LISTINGS) || "[]");
-  } catch {
-    return [];
-  }
-};
-
-const saveStoredListings = (list) => {
-  try {
-    localStorage.setItem(STORAGE_KEY_LISTINGS, JSON.stringify(list));
-  } catch (e) {
-    console.error(e);
-  }
-};
-
 const PuppiesMarketplace = () => {
   const navigate = useNavigate();
   const fileInputRef = useRef(null);
 
   const [currentUser, setCurrentUser] = useState(null);
   const [myPets, setMyPets] = useState([]);
-  const [communityPets, setCommunityPets] = useState([]);
-  const [storedListings, setStoredListings] = useState(() => getStoredListings());
+  const [listings, setListings] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [publishing, setPublishing] = useState(false);
 
   // Filtros
   const [query, setQuery] = useState("");
@@ -120,121 +105,81 @@ const PuppiesMarketplace = () => {
     setCurrentUser(user);
     if (user?.telefone) setFormPhone(user.telefone);
 
-    // Carrega conversas salvas
     const convs = getStoredConversations();
     setChatCount(convs.length);
   }, []);
 
-  // Carrega pets reais do banco de dados (Meus Pets e Explore Pets da comunidade)
+  // Carrega pets cadastrados do tutor (para permitir importar dados no formulário)
   useEffect(() => {
     let isMounted = true;
-    const loadData = async () => {
+    const loadUserPets = async () => {
       try {
-        setLoading(true);
-
-        // 1. Carrega pets do tutor logado
-        let userPets = [];
-        try {
-          userPets = await petsService.list();
-          if (isMounted && Array.isArray(userPets)) {
-            setMyPets(userPets);
-          }
-        } catch (err) {
-          console.warn("Aviso ao carregar pets do tutor:", err);
+        const userPets = await petsService.list();
+        if (isMounted && Array.isArray(userPets)) {
+          setMyPets(userPets);
         }
-
-        // 2. Carrega pets da comunidade
-        let explore = [];
-        try {
-          explore = await petsService.listExplore();
-          if (isMounted && Array.isArray(explore)) {
-            setCommunityPets(explore);
-          }
-        } catch (err) {
-          console.warn("Aviso ao carregar pets da comunidade:", err);
-        }
-      } finally {
-        if (isMounted) setLoading(false);
+      } catch (err) {
+        console.warn("Aviso ao carregar pets do tutor:", err);
       }
     };
 
-    loadData();
+    loadUserPets();
     return () => {
       isMounted = false;
     };
   }, []);
 
-  // Converte pets reais da comunidade para anúncios do marketplace quando aplicável
-  const dbCommunityListings = useMemo(() => {
-    if (!communityPets || communityPets.length === 0) return [];
-    return communityPets.map((p) => {
-      const photo = getPetPhoto(p.foto_url);
-      const isPuppy = (p.idade && Number(p.idade) <= 2) || !p.idade;
-      return {
-        id: `db-listing-${p.id}`,
-        dbPetId: p.id,
-        title: isPuppy
-          ? `Filhote ${p.nome} — ${p.raca || p.especie}`
-          : `${p.nome} — ${p.raca || p.especie}`,
-        breed: p.raca || "SRD",
-        species: p.especie || "Cachorro",
-        sex: p.sexo || "Macho",
-        ageMonths: p.idade ? Number(p.idade) * 12 : 3,
-        availableCount: 1,
-        city: p.tutor_cidade || p.cidade || "Brasil",
-        price: 0, // Adoção responsável / Comunidade
-        adTipo: "adocao",
-        pedigree: Boolean(p.lineage),
-        pedigreeReg: p.lineage?.registro || null,
-        seller: {
-          id: p.tutor_id || p.user_id,
-          name: p.tutor_nome || "Tutor LivePet",
-          phone: p.tutor_telefone || "",
-          verified: true,
-        },
-        description:
-          p.medical_records?.[0]?.descricao ||
-          `Lindo pet cadastrado na comunidade LivePet. Acompanhamento preventivo e vacinas registradas.`,
-        img: photo,
-        postedDaysAgo: 1,
-        isCommunityDb: true,
-      };
-    });
-  }, [communityPets]);
-
-  // Lista combinada de anúncios: cadastrados no marketplace + animais reais da comunidade
-  const allPuppies = useMemo(() => {
-    // Anúncios personalizados salvos em localStorage vêm primeiro
-    return [...storedListings, ...dbCommunityListings];
-  }, [storedListings, dbCommunityListings]);
-
-  // Filtragem e busca
-  const filteredPuppies = useMemo(() => {
-    let list = allPuppies.filter((p) => {
-      if (selectedSpecies !== "Todas" && p.species !== selectedSpecies) return false;
-      if (pedigreeOnly && !p.pedigree) return false;
-      if (adTipoFilter === "venda" && p.price === 0) return false;
-      if (adTipoFilter === "adocao" && p.price > 0) return false;
-      if (query.trim()) {
-        const q = query.toLowerCase();
-        if (
-          !p.title.toLowerCase().includes(q) &&
-          !p.breed.toLowerCase().includes(q) &&
-          !p.city.toLowerCase().includes(q) &&
-          !p.seller.name.toLowerCase().includes(q)
-        ) {
-          return false;
-        }
+  // Carrega anúncios reais do banco de dados (FastAPI / PostgreSQL)
+  const loadMarketplaceListings = async () => {
+    try {
+      setLoading(true);
+      const data = await marketplaceService.list({
+        q: query,
+        especie: selectedSpecies,
+        tipo: adTipoFilter,
+        pedigree: pedigreeOnly,
+      });
+      if (Array.isArray(data)) {
+        setListings(data);
+      } else {
+        setListings([]);
       }
-      return true;
-    });
+    } catch (err) {
+      console.error("Erro ao carregar anúncios do marketplace:", err);
+      toast.error("Não foi possível carregar os anúncios do banco de dados.");
+      setListings([]);
+    } finally {
+      setLoading(false);
+    }
+  };
 
-    if (sortBy === "price-asc") list = [...list].sort((a, b) => a.price - b.price);
-    if (sortBy === "price-desc") list = [...list].sort((a, b) => b.price - a.price);
-    if (sortBy === "recent") list = [...list].sort((a, b) => a.postedDaysAgo - b.postedDaysAgo);
+  useEffect(() => {
+    loadMarketplaceListings();
+  }, [selectedSpecies, pedigreeOnly, adTipoFilter]);
+
+  // Lista ordenada
+  const filteredAndSortedListings = useMemo(() => {
+    let list = [...listings];
+
+    if (query.trim()) {
+      const q = query.toLowerCase();
+      list = list.filter(
+        (p) =>
+          p.titulo.toLowerCase().includes(q) ||
+          (p.raca && p.raca.toLowerCase().includes(q)) ||
+          (p.cidade && p.cidade.toLowerCase().includes(q)) ||
+          (p.tutor_nome && p.tutor_nome.toLowerCase().includes(q))
+      );
+    }
+
+    if (sortBy === "price-asc") list.sort((a, b) => (a.preco || 0) - (b.preco || 0));
+    if (sortBy === "price-desc") list.sort((a, b) => (b.preco || 0) - (a.preco || 0));
+    if (sortBy === "recent") {
+      list.sort((a, b) => new Date(b.criado_em).getTime() - new Date(a.criado_em).getTime());
+    }
 
     return list;
-  }, [allPuppies, selectedSpecies, pedigreeOnly, adTipoFilter, query, sortBy]);
+  }, [listings, query, sortBy]);
 
   // Ao selecionar um pet que o tutor já possui cadastrado, auto-preenche todos os dados!
   const handleSelectMyPet = (petId) => {
@@ -301,62 +246,67 @@ const PuppiesMarketplace = () => {
     reader.readAsDataURL(file);
   };
 
-  // Publicar Anúncio
-  const handlePublishAnnounce = (e) => {
+  // Publicar Anúncio REAL no Banco de Dados
+  const handlePublishAnnounce = async (e) => {
     e.preventDefault();
+    if (!currentUser) {
+      toast.error("Faça login para anunciar um filhote.");
+      navigate("/login?redirect=/filhotes");
+      return;
+    }
+
     if (!formTitle.trim() || !formBreed.trim() || !formCity.trim()) {
       toast.error("Preencha o título, a raça e a cidade do anúncio.");
       return;
     }
 
     const priceNum = formAdTipo === "adocao" ? 0 : Number(formPrice) || 0;
-    const photoToUse =
-      formImg ||
-      getPetPhoto(null);
+    const photoToUse = formImg || null;
 
-    const newAd = {
-      id: `pup-${Date.now()}`,
-      title: formTitle.trim(),
-      breed: formBreed.trim(),
-      species: formSpecies,
-      sex: formSex,
-      ageMonths: Number(formAge) || 2,
-      availableCount: Number(formCount) || 1,
-      city: formCity.trim(),
-      price: priceNum,
-      adTipo: formAdTipo,
-      pedigree: formPedigree,
-      pedigreeReg: formPedigree ? (formPedigreeReg.trim() || "Oficial Registrado") : null,
-      seller: {
-        id: currentUser?.id || "tutor-anunciante",
-        name: currentUser?.nome || "Tutor LivePet",
-        phone: formPhone.trim() || currentUser?.telefone || "",
-        verified: true,
-      },
-      description:
-        formDesc.trim() ||
-        "Filhote criado com carinho, alimentação de qualidade e acompanhamento veterinário em dia.",
-      img: photoToUse,
-      postedDaysAgo: 0,
-      tutorOwnerId: currentUser?.id,
-    };
+    try {
+      setPublishing(true);
+      const payload = {
+        titulo: formTitle.trim(),
+        raca: formBreed.trim(),
+        especie: formSpecies,
+        sexo: formSex,
+        idade_meses: Number(formAge) || 2,
+        quantidade: Number(formCount) || 1,
+        cidade: formCity.trim(),
+        tipo: formAdTipo,
+        preco: priceNum,
+        pedigree: formPedigree,
+        pedigree_registro: formPedigree ? formPedigreeReg.trim() || null : null,
+        telefone_contato: formPhone.trim() || currentUser?.telefone || null,
+        descricao:
+          formDesc.trim() ||
+          "Filhote criado com carinho, alimentação de qualidade e acompanhamento veterinário em dia.",
+        foto_url: photoToUse,
+        pet_id: selectedMyPetId !== "manual" ? Number(selectedMyPetId) : null,
+      };
 
-    const updated = [newAd, ...storedListings];
-    setStoredListings(updated);
-    saveStoredListings(updated);
-    setAnnounceOpen(false);
-    toast.success("Anúncio publicado com sucesso no marketplace!");
+      const newListing = await marketplaceService.create(payload);
+      toast.success("Anúncio salvo com sucesso no banco de dados!");
+      setAnnounceOpen(false);
 
-    // Reset Form
-    setSelectedMyPetId("manual");
-    setFormTitle("");
-    setFormBreed("");
-    setFormCity("");
-    setFormPrice("");
-    setFormDesc("");
-    setFormImg("");
-    setFormPedigree(false);
-    setFormPedigreeReg("");
+      // Recarrega listagem oficial do banco
+      await loadMarketplaceListings();
+
+      // Reset Form
+      setSelectedMyPetId("manual");
+      setFormTitle("");
+      setFormBreed("");
+      setFormCity("");
+      setFormPrice("");
+      setFormDesc("");
+      setFormImg("");
+      setFormPedigree(false);
+      setFormPedigreeReg("");
+    } catch (err) {
+      toast.error(err.message || "Erro ao salvar anúncio no banco de dados.");
+    } finally {
+      setPublishing(false);
+    }
   };
 
   // Iniciar Chat Direto com o Dono do Pet
@@ -368,21 +318,21 @@ const PuppiesMarketplace = () => {
     }
 
     // Se o usuário é o próprio anunciante
-    if (puppy.tutorOwnerId && puppy.tutorOwnerId === currentUser.id) {
+    if (puppy.user_id === currentUser.id || puppy.is_owner) {
       toast.info("Este é o seu próprio anúncio.");
       return;
     }
 
     const conversationId = `chat-puppy-${puppy.id}`;
-    const initialGreeting = `Olá ${puppy.seller.name}! Vi seu anúncio de "${puppy.title}" no LivePet e gostaria de mais informações.`;
+    const initialGreeting = `Olá ${puppy.tutor_nome}! Vi seu anúncio de "${puppy.titulo}" no LivePet e gostaria de mais informações.`;
 
     startOrOpenConversation({
       id: conversationId,
-      title: puppy.title,
-      petName: puppy.title.replace(/^Filhote\s*/i, ""),
-      petPhoto: puppy.img,
-      sellerName: puppy.seller.name,
-      sellerPhone: puppy.seller.phone,
+      title: puppy.titulo,
+      petName: puppy.titulo.replace(/^Filhote\s*/i, ""),
+      petPhoto: puppy.foto_url,
+      sellerName: puppy.tutor_nome,
+      sellerPhone: puppy.tutor_telefone,
       source: "filhotes",
       initialMessage: initialGreeting,
     });
@@ -390,13 +340,42 @@ const PuppiesMarketplace = () => {
     navigate(`/chat?id=${conversationId}`);
   };
 
-  // Excluir anúncio próprio
-  const handleDeleteMyListing = (listingId) => {
-    const updated = storedListings.filter((l) => l.id !== listingId);
-    setStoredListings(updated);
-    saveStoredListings(updated);
-    if (previewPuppy?.id === listingId) setPreviewPuppy(null);
-    toast.success("Anúncio removido com sucesso!");
+  // Excluir anúncio próprio do banco de dados
+  const handleDeleteListing = async (listingId) => {
+    if (!confirm("Tem certeza de que deseja excluir este anúncio do catálogo?")) return;
+
+    try {
+      await marketplaceService.delete(listingId);
+      toast.success("Anúncio excluído com sucesso do banco de dados!");
+      if (previewPuppy?.id === listingId) setPreviewPuppy(null);
+      await loadMarketplaceListings();
+    } catch (err) {
+      toast.error(err.message || "Erro ao excluir anúncio.");
+    }
+  };
+
+  // Simular passagem de 30 dias para teste do ciclo de vida
+  const handleSimulate30Days = async (listingId) => {
+    try {
+      await marketplaceService.simulate30Days(listingId);
+      toast.success("Simulação de 30 dias ativada! Uma confirmação foi enviada para o seu Chat.");
+      await loadMarketplaceListings();
+      navigate("/chat");
+    } catch (err) {
+      toast.error(err.message || "Erro ao simular 30 dias.");
+    }
+  };
+
+  // Simular expiração de 24h sem resposta para teste da exclusão automática
+  const handleSimulateExpire24h = async (listingId) => {
+    try {
+      await marketplaceService.simulateExpire24h(listingId);
+      toast.info("Simulação de 24h executada! O anúncio sem resposta foi excluído automaticamente do banco.");
+      if (previewPuppy?.id === listingId) setPreviewPuppy(null);
+      await loadMarketplaceListings();
+    } catch (err) {
+      toast.error(err.message || "Erro ao simular expiração.");
+    }
   };
 
   return (
@@ -409,7 +388,7 @@ const PuppiesMarketplace = () => {
           <div className="flex flex-wrap items-center justify-between gap-4">
             <span className="inline-flex items-center gap-2 rounded-full bg-warm/15 px-4 py-1.5 text-xs font-bold uppercase tracking-[0.18em] text-warm ring-1 ring-warm/40">
               <ShoppingBag className="h-3.5 w-3.5" />
-              Marketplace Oficial LivePet
+              Catálogo Oficial de Filhotes LivePet
             </span>
 
             <div className="flex items-center gap-2">
@@ -440,430 +419,738 @@ const PuppiesMarketplace = () => {
           </div>
 
           <h1 className="mt-4 max-w-3xl font-display text-3xl font-bold leading-[1.08] sm:text-4xl md:text-5xl">
-            Filhotes, ninhadas e criadores{" "}
-            <span className="italic text-warm">verificados</span>.
+            Filhotes e ninhadas anunciados na{" "}
+            <span className="italic text-warm">comunidade</span>.
           </h1>
           <p className="mt-3 max-w-2xl text-base text-primary-foreground/75">
-            Conecte-se com criadores responsáveis e tutores da comunidade LivePet.
-            Transparência com pedigree certificado, carteira vacinal e chat direto com o anunciante.
+            Apenas anúncios reais cadastrados no banco de dados. Transparência com pedigree certificado,
+            chat direto com o tutor e ciclo de verificação automática a cada 30 dias.
           </p>
         </div>
       </section>
 
-      {/* Main Container */}
-      <main className="container py-8 space-y-6">
-        {/* Filters Toolbar */}
-        <Card className="rounded-2xl border bg-card p-3 shadow-sm">
-          <div className="flex flex-wrap items-center justify-between gap-3">
-            <div className="relative flex-1 min-w-[220px]">
-              <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-              <Input
-                value={query}
-                onChange={(e) => setQuery(e.target.value)}
-                placeholder="Buscar por raça, cidade ou título..."
-                className="pl-9 rounded-full h-9 text-xs"
-              />
-            </div>
-
-            <div className="flex flex-wrap items-center gap-2">
-              <Select value={selectedSpecies} onValueChange={setSelectedSpecies}>
-                <SelectTrigger className="h-9 w-[130px] rounded-full text-xs">
-                  <SelectValue placeholder="Espécie" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="Todas">Todas espécies</SelectItem>
-                  <SelectItem value="Cachorro">Cães</SelectItem>
-                  <SelectItem value="Gato">Gatos</SelectItem>
-                </SelectContent>
-              </Select>
-
-              <Select value={adTipoFilter} onValueChange={setAdTipoFilter}>
-                <SelectTrigger className="h-9 w-[140px] rounded-full text-xs">
-                  <SelectValue placeholder="Tipo de anúncio" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="todos">Venda & Adoção</SelectItem>
-                  <SelectItem value="venda">Apenas Venda</SelectItem>
-                  <SelectItem value="adocao">Apenas Adoção</SelectItem>
-                </SelectContent>
-              </Select>
-
-              <Select value={sortBy} onValueChange={setSortBy}>
-                <SelectTrigger className="h-9 w-[140px] rounded-full text-xs">
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="recent">Mais recentes</SelectItem>
-                  <SelectItem value="price-asc">Menor preço</SelectItem>
-                  <SelectItem value="price-desc">Maior preço</SelectItem>
-                </SelectContent>
-              </Select>
-
-              <Button
-                variant={pedigreeOnly ? "default" : "outline"}
-                size="sm"
-                onClick={() => setPedigreeOnly((v) => !v)}
-                className={`rounded-full h-9 text-xs ${
-                  pedigreeOnly ? "gradient-primary text-primary-foreground" : ""
-                }`}
-              >
-                <Award className="mr-1 h-3.5 w-3.5" /> Apenas com Pedigree
-              </Button>
-            </div>
+      {/* Main Content */}
+      <div className="container mt-8 space-y-8">
+        {/* Barra de Busca e Filtros */}
+        <div className="flex flex-col gap-4 rounded-3xl border bg-card p-4 shadow-soft md:flex-row md:items-center md:justify-between">
+          <div className="relative flex-1">
+            <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+            <Input
+              value={query}
+              onChange={(e) => setQuery(e.target.value)}
+              onKeyDown={(e) => e.key === "Enter" && loadMarketplaceListings()}
+              placeholder="Buscar por raça, título, cidade ou anunciante…"
+              className="rounded-full pl-9 h-11"
+            />
           </div>
-        </Card>
 
-        {/* Counter */}
-        <div className="flex items-center justify-between">
-          <p className="text-xs text-muted-foreground">
-            Exibindo <strong>{filteredPuppies.length}</strong> anúncio(s)
-            {myPets.length > 0 && ` · Você possui ${myPets.length} pet(s) cadastrado(s)`}
-          </p>
+          <div className="flex flex-wrap items-center gap-2">
+            {/* Espécie */}
+            <Select value={selectedSpecies} onValueChange={setSelectedSpecies}>
+              <SelectTrigger className="w-[130px] rounded-full h-11">
+                <SelectValue placeholder="Espécie" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="Todas">Todas</SelectItem>
+                <SelectItem value="Cachorro">Cães</SelectItem>
+                <SelectItem value="Gato">Gatos</SelectItem>
+                <SelectItem value="Ave">Aves</SelectItem>
+                <SelectItem value="Outro">Outros</SelectItem>
+              </SelectContent>
+            </Select>
+
+            {/* Tipo: Todos / Venda / Adoção */}
+            <Select value={adTipoFilter} onValueChange={setAdTipoFilter}>
+              <SelectTrigger className="w-[140px] rounded-full h-11">
+                <SelectValue placeholder="Modalidade" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="todos">Todos os tipos</SelectItem>
+                <SelectItem value="venda">Venda / Reserva</SelectItem>
+                <SelectItem value="adocao">Adoção Gratuita</SelectItem>
+              </SelectContent>
+            </Select>
+
+            {/* Pedigree Toggle */}
+            <Button
+              variant={pedigreeOnly ? "default" : "outline"}
+              size="sm"
+              onClick={() => setPedigreeOnly(!pedigreeOnly)}
+              className="rounded-full gap-1.5 h-11 px-4 text-xs font-semibold"
+            >
+              <Award className="h-4 w-4" />
+              Pedigree
+            </Button>
+
+            {/* Ordenação */}
+            <Select value={sortBy} onValueChange={setSortBy}>
+              <SelectTrigger className="w-[140px] rounded-full h-11 text-xs">
+                <SelectValue placeholder="Ordenar" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="recent">Mais Recentes</SelectItem>
+                <SelectItem value="price-asc">Menor Preço</SelectItem>
+                <SelectItem value="price-desc">Maior Preço</SelectItem>
+              </SelectContent>
+            </Select>
+
+            <Button
+              variant="outline"
+              size="icon"
+              onClick={loadMarketplaceListings}
+              className="rounded-full h-11 w-11"
+              title="Recarregar do banco"
+            >
+              <RotateCw className={`h-4 w-4 ${loading ? "animate-spin" : ""}`} />
+            </Button>
+          </div>
         </div>
 
-        {/* Listings Grid */}
-        {filteredPuppies.length === 0 ? (
-          <div className="rounded-3xl border border-dashed border-border p-12 text-center max-w-md mx-auto">
-            <ShoppingBag className="mx-auto h-10 w-10 text-muted-foreground/60 mb-3" />
-            <h3 className="text-lg font-bold text-foreground">Nenhum filhote encontrado</h3>
-            <p className="mt-1 text-xs text-muted-foreground">
-              Ajuste os filtros ou anuncie um novo filhote para a comunidade.
+        {/* Status bar */}
+        <div className="flex items-center justify-between text-xs text-muted-foreground">
+          <p>
+            Mostrando <strong>{filteredAndSortedListings.length}</strong>{" "}
+            {filteredAndSortedListings.length === 1 ? "anúncio oficial" : "anúncios oficiais"} no catálogo.
+          </p>
+          <span className="text-[11px] text-muted-foreground flex items-center gap-1">
+            <Clock className="h-3.5 w-3.5 text-primary" /> Anúncios verificados periodicamente a cada 30 dias
+          </span>
+        </div>
+
+        {/* Grid de Anúncios Reais */}
+        {loading ? (
+          <div className="py-20 text-center">
+            <div className="mx-auto mb-4 flex h-12 w-12 items-center justify-center rounded-full bg-primary/10 text-primary animate-pulse">
+              <PawPrint className="h-6 w-6" />
+            </div>
+            <p className="text-base font-semibold">Consultando banco de dados...</p>
+            <p className="text-xs text-muted-foreground">Carregando anúncios oficiais de filhotes e ninhadas.</p>
+          </div>
+        ) : filteredAndSortedListings.length === 0 ? (
+          <div className="rounded-3xl border border-dashed bg-card/60 p-12 text-center">
+            <div className="mx-auto mb-4 flex h-16 w-16 items-center justify-center rounded-full bg-primary/10 text-primary">
+              <ShoppingBag className="h-8 w-8" />
+            </div>
+            <h3 className="text-lg font-bold text-foreground">Nenhum filhote anunciado no momento</h3>
+            <p className="mx-auto mt-2 max-w-md text-sm text-muted-foreground">
+              Apenas filhotes cadastrados oficialmente por tutores ou criadores aparecem aqui.
+              Seja o primeiro a anunciar um filhote ou ninhada da sua criação!
             </p>
             <Button
               onClick={() => setAnnounceOpen(true)}
-              className="mt-4 rounded-full gradient-primary text-primary-foreground"
+              className="mt-6 rounded-full gradient-primary text-primary-foreground font-semibold"
             >
-              <Plus className="mr-1.5 h-4 w-4" /> Anunciar Agora
+              <Plus className="mr-1.5 h-4 w-4" /> Anunciar Filhote Agora
             </Button>
           </div>
         ) : (
-          <div className="grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-3">
-            {filteredPuppies.map((p) => {
-              const isOwn = p.tutorOwnerId && p.tutorOwnerId === currentUser?.id;
+          <div className="grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
+            {filteredAndSortedListings.map((p) => {
+              const photo = getPetPhoto(p.foto_url);
+              const isOwner = currentUser && (p.user_id === currentUser.id || p.is_owner);
+              const isPendingConfirm = p.needs_confirmation || p.status === "pending_confirmation";
+
               return (
                 <Card
                   key={p.id}
-                  className="group flex flex-col overflow-hidden rounded-3xl border bg-card shadow-soft transition-smooth hover:-translate-y-1 hover:shadow-glow cursor-pointer"
-                  onClick={() => setPreviewPuppy(p)}
+                  className="group relative flex flex-col overflow-hidden rounded-3xl border bg-card transition-all duration-300 hover:-translate-y-1 hover:shadow-soft"
                 >
-                  <div className="relative aspect-[4/3] overflow-hidden bg-muted">
+                  {/* Foto do Filhote */}
+                  <div className="relative aspect-[4/3] w-full overflow-hidden bg-muted">
                     <img
-                      src={p.img}
-                      alt={p.title}
+                      src={photo}
+                      alt={p.titulo}
                       className="h-full w-full object-cover transition-transform duration-500 group-hover:scale-105"
+                      loading="lazy"
                     />
-                    <div className="absolute left-3 top-3 flex flex-col gap-1">
-                      {p.pedigree && (
-                        <Badge className="rounded-full border border-white/30 bg-black/50 text-white backdrop-blur text-[10px]">
-                          <Award className="mr-1 h-3 w-3 text-amber-300" /> Pedigree Oficial
+
+                    {/* Badges superiores */}
+                    <div className="absolute left-3 top-3 flex flex-wrap gap-1.5">
+                      {p.tipo === "adocao" || p.preco === 0 ? (
+                        <Badge className="rounded-full bg-emerald-500/90 text-white font-semibold backdrop-blur text-[10px]">
+                          💚 Adoção Responsável
+                        </Badge>
+                      ) : (
+                        <Badge className="rounded-full bg-foreground/80 text-primary-foreground font-semibold backdrop-blur text-[10px]">
+                          Venda / Reserva
                         </Badge>
                       )}
-                      <Badge className="rounded-full bg-primary/80 text-white backdrop-blur text-[10px]">
-                        {p.species} · {p.sex || "Filhote"}
-                      </Badge>
+
+                      {p.pedigree && (
+                        <Badge className="rounded-full bg-warm text-foreground font-bold backdrop-blur text-[10px] flex items-center gap-1">
+                          <Award className="h-3 w-3" /> Pedigree
+                        </Badge>
+                      )}
                     </div>
 
-                    <div className="absolute right-3 bottom-3 rounded-full bg-card/95 px-3 py-1 text-sm font-bold text-primary shadow-soft backdrop-blur">
-                      {formatBRL(p.price)}
+                    {/* Preço em Destaque */}
+                    <div className="absolute bottom-3 right-3 rounded-full bg-background/90 px-3 py-1 text-xs font-bold text-foreground shadow-sm backdrop-blur">
+                      {formatBRL(p.preco)}
                     </div>
-                  </div>
 
-                  <div className="flex flex-1 flex-col p-5">
-                    <div className="flex items-start justify-between gap-2">
-                      <h3 className="line-clamp-1 font-display text-base font-bold text-foreground">
-                        {p.title}
-                      </h3>
-                      {isOwn && (
-                        <Badge variant="outline" className="text-[10px] shrink-0 border-primary text-primary">
+                    {/* Badge do Dono do anúncio */}
+                    {isOwner && (
+                      <div className="absolute top-3 right-3">
+                        <Badge className="rounded-full bg-primary text-primary-foreground text-[10px] font-bold">
                           Meu Anúncio
                         </Badge>
+                      </div>
+                    )}
+                  </div>
+
+                  {/* Informações */}
+                  <div className="flex flex-1 flex-col p-4">
+                    <div className="flex items-start justify-between gap-2">
+                      <div>
+                        <h3 className="font-bold text-base text-foreground leading-snug group-hover:text-primary transition-smooth line-clamp-1">
+                          {p.titulo}
+                        </h3>
+                        <p className="text-xs text-muted-foreground mt-0.5">
+                          {p.raca || p.especie} • {p.sexo} • {p.idade_meses} meses
+                        </p>
+                      </div>
+                    </div>
+
+                    <p className="mt-2.5 text-xs text-muted-foreground line-clamp-2 leading-relaxed">
+                      {p.descricao}
+                    </p>
+
+                    {/* Localização e Anunciante */}
+                    <div className="mt-3 flex items-center justify-between border-t border-border/60 pt-3 text-[11px] text-muted-foreground">
+                      <div className="flex items-center gap-1 truncate max-w-[140px]">
+                        <MapPin className="h-3.5 w-3.5 text-primary shrink-0" />
+                        <span className="truncate">{p.cidade || "Brasil"}</span>
+                      </div>
+                      <div className="flex items-center gap-1 font-medium text-foreground">
+                        <ShieldCheck className="h-3.5 w-3.5 text-emerald-500" />
+                        <span className="truncate">{p.tutor_nome}</span>
+                      </div>
+                    </div>
+
+                    {/* Alerta de Confirmação Pendente (30 dias) */}
+                    {isPendingConfirm && isOwner && (
+                      <div className="mt-2 rounded-xl bg-amber-500/10 border border-amber-500/30 p-2 text-[10px] text-amber-700 dark:text-amber-300 flex items-center justify-between">
+                        <span className="flex items-center gap-1">
+                          <AlertTriangle className="h-3 w-3 shrink-0 text-amber-600" />
+                          Confirmação de 30 dias pendente no Chat!
+                        </span>
+                        <Button
+                          size="sm"
+                          variant="ghost"
+                          onClick={() => navigate("/chat")}
+                          className="h-6 px-1.5 text-[10px] text-amber-800 underline font-bold"
+                        >
+                          Responder
+                        </Button>
+                      </div>
+                    )}
+
+                    {/* Ações */}
+                    <div className="mt-4 flex items-center gap-2">
+                      <Button
+                        onClick={() => setPreviewPuppy(p)}
+                        variant="outline"
+                        size="sm"
+                        className="flex-1 rounded-full text-xs font-semibold"
+                      >
+                        Detalhes
+                      </Button>
+
+                      {/* Botão de Chat Direto com o Dono */}
+                      {!isOwner && (
+                        <Button
+                          onClick={() => handleStartChat(p)}
+                          size="sm"
+                          className="rounded-full gradient-primary text-primary-foreground text-xs font-semibold px-3"
+                          title="Abrir chat 1-a-1 com o anunciante"
+                        >
+                          <MessageCircle className="mr-1 h-3.5 w-3.5" />
+                          Chat
+                        </Button>
+                      )}
+
+                      {/* Ações do Dono: Excluir e Testes de 30 dias */}
+                      {isOwner && (
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          onClick={() => handleDeleteListing(p.id)}
+                          className="rounded-full text-rose-500 hover:bg-rose-50 hover:text-rose-600 h-8 w-8"
+                          title="Excluir este anúncio do banco de dados"
+                        >
+                          <Trash2 className="h-4 w-4" />
+                        </Button>
                       )}
                     </div>
 
-                    <p className="mt-1 text-xs text-muted-foreground line-clamp-1">
-                      {p.breed} · {p.ageMonths} meses · {p.city}
-                    </p>
-
-                    <p className="mt-2 text-xs text-muted-foreground line-clamp-2 leading-relaxed">
-                      {p.description}
-                    </p>
-
-                    <div className="mt-4 flex items-center justify-between border-t border-border/60 pt-3 text-xs">
-                      <div>
-                        <p className="font-semibold text-foreground">{p.seller.name}</p>
-                        <p className="text-[11px] text-muted-foreground flex items-center gap-1">
-                          <MapPin className="h-3 w-3 text-primary" /> {p.city}
-                        </p>
+                    {/* Área de Testes / Demonstração do Dono */}
+                    {isOwner && (
+                      <div className="mt-2.5 border-t border-dashed border-border pt-2 flex items-center justify-between gap-1 text-[10px]">
+                        <span className="text-muted-foreground">Testes de ciclo:</span>
+                        <div className="flex items-center gap-1">
+                          <button
+                            type="button"
+                            onClick={() => handleSimulate30Days(p.id)}
+                            className="rounded-md bg-muted px-1.5 py-0.5 font-medium text-foreground hover:bg-primary-soft hover:text-primary transition-smooth"
+                            title="Simula 30 dias decorridos e dispara confirmação via chat com 24h de prazo"
+                          >
+                            Simular 30d
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => handleSimulateExpire24h(p.id)}
+                            className="rounded-md bg-muted px-1.5 py-0.5 font-medium text-rose-600 hover:bg-rose-50 transition-smooth"
+                            title="Simula 24h sem resposta e executa a exclusão automática do banco"
+                          >
+                            Simular 24h
+                          </button>
+                        </div>
                       </div>
-
-                      {/* Botão de Chat Direto */}
-                      <Button
-                        size="sm"
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          handleStartChat(p);
-                        }}
-                        className="rounded-full gradient-primary text-primary-foreground text-xs gap-1.5 shadow-xs hover:shadow-glow"
-                      >
-                        <MessageCircle className="h-3.5 w-3.5" />
-                        Conversar
-                      </Button>
-                    </div>
+                    )}
                   </div>
                 </Card>
               );
             })}
           </div>
         )}
-      </main>
+      </div>
 
-      {/* Modal Anunciar Filhote com suporte a Pet Cadastrado e Upload de Foto */}
+      {/* Modal de Detalhes do Anúncio */}
+      <Dialog open={Boolean(previewPuppy)} onOpenChange={(open) => !open && setPreviewPuppy(null)}>
+        {previewPuppy && (
+          <DialogContent className="max-w-2xl rounded-3xl p-0 overflow-hidden">
+            <div className="relative aspect-video w-full bg-muted">
+              <img
+                src={getPetPhoto(previewPuppy.foto_url)}
+                alt={previewPuppy.titulo}
+                className="h-full w-full object-cover"
+              />
+              <div className="absolute top-4 left-4 flex gap-2">
+                <Badge className="rounded-full bg-foreground/90 text-primary-foreground backdrop-blur">
+                  {formatBRL(previewPuppy.preco)}
+                </Badge>
+                {previewPuppy.pedigree && (
+                  <Badge className="rounded-full bg-warm text-foreground font-bold backdrop-blur">
+                    Pedigree Certificado
+                  </Badge>
+                )}
+              </div>
+            </div>
+
+            <div className="p-6 space-y-4 max-h-[60vh] overflow-y-auto">
+              <div className="flex items-start justify-between">
+                <div>
+                  <DialogTitle className="text-2xl font-bold text-foreground">
+                    {previewPuppy.titulo}
+                  </DialogTitle>
+                  <p className="text-sm text-muted-foreground mt-0.5">
+                    {previewPuppy.raca} • {previewPuppy.sexo} • {previewPuppy.idade_meses} meses
+                  </p>
+                </div>
+              </div>
+
+              <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 py-2">
+                <div className="rounded-2xl bg-muted/40 p-3 text-center border">
+                  <span className="text-[10px] text-muted-foreground uppercase font-bold">Espécie</span>
+                  <p className="font-semibold text-sm mt-0.5">{previewPuppy.especie}</p>
+                </div>
+                <div className="rounded-2xl bg-muted/40 p-3 text-center border">
+                  <span className="text-[10px] text-muted-foreground uppercase font-bold">Disponíveis</span>
+                  <p className="font-semibold text-sm mt-0.5">{previewPuppy.quantidade} filhote(s)</p>
+                </div>
+                <div className="rounded-2xl bg-muted/40 p-3 text-center border">
+                  <span className="text-[10px] text-muted-foreground uppercase font-bold">Local</span>
+                  <p className="font-semibold text-sm mt-0.5 truncate">{previewPuppy.cidade}</p>
+                </div>
+                <div className="rounded-2xl bg-muted/40 p-3 text-center border">
+                  <span className="text-[10px] text-muted-foreground uppercase font-bold">Pedigree</span>
+                  <p className="font-semibold text-sm mt-0.5">
+                    {previewPuppy.pedigree ? "Sim" : "Não"}
+                  </p>
+                </div>
+              </div>
+
+              {previewPuppy.pedigree && previewPuppy.pedigree_registro && (
+                <div className="rounded-2xl bg-warm/15 border border-warm/30 p-3 flex items-center gap-2 text-xs">
+                  <Award className="h-4 w-4 text-warm shrink-0" />
+                  <span>
+                    Registro de Linhagem Oficial: <strong>{previewPuppy.pedigree_registro}</strong>
+                  </span>
+                </div>
+              )}
+
+              <div>
+                <h4 className="text-xs font-bold uppercase tracking-wider text-muted-foreground">
+                  Sobre a Ninhada / Filhote
+                </h4>
+                <p className="mt-1 text-sm text-foreground/90 leading-relaxed whitespace-pre-line">
+                  {previewPuppy.descricao}
+                </p>
+              </div>
+
+              <div className="rounded-2xl border bg-muted/20 p-4">
+                <h4 className="text-xs font-bold uppercase tracking-wider text-muted-foreground mb-2">
+                  Tutor / Anunciante
+                </h4>
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-2.5">
+                    <div className="h-9 w-9 rounded-full bg-primary/10 text-primary font-bold flex items-center justify-center text-sm">
+                      {previewPuppy.tutor_nome?.[0]?.toUpperCase() || "T"}
+                    </div>
+                    <div>
+                      <p className="font-semibold text-sm">{previewPuppy.tutor_nome}</p>
+                      <p className="text-xs text-muted-foreground">Membro verificado no LivePet</p>
+                    </div>
+                  </div>
+
+                  {previewPuppy.tutor_telefone && (
+                    <a
+                      href={`https://wa.me/${previewPuppy.tutor_telefone.replace(/\D/g, "")}`}
+                      target="_blank"
+                      rel="noreferrer"
+                      className="inline-flex items-center gap-1 rounded-full border border-emerald-500/30 bg-emerald-50 px-3 py-1.5 text-xs font-semibold text-emerald-700 hover:bg-emerald-100"
+                    >
+                      <Phone className="h-3 w-3" />
+                      WhatsApp
+                    </a>
+                  )}
+                </div>
+              </div>
+            </div>
+
+            <DialogFooter className="border-t p-4 bg-card flex flex-row items-center justify-between sm:justify-between">
+              <Button variant="ghost" onClick={() => setPreviewPuppy(null)} className="rounded-full text-xs">
+                Fechar
+              </Button>
+
+              <div className="flex items-center gap-2">
+                {currentUser && (previewPuppy.user_id === currentUser.id || previewPuppy.is_owner) ? (
+                  <Button
+                    variant="destructive"
+                    size="sm"
+                    onClick={() => handleDeleteListing(previewPuppy.id)}
+                    className="rounded-full text-xs gap-1.5"
+                  >
+                    <Trash2 className="h-3.5 w-3.5" /> Excluir Anúncio
+                  </Button>
+                ) : (
+                  <Button
+                    onClick={() => {
+                      const p = previewPuppy;
+                      setPreviewPuppy(null);
+                      handleStartChat(p);
+                    }}
+                    className="rounded-full gradient-primary text-primary-foreground font-semibold text-xs gap-1.5"
+                  >
+                    <MessageCircle className="h-4 w-4" /> Conversar com o Dono
+                  </Button>
+                )}
+              </div>
+            </DialogFooter>
+          </DialogContent>
+        )}
+      </Dialog>
+
+      {/* Modal de Anúncio de Filhote / Ninhada com Upload de Foto e Importação de Pet */}
       <Dialog open={announceOpen} onOpenChange={setAnnounceOpen}>
-        <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto rounded-3xl p-6">
+        <DialogContent className="max-w-xl max-h-[90vh] overflow-y-auto rounded-3xl p-6">
           <DialogHeader>
-            <DialogTitle className="flex items-center gap-2 text-xl font-bold">
-              <Plus className="h-5 w-5 text-primary" /> Anunciar Filhote ou Ninhada
+            <DialogTitle className="text-xl font-bold flex items-center gap-2">
+              <ShoppingBag className="h-5 w-5 text-primary" />
+              Anunciar Filhote ou Ninhada
             </DialogTitle>
-            <DialogDescription>
-              Publique um anúncio no marketplace oficial LivePet. Você pode importar os dados de um pet já cadastrado na sua conta ou preencher manualmente.
+            <DialogDescription className="text-xs">
+              Cadastre no banco de dados para que tutores interessados possam encontrar e entrar em contato.
             </DialogDescription>
           </DialogHeader>
 
-          <form onSubmit={handlePublishAnnounce} className="space-y-4 mt-2">
-            {/* Seletor: Puxar do perfil de pet já cadastrado */}
+          <form onSubmit={handlePublishAnnounce} className="space-y-4 pt-2">
+            {/* Opção de Puxar de Pet já Cadastrado */}
             {myPets.length > 0 && (
               <div className="rounded-2xl border-2 border-primary/20 bg-primary-soft/30 p-3.5">
-                <Label className="text-xs font-bold text-primary uppercase tracking-wider flex items-center gap-1.5">
-                  <Sparkles className="h-4 w-4 text-primary" /> Importar de pet já cadastrado na sua conta
+                <Label className="text-xs font-bold text-primary flex items-center gap-1.5 mb-1.5">
+                  <Sparkles className="h-3.5 w-3.5" />
+                  Importar dados de um pet já cadastrado
                 </Label>
-                <p className="text-[11px] text-muted-foreground mt-0.5 mb-2">
-                  Selecione um dos seus animais para preencher automaticamente nome, raça, foto, idade e pedigree:
-                </p>
                 <Select value={selectedMyPetId} onValueChange={handleSelectMyPet}>
-                  <SelectTrigger className="rounded-xl bg-background text-xs">
-                    <SelectValue placeholder="Selecione um pet..." />
+                  <SelectTrigger className="rounded-xl bg-background text-xs h-9">
+                    <SelectValue placeholder="Selecione um dos seus pets ou preencha manual" />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="manual">✍️ Preenchimento Manual (Sem vincular pet)</SelectItem>
-                    {myPets.map((p) => (
-                      <SelectItem key={p.id} value={String(p.id)}>
-                        🐾 {p.nome} ({p.raca || p.especie})
+                    <SelectItem value="manual">Preencher manualmente</SelectItem>
+                    {myPets.map((pet) => (
+                      <SelectItem key={pet.id} value={String(pet.id)}>
+                        🐾 {pet.nome} — {pet.raca || pet.especie} ({pet.sexo || "Sexo não informado"})
                       </SelectItem>
                     ))}
                   </SelectContent>
                 </Select>
+                <p className="text-[11px] text-muted-foreground mt-1">
+                  Ao escolher um pet cadastrado, nome, raça, foto e pedigree são importados automaticamente!
+                </p>
               </div>
             )}
 
-            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-              <div className="sm:col-span-2">
-                <Label className="text-xs font-semibold">Título do anúncio *</Label>
-                <Input
-                  value={formTitle}
-                  onChange={(e) => setFormTitle(e.target.value)}
-                  placeholder="Ex: Filhotes Golden Retriever com Pedigree..."
-                  className="rounded-xl text-xs mt-1"
-                  required
-                />
-              </div>
+            {/* Modalidade: Venda ou Adoção */}
+            <div className="grid grid-cols-2 gap-2">
+              <button
+                type="button"
+                onClick={() => setFormAdTipo("venda")}
+                className={`flex flex-col items-center justify-center p-3 rounded-2xl border transition-smooth ${
+                  formAdTipo === "venda"
+                    ? "border-primary bg-primary-soft text-primary font-bold shadow-xs"
+                    : "border-border hover:bg-muted/50 text-muted-foreground"
+                }`}
+              >
+                <span className="text-xs">Comercial / Reserva</span>
+                <span className="text-[10px] font-normal mt-0.5">Definir preço em R$</span>
+              </button>
 
-              <div>
-                <Label className="text-xs font-semibold">Espécie</Label>
+              <button
+                type="button"
+                onClick={() => {
+                  setFormAdTipo("adocao");
+                  setFormPrice("0");
+                }}
+                className={`flex flex-col items-center justify-center p-3 rounded-2xl border transition-smooth ${
+                  formAdTipo === "adocao"
+                    ? "border-emerald-500 bg-emerald-50 text-emerald-700 font-bold shadow-xs dark:bg-emerald-950/40 dark:text-emerald-400"
+                    : "border-border hover:bg-muted/50 text-muted-foreground"
+                }`}
+              >
+                <span className="text-xs">Adoção Responsável</span>
+                <span className="text-[10px] font-normal mt-0.5">Sem cobrança (Gratuito)</span>
+              </button>
+            </div>
+
+            {/* Título do Anúncio */}
+            <div className="space-y-1">
+              <Label className="text-xs font-semibold">Título do Anúncio *</Label>
+              <Input
+                value={formTitle}
+                onChange={(e) => setFormTitle(e.target.value)}
+                placeholder="Ex: Filhote de Golden Retriever com Pedigree"
+                required
+                className="rounded-xl h-10 text-xs"
+              />
+            </div>
+
+            {/* Upload de Foto do Computador + Pré-visualização */}
+            <div className="space-y-1.5">
+              <Label className="text-xs font-semibold flex items-center justify-between">
+                <span>Foto do Pet / Filhote</span>
+                <span className="text-[11px] font-normal text-muted-foreground">Crucial para o anúncio</span>
+              </Label>
+
+              {formImg ? (
+                <div className="relative aspect-video w-full overflow-hidden rounded-2xl border bg-muted">
+                  <img src={formImg} alt="Preview" className="h-full w-full object-cover" />
+                  <Button
+                    type="button"
+                    variant="destructive"
+                    size="icon"
+                    onClick={() => setFormImg("")}
+                    className="absolute top-2 right-2 h-7 w-7 rounded-full shadow-md"
+                    title="Remover foto"
+                  >
+                    <X className="h-4 w-4" />
+                  </Button>
+                </div>
+              ) : (
+                <div
+                  onClick={() => fileInputRef.current?.click()}
+                  className="cursor-pointer rounded-2xl border-2 border-dashed border-primary/30 bg-muted/20 p-5 text-center transition-smooth hover:border-primary/60 hover:bg-muted/40"
+                >
+                  <Upload className="mx-auto h-7 w-7 text-primary mb-1.5" />
+                  <p className="text-xs font-semibold text-foreground">Clique para enviar uma foto do seu computador</p>
+                  <p className="text-[10px] text-muted-foreground mt-0.5">Formatos JPG, PNG ou WEBP (até 5MB)</p>
+                </div>
+              )}
+
+              <input
+                ref={fileInputRef}
+                type="file"
+                accept="image/*"
+                onChange={handleImageFileChange}
+                className="hidden"
+              />
+
+              {/* URL alternativa opcional */}
+              {!formImg && (
+                <Input
+                  value={formImg}
+                  onChange={(e) => setFormImg(e.target.value)}
+                  placeholder="Ou cole a URL da imagem aqui..."
+                  className="rounded-xl h-8 text-[11px] mt-1"
+                />
+              )}
+            </div>
+
+            {/* Espécie e Raça */}
+            <div className="grid grid-cols-2 gap-3">
+              <div className="space-y-1">
+                <Label className="text-xs font-semibold">Espécie *</Label>
                 <Select value={formSpecies} onValueChange={setFormSpecies}>
-                  <SelectTrigger className="rounded-xl text-xs mt-1">
+                  <SelectTrigger className="rounded-xl h-10 text-xs">
                     <SelectValue />
                   </SelectTrigger>
                   <SelectContent>
                     <SelectItem value="Cachorro">Cachorro</SelectItem>
                     <SelectItem value="Gato">Gato</SelectItem>
+                    <SelectItem value="Ave">Ave</SelectItem>
+                    <SelectItem value="Outro">Outro</SelectItem>
                   </SelectContent>
                 </Select>
               </div>
 
-              <div>
+              <div className="space-y-1">
                 <Label className="text-xs font-semibold">Raça *</Label>
                 <Input
                   value={formBreed}
                   onChange={(e) => setFormBreed(e.target.value)}
-                  placeholder="Ex: Border Collie, Spitz Alemão..."
-                  className="rounded-xl text-xs mt-1"
+                  placeholder="Ex: Spitz Alemão, Pug, SRD"
                   required
+                  className="rounded-xl h-10 text-xs"
                 />
               </div>
+            </div>
 
-              <div>
-                <Label className="text-xs font-semibold">Sexo / Ninhada</Label>
+            {/* Sexo, Idade em Meses e Quantidade */}
+            <div className="grid grid-cols-3 gap-2">
+              <div className="space-y-1">
+                <Label className="text-xs font-semibold">Sexo</Label>
                 <Select value={formSex} onValueChange={setFormSex}>
-                  <SelectTrigger className="rounded-xl text-xs mt-1">
+                  <SelectTrigger className="rounded-xl h-10 text-xs">
                     <SelectValue />
                   </SelectTrigger>
                   <SelectContent>
                     <SelectItem value="Macho">Macho</SelectItem>
                     <SelectItem value="Fêmea">Fêmea</SelectItem>
-                    <SelectItem value="Ninhada Mista">Ninhada Mista (Machos e Fêmeas)</SelectItem>
+                    <SelectItem value="Misto">Ninhada Mista</SelectItem>
                   </SelectContent>
                 </Select>
               </div>
 
-              <div>
+              <div className="space-y-1">
                 <Label className="text-xs font-semibold">Idade (meses)</Label>
                 <Input
                   type="number"
-                  min="1"
-                  max="48"
+                  min="0"
+                  max="120"
                   value={formAge}
                   onChange={(e) => setFormAge(e.target.value)}
-                  className="rounded-xl text-xs mt-1"
+                  placeholder="Ex: 2"
+                  className="rounded-xl h-10 text-xs"
                 />
               </div>
 
-              <div>
-                <Label className="text-xs font-semibold">Tipo de Anúncio</Label>
-                <Select value={formAdTipo} onValueChange={setFormAdTipo}>
-                  <SelectTrigger className="rounded-xl text-xs mt-1">
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="venda">Venda / Ninhada Comercial</SelectItem>
-                    <SelectItem value="adocao">Adoção Responsável / Doação</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
-
-              <div>
-                <Label className="text-xs font-semibold">
-                  {formAdTipo === "adocao" ? "Valor" : "Preço (R$) *"}
-                </Label>
-                <Input
-                  type="number"
-                  disabled={formAdTipo === "adocao"}
-                  value={formAdTipo === "adocao" ? "0" : formPrice}
-                  onChange={(e) => setFormPrice(e.target.value)}
-                  placeholder={formAdTipo === "adocao" ? "Gratuito (Adoção)" : "Ex: 2500"}
-                  className="rounded-xl text-xs mt-1"
-                />
-              </div>
-
-              <div>
-                <Label className="text-xs font-semibold">Quantidade disponível</Label>
+              <div className="space-y-1">
+                <Label className="text-xs font-semibold">Qtd. Filhotes</Label>
                 <Input
                   type="number"
                   min="1"
+                  max="20"
                   value={formCount}
                   onChange={(e) => setFormCount(e.target.value)}
-                  className="rounded-xl text-xs mt-1"
+                  placeholder="1"
+                  className="rounded-xl h-10 text-xs"
                 />
               </div>
+            </div>
 
-              <div>
-                <Label className="text-xs font-semibold">Cidade / Estado *</Label>
+            {/* Preço (se venda) e Cidade */}
+            <div className="grid grid-cols-2 gap-3">
+              {formAdTipo === "venda" ? (
+                <div className="space-y-1">
+                  <Label className="text-xs font-semibold">Preço (R$) *</Label>
+                  <Input
+                    type="number"
+                    min="1"
+                    step="10"
+                    value={formPrice}
+                    onChange={(e) => setFormPrice(e.target.value)}
+                    placeholder="Ex: 1500"
+                    required
+                    className="rounded-xl h-10 text-xs font-semibold"
+                  />
+                </div>
+              ) : (
+                <div className="space-y-1">
+                  <Label className="text-xs font-semibold">Modalidade</Label>
+                  <Input
+                    value="Adoção Gratuita"
+                    disabled
+                    className="rounded-xl h-10 text-xs bg-muted text-emerald-600 font-bold"
+                  />
+                </div>
+              )}
+
+              <div className="space-y-1">
+                <Label className="text-xs font-semibold">Cidade / UF *</Label>
                 <Input
                   value={formCity}
                   onChange={(e) => setFormCity(e.target.value)}
-                  placeholder="Ex: Goiânia, GO ou São Paulo, SP"
-                  className="rounded-xl text-xs mt-1"
+                  placeholder="Ex: São Paulo - SP"
                   required
+                  className="rounded-xl h-10 text-xs"
                 />
               </div>
+            </div>
 
-              <div>
-                <Label className="text-xs font-semibold">Telefone de contato (WhatsApp)</Label>
-                <Input
-                  value={formPhone}
-                  onChange={(e) => setFormPhone(e.target.value)}
-                  placeholder="Ex: (62) 99999-9999"
-                  className="rounded-xl text-xs mt-1"
-                />
-              </div>
+            {/* Telefone de Contato */}
+            <div className="space-y-1">
+              <Label className="text-xs font-semibold">WhatsApp / Telefone de Contato</Label>
+              <Input
+                value={formPhone}
+                onChange={(e) => setFormPhone(e.target.value)}
+                placeholder="(00) 00000-0000"
+                className="rounded-xl h-10 text-xs"
+              />
+            </div>
 
-              <div className="flex items-center justify-between rounded-xl border p-3">
+            {/* Pedigree Switch */}
+            <div className="rounded-2xl border p-3.5 space-y-2">
+              <div className="flex items-center justify-between">
                 <div>
-                  <p className="text-xs font-semibold">Possui Pedigree Oficial?</p>
-                  <p className="text-[10px] text-muted-foreground">CBKC, CFA ou Linhagem registrada</p>
+                  <p className="text-xs font-bold text-foreground">Certificado de Pedigree</p>
+                  <p className="text-[10px] text-muted-foreground">O filhote possui registro oficial em kennel club?</p>
                 </div>
                 <Switch checked={formPedigree} onCheckedChange={setFormPedigree} />
               </div>
 
               {formPedigree && (
-                <div className="sm:col-span-2">
-                  <Label className="text-xs font-semibold">Nº Registro do Pedigree (Opcional)</Label>
+                <div className="pt-2 border-t">
+                  <Label className="text-[11px] font-semibold">Registro / Entidade (CBKC, SOBRACI, etc.)</Label>
                   <Input
                     value={formPedigreeReg}
                     onChange={(e) => setFormPedigreeReg(e.target.value)}
-                    placeholder="Ex: CBKC-12345/26"
-                    className="rounded-xl text-xs mt-1"
+                    placeholder="Ex: CBKC 12345/24"
+                    className="rounded-xl h-9 text-xs mt-1"
                   />
                 </div>
               )}
             </div>
 
-            {/* SEÇÃO CRUCIAL DE FOTO COM UPLOAD */}
-            <div className="rounded-2xl border bg-muted/20 p-4 space-y-3">
-              <Label className="text-xs font-bold uppercase tracking-wider text-foreground flex items-center gap-1.5">
-                <Camera className="h-4 w-4 text-primary" /> Foto do Filhote / Ninhada *
-              </Label>
-
-              <div className="flex flex-col sm:flex-row items-center gap-4">
-                {formImg ? (
-                  <div className="relative h-28 w-28 shrink-0 rounded-2xl overflow-hidden border-2 border-primary shadow-sm bg-background">
-                    <img src={formImg} alt="Preview" className="h-full w-full object-cover" />
-                    <button
-                      type="button"
-                      onClick={() => setFormImg("")}
-                      className="absolute top-1 right-1 h-6 w-6 rounded-full bg-destructive text-white flex items-center justify-center hover:opacity-90"
-                      title="Remover foto"
-                    >
-                      <X className="h-3.5 w-3.5" />
-                    </button>
-                  </div>
-                ) : (
-                  <div className="h-28 w-28 shrink-0 rounded-2xl border-2 border-dashed border-border flex flex-col items-center justify-center text-muted-foreground bg-muted/40">
-                    <Camera className="h-6 w-6 mb-1 opacity-50" />
-                    <span className="text-[10px]">Sem foto</span>
-                  </div>
-                )}
-
-                <div className="flex-1 space-y-2 w-full">
-                  <input
-                    type="file"
-                    ref={fileInputRef}
-                    accept="image/*"
-                    onChange={handleImageFileChange}
-                    className="hidden"
-                  />
-                  <Button
-                    type="button"
-                    variant="outline"
-                    onClick={() => fileInputRef.current?.click()}
-                    className="w-full rounded-xl text-xs h-9 border-primary/30 text-primary hover:bg-primary-soft gap-2"
-                  >
-                    <Upload className="h-3.5 w-3.5" />
-                    Carregar foto do computador
-                  </Button>
-
-                  <div className="text-[11px] text-muted-foreground text-center">ou informe a URL da foto:</div>
-                  <Input
-                    value={formImg}
-                    onChange={(e) => setFormImg(e.target.value)}
-                    placeholder="https://exemplo.com/foto-filhote.jpg"
-                    className="rounded-xl text-xs h-8"
-                  />
-                </div>
-              </div>
-            </div>
-
-            <div>
-              <Label className="text-xs font-semibold">Descrição e cuidados dos pais</Label>
+            {/* Descrição */}
+            <div className="space-y-1">
+              <Label className="text-xs font-semibold">Descrição do Filhote / Ninhada</Label>
               <Textarea
                 value={formDesc}
                 onChange={(e) => setFormDesc(e.target.value)}
-                placeholder="Informe sobre as doses de vacinas, microchip, exames dos pais, laudo de displasia, temperamento..."
-                className="rounded-xl text-xs mt-1"
+                placeholder="Conte sobre o temperamento, vacinas tomadas, vermifugação, data para desmame e cuidados especiais…"
                 rows={3}
+                className="rounded-xl text-xs"
               />
             </div>
 
-            <DialogFooter className="gap-2 pt-2">
+            <div className="rounded-xl bg-amber-500/10 border border-amber-500/20 p-2.5 text-[11px] text-amber-800 dark:text-amber-300 flex items-start gap-2">
+              <Clock className="h-4 w-4 shrink-0 text-amber-600 mt-0.5" />
+              <span>
+                <strong>Ciclo de 30 dias:</strong> Após 30 dias, você receberá uma confirmação automática no Chat. Se não for respondida em 24h, o anúncio será removido automaticamente para manter a base limpa.
+              </span>
+            </div>
+
+            <DialogFooter className="pt-2">
               <Button
                 type="button"
                 variant="outline"
@@ -874,117 +1161,13 @@ const PuppiesMarketplace = () => {
               </Button>
               <Button
                 type="submit"
-                className="rounded-full gradient-primary text-primary-foreground text-xs"
+                disabled={publishing}
+                className="rounded-full gradient-primary text-primary-foreground text-xs font-semibold"
               >
-                Publicar Anúncio
+                {publishing ? "Salvando no Banco..." : "Salvar e Publicar Anúncio"}
               </Button>
             </DialogFooter>
           </form>
-        </DialogContent>
-      </Dialog>
-
-      {/* Modal Preview do Anúncio com Botão de Chat */}
-      <Dialog open={!!previewPuppy} onOpenChange={(o) => !o && setPreviewPuppy(null)}>
-        <DialogContent className="max-w-xl overflow-hidden rounded-3xl p-0">
-          {previewPuppy && (
-            <div>
-              <div className="relative aspect-[16/10] overflow-hidden bg-muted">
-                <img
-                  src={previewPuppy.img}
-                  alt={previewPuppy.title}
-                  className="h-full w-full object-cover"
-                />
-                <div className="absolute left-4 top-4 flex flex-col gap-1">
-                  {previewPuppy.pedigree && (
-                    <Badge className="rounded-full border border-white/30 bg-black/60 text-white backdrop-blur text-xs">
-                      <Award className="mr-1.5 h-3.5 w-3.5 text-amber-300" />
-                      Pedigree {previewPuppy.pedigreeReg || "Verificado"}
-                    </Badge>
-                  )}
-                  <Badge className="rounded-full bg-primary/90 text-white backdrop-blur text-xs">
-                    {previewPuppy.species} · {previewPuppy.sex || "Filhote"}
-                  </Badge>
-                </div>
-
-                <div className="absolute right-4 bottom-4 rounded-full bg-card/95 px-4 py-1.5 text-base font-bold text-primary shadow-soft backdrop-blur">
-                  {formatBRL(previewPuppy.price)}
-                </div>
-              </div>
-
-              <div className="p-6 space-y-4">
-                <div>
-                  <h2 className="font-display text-xl font-bold text-foreground">
-                    {previewPuppy.title}
-                  </h2>
-                  <p className="text-xs text-muted-foreground mt-1 flex items-center gap-1.5">
-                    <MapPin className="h-3.5 w-3.5 text-primary" /> {previewPuppy.city} ·{" "}
-                    {previewPuppy.breed} · {previewPuppy.ageMonths} meses
-                  </p>
-                </div>
-
-                <div className="rounded-2xl border bg-muted/20 p-3.5 space-y-1.5 text-xs">
-                  <div className="flex items-center justify-between">
-                    <span className="text-muted-foreground">Disponibilidade:</span>
-                    <span className="font-semibold text-foreground">
-                      {previewPuppy.availableCount} filhote(s)
-                    </span>
-                  </div>
-                  <div className="flex items-center justify-between">
-                    <span className="text-muted-foreground">Tutor / Anunciante:</span>
-                    <span className="font-semibold text-foreground flex items-center gap-1">
-                      <ShieldCheck className="h-3.5 w-3.5 text-emerald-500" />
-                      {previewPuppy.seller.name}
-                    </span>
-                  </div>
-                </div>
-
-                <div>
-                  <h4 className="text-xs font-bold uppercase tracking-wider text-muted-foreground mb-1">
-                    Sobre o filhote e ninhada
-                  </h4>
-                  <p className="text-xs text-foreground/90 leading-relaxed">
-                    {previewPuppy.description}
-                  </p>
-                </div>
-
-                {/* Ações: Chat e WhatsApp */}
-                <div className="flex flex-col sm:flex-row items-center gap-2 pt-2 border-t">
-                  <Button
-                    onClick={() => handleStartChat(previewPuppy)}
-                    className="w-full sm:flex-1 rounded-full gradient-primary text-primary-foreground gap-2 font-semibold shadow-soft hover:shadow-glow"
-                  >
-                    <MessageCircle className="h-4 w-4" />
-                    Conversar com o Dono no Chat
-                  </Button>
-
-                  {previewPuppy.seller.phone && (
-                    <a
-                      href={`https://wa.me/${previewPuppy.seller.phone.replace(/\D/g, "")}?text=${encodeURIComponent(
-                        `Olá ${previewPuppy.seller.name}! Vi seu anúncio "${previewPuppy.title}" no LivePet e gostaria de mais informações.`
-                      )}`}
-                      target="_blank"
-                      rel="noreferrer"
-                      className="w-full sm:w-auto inline-flex items-center justify-center gap-1.5 rounded-full border border-emerald-500/40 bg-emerald-50 px-4 py-2 text-xs font-semibold text-emerald-700 hover:bg-emerald-100 transition-smooth"
-                    >
-                      <Phone className="h-3.5 w-3.5" />
-                      WhatsApp
-                    </a>
-                  )}
-
-                  {previewPuppy.tutorOwnerId && previewPuppy.tutorOwnerId === currentUser?.id && (
-                    <Button
-                      variant="destructive"
-                      size="sm"
-                      onClick={() => handleDeleteMyListing(previewPuppy.id)}
-                      className="rounded-full text-xs"
-                    >
-                      <Trash2 className="h-3.5 w-3.5 mr-1" /> Excluir
-                    </Button>
-                  )}
-                </div>
-              </div>
-            </div>
-          )}
         </DialogContent>
       </Dialog>
     </div>
