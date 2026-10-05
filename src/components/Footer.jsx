@@ -4,13 +4,14 @@ import Logo from "./Logo";
 
 const productLinks = [
   { label: "Meus Pets", to: "/pets" },
+  { label: "Vitrine Pet", to: "/vitrine-pet" },
   { label: "Pedigree", to: "/pedigree" },
   { label: "MatchPet", to: "/matchpet" },
   { label: "Cartão Pet", to: "/cartao" },
 ];
 
 const communityLinks = [
-  { label: "Adoção", to: "/#adoption" },
+  { label: "Adoção", to: "/vitrine-pet?tipo=adocao" },
   { label: "Parcerias", to: "/parcerias" },
   { label: "Histórico Veterinário", to: "/historico-medico" },
 ];

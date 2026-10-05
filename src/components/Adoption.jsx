@@ -22,7 +22,7 @@ const Adoption = () => {
           variant="outline"
           className="rounded-full border-primary/30 px-6 text-primary hover:bg-primary-soft hover:text-primary"
         >
-          <Link to="/pets">Ver todos os pets</Link>
+          <Link to="/vitrine-pet?tipo=adocao">Explorar pets para adoção</Link>
         </Button>
       </div>
 

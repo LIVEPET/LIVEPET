@@ -413,9 +413,9 @@ const Chat = () => {
               size="sm"
               className="rounded-full border-primary/30 text-primary hover:bg-primary-soft text-xs"
             >
-              <Link to="/filhotes">
+              <Link to="/vitrine-pet">
                 <ShoppingBag className="mr-1.5 h-3.5 w-3.5" />
-                Filhotes
+                Vitrine Pet
               </Link>
             </Button>
           </div>
@@ -451,14 +451,14 @@ const Chat = () => {
                   </div>
                   <p className="text-sm font-semibold">Nenhuma conversa encontrada</p>
                   <p className="text-xs text-muted-foreground mt-1">
-                    Ao navegar na aba Filhotes, clique em "Conversar com o Dono" para abrir uma conversa direta!
+                    Ao navegar na Vitrine Pet, clique em "Conversar com o Dono" para abrir uma conversa direta!
                   </p>
                   <Button
                     asChild
                     size="sm"
                     className="mt-4 rounded-full gradient-primary text-xs"
                   >
-                    <Link to="/filhotes">Explorar Filhotes</Link>
+                    <Link to="/vitrine-pet">Explorar Vitrine Pet</Link>
                   </Button>
                 </div>
               ) : (
@@ -518,7 +518,7 @@ const Chat = () => {
                               variant="outline"
                               className="text-[9px] px-1.5 py-0 rounded-md border-primary/30 text-primary"
                             >
-                              🐾 Filhote / Ninhada
+                              🐾 Vitrine Pet
                             </Badge>
                           ) : (
                             <Badge
@@ -825,7 +825,7 @@ const Chat = () => {
                   Selecione uma conversa
                 </h3>
                 <p className="text-xs max-w-xs mt-1">
-                  Escolha uma conversa na lista ao lado ou inicie uma nova através dos anúncios de filhotes.
+                  Escolha uma conversa na lista ao lado ou inicie uma nova através da Vitrine Pet.
                 </p>
               </div>
             )}

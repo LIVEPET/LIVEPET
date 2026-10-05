@@ -1,5 +1,5 @@
 import { useState, useMemo, useEffect, useRef } from "react";
-import { Link, useNavigate } from "react-router-dom";
+import { Link, useNavigate, useSearchParams } from "react-router-dom";
 import {
   ShoppingBag,
   Search,
@@ -61,8 +61,8 @@ const formatBRL = (n) => {
   });
 };
 
-const PuppiesMarketplace = () => {
   const navigate = useNavigate();
+  const [searchParams, setSearchParams] = useSearchParams();
   const fileInputRef = useRef(null);
 
   const [currentUser, setCurrentUser] = useState(null);
@@ -75,9 +75,28 @@ const PuppiesMarketplace = () => {
   const [query, setQuery] = useState("");
   const [selectedSpecies, setSelectedSpecies] = useState("Todas");
   const [pedigreeOnly, setPedigreeOnly] = useState(false);
-  const [adTipoFilter, setAdTipoFilter] = useState("todos"); // "todos", "venda", "adocao"
+  const [adTipoFilter, setAdTipoFilter] = useState(() => searchParams.get("tipo") || "todos"); // "todos", "venda", "adocao"
   const [sortBy, setSortBy] = useState("recent");
   const [announceOpen, setAnnounceOpen] = useState(false);
+
+  // Sincroniza filtro quando a URL mudar (ex: vindo do link de Adoção no rodapé)
+  useEffect(() => {
+    const urlTipo = searchParams.get("tipo");
+    if (urlTipo && ["todos", "venda", "adocao"].includes(urlTipo)) {
+      setAdTipoFilter(urlTipo);
+    }
+  }, [searchParams]);
+
+  const handleAdTipoChange = (val) => {
+    setAdTipoFilter(val);
+    const updatedParams = new URLSearchParams(searchParams);
+    if (val === "todos") {
+      updatedParams.delete("tipo");
+    } else {
+      updatedParams.set("tipo", val);
+    }
+    setSearchParams(updatedParams);
+  };
   const [previewPuppy, setPreviewPuppy] = useState(null);
 
   // Form de Anúncio
@@ -251,7 +270,7 @@ const PuppiesMarketplace = () => {
     e.preventDefault();
     if (!currentUser) {
       toast.error("Faça login para anunciar um filhote.");
-      navigate("/login?redirect=/filhotes");
+      navigate("/login?redirect=/vitrine-pet");
       return;
     }
 
@@ -313,7 +332,7 @@ const PuppiesMarketplace = () => {
   const handleStartChat = (puppy) => {
     if (!currentUser) {
       toast("Faça login para conversar com o tutor.");
-      navigate("/login?redirect=/filhotes");
+      navigate("/login?redirect=/vitrine-pet");
       return;
     }
 
@@ -388,7 +407,7 @@ const PuppiesMarketplace = () => {
           <div className="flex flex-wrap items-center justify-between gap-4">
             <span className="inline-flex items-center gap-2 rounded-full bg-warm/15 px-4 py-1.5 text-xs font-bold uppercase tracking-[0.18em] text-warm ring-1 ring-warm/40">
               <ShoppingBag className="h-3.5 w-3.5" />
-              Catálogo Oficial de Filhotes LivePet
+              Vitrine Pet — Conexão & Adoção Responsável
             </span>
 
             <div className="flex items-center gap-2">
@@ -413,18 +432,18 @@ const PuppiesMarketplace = () => {
                 onClick={() => setAnnounceOpen(true)}
                 className="rounded-full bg-warm text-foreground shadow-soft hover:bg-warm/90 font-semibold"
               >
-                <Plus className="mr-1.5 h-4 w-4" /> Anunciar Filhote / Ninhada
+                <Plus className="mr-1.5 h-4 w-4" /> Anunciar Pet / Ninhada
               </Button>
             </div>
           </div>
 
           <h1 className="mt-4 max-w-3xl font-display text-3xl font-bold leading-[1.08] sm:text-4xl md:text-5xl">
-            Filhotes e ninhadas anunciados na{" "}
+            Pets, filhotes e ninhadas anunciados na{" "}
             <span className="italic text-warm">comunidade</span>.
           </h1>
           <p className="mt-3 max-w-2xl text-base text-primary-foreground/75">
-            Apenas anúncios verificados e publicados por tutores da comunidade. Transparência com pedigree certificado,
-            chat direto com o tutor e ciclo de verificação periódica a cada 30 dias.
+            Encontre um novo companheiro ou anuncie com responsabilidade. Adoção responsável e ninhadas
+            verificadas, com pedigree certificado e chat direto com o tutor.
           </p>
         </div>
       </section>
@@ -460,14 +479,14 @@ const PuppiesMarketplace = () => {
             </Select>
 
             {/* Tipo: Todos / Venda / Adoção */}
-            <Select value={adTipoFilter} onValueChange={setAdTipoFilter}>
+            <Select value={adTipoFilter} onValueChange={handleAdTipoChange}>
               <SelectTrigger className="w-[140px] rounded-full h-11">
                 <SelectValue placeholder="Modalidade" />
               </SelectTrigger>
               <SelectContent>
                 <SelectItem value="todos">Todos os tipos</SelectItem>
+                <SelectItem value="adocao">💚 Adoção Gratuita</SelectItem>
                 <SelectItem value="venda">Venda / Reserva</SelectItem>
-                <SelectItem value="adocao">Adoção Gratuita</SelectItem>
               </SelectContent>
             </Select>
 
