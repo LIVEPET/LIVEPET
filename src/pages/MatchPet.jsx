@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from "react";
+import { useNavigate } from "react-router-dom";
 import {
   Heart,
   X,
@@ -39,7 +40,8 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { Card } from "@/components/ui/card";
-import { petsService } from "@/services/api";
+import { petsService, authService } from "@/services/api";
+import { BLANK_PET_IMAGE, getPetPhoto } from "@/lib/petPlaceholder";
 import {
   Dialog,
   DialogContent,
@@ -76,29 +78,15 @@ import { Progress } from "@/components/ui/progress";
 import { Textarea } from "@/components/ui/textarea";
 import { Skeleton } from "@/components/ui/skeleton";
 
-// Fotos autênticas de pets — Unsplash
-const petThor =
-  "https://images.unsplash.com/photo-1552053831-71594a27632d?auto=format&fit=crop&w=800&q=80";
-const petMia =
-  "https://images.unsplash.com/photo-1574158622682-e40e69881006?auto=format&fit=crop&w=800&q=80";
-const petBento =
-  "https://images.unsplash.com/photo-1551717743-49959800b1f6?auto=format&fit=crop&w=800&q=80";
-const petLuna =
-  "https://images.unsplash.com/photo-1605568427561-40dd23c2acea?auto=format&fit=crop&w=800&q=80";
-const petAmora =
-  "https://images.unsplash.com/photo-1592194996308-7b43878e84a6?auto=format&fit=crop&w=800&q=80";
-const petSimba =
-  "https://images.unsplash.com/photo-1543852786-1cf6624b9987?auto=format&fit=crop&w=800&q=80";
-const petZeca =
-  "https://images.unsplash.com/photo-1505628346881-b72b27e84530?auto=format&fit=crop&w=800&q=80";
-const petNina =
-  "https://images.unsplash.com/photo-1583337130417-3346a1be7dee?auto=format&fit=crop&w=800&q=80";
-
 // ============================================================
 // Helpers
 // ============================================================
-const compatScore = (c) =>
-  Math.round((c.breed + c.genetic + c.temperament + c.age) / 4);
+const compatScore = (c) => {
+  if (!c) return 90;
+  return Math.round(
+    ((c.breed || 90) + (c.genetic || 90) + (c.temperament || 90) + (c.age || 90)) / 4
+  );
+};
 
 const formatBRL = (n) =>
   n.toLocaleString("pt-BR", {
@@ -107,273 +95,76 @@ const formatBRL = (n) =>
     minimumFractionDigits: 0,
   });
 
-const initials = (name) =>
-  name
-    .split(" ")
-    .map((p) => p[0])
-    .slice(0, 2)
-    .join("")
-    .toUpperCase();
+const initials = (name) => {
+  if (!name) return "TU";
+  const parts = name.trim().split(" ").filter(Boolean);
+  if (parts.length >= 2) {
+    return (parts[0][0] + parts[1][0]).toUpperCase();
+  }
+  return name.slice(0, 2).toUpperCase();
+};
 
-// ============================================================
-// Dados mock
-// ============================================================
-const BASE_MATCH_PETS = [
-  {
-    id: "match-1",
-    name: "Thor",
-    breed: "Golden Retriever",
-    species: "Cachorro",
-    sex: "Macho",
-    age: "2 anos",
-    ageYears: 2,
-    distanceKm: 4,
-    city: "Goiânia, GO",
-    pedigree: true,
-    availableForBreeding: true,
-    img: petThor,
-    gallery: [petThor, petBento],
-    tutor: { name: "Carlos Eduardo", phone: "(62) 99812-4411", online: true, lastSeen: "agora" },
-    compat: { breed: 98, genetic: 95, temperament: 92, age: 90 },
-    temperament: ["Dócil", "Brincalhão", "Sociável", "Atlético"],
-    medical: "Exames de displasia coxofemoral grau A (normal), laudo cardíaco limpo.",
-    vaccines: [
-      { name: "V10 Quádrupla", date: "15/01/2026" },
-      { name: "Antirrábica", date: "15/01/2026" },
-      { name: "Giárdiase", date: "10/02/2026" },
-    ],
-    genetics: "Linhagem pura campeã CBKC, livre de anomalias oculares.",
-    certifications: ["CBKC Oficial", "Laudo Displasia A", "Perfil de DNA Arquivado"],
-    rating: 5.0,
-    reviews: [
-      { tutor: "Juliana Silva", stars: 5, text: "Excelente linhagem e comportamento impecável!" },
-    ],
-  },
-  {
-    id: "match-2",
-    name: "Mia",
-    breed: "Siamês",
-    species: "Gato",
-    sex: "Fêmea",
-    age: "1 ano e meio",
-    ageYears: 1.5,
-    distanceKm: 8,
-    city: "Goiânia, GO",
-    pedigree: true,
-    availableForBreeding: true,
-    img: petMia,
-    gallery: [petMia, petSimba],
-    tutor: { name: "Mariana Costa", phone: "(62) 98765-1234", online: false, lastSeen: "há 10 min" },
-    compat: { breed: 94, genetic: 92, temperament: 96, age: 95 },
-    temperament: ["Carinhosa", "Tranquila", "Curiosa"],
-    medical: "Testes FIV/FeLV negativos, ecocardiograma normal.",
-    vaccines: [
-      { name: "V4 Felina", date: "20/12/2025" },
-      { name: "Antirrábica", date: "20/12/2025" },
-    ],
-    genetics: "Padrão de pelagem pura Pointed, linhagem certificada.",
-    certifications: ["FIV/FeLV Negativo", "Registro Cinófilo Oficial"],
-    rating: 4.9,
-    reviews: [
-      { tutor: "Rodrigo Mendes", stars: 5, text: "Gatinha dócil e muito bem cuidada." },
-    ],
-  },
-  {
-    id: "match-3",
-    name: "Bento",
-    breed: "Bulldog Francês",
-    species: "Cachorro",
-    sex: "Macho",
-    age: "3 anos",
-    ageYears: 3,
-    distanceKm: 12,
-    city: "Aparecida de Goiânia, GO",
-    pedigree: true,
-    availableForBreeding: true,
-    img: petBento,
-    gallery: [petBento, petThor],
-    tutor: { name: "Felipe Almeida", phone: "(62) 99112-8877", online: true, lastSeen: "agora" },
-    compat: { breed: 92, genetic: 90, temperament: 94, age: 88 },
-    temperament: ["Companheiro", "Calmo", "Amoroso"],
-    medical: "Sem problemas respiratórios, vacinas em dia.",
-    vaccines: [
-      { name: "V10", date: "05/02/2026" },
-      { name: "Antirrábica", date: "05/02/2026" },
-    ],
-    genetics: "Linhagem compacta padrão CBKC/FCI.",
-    certifications: ["CBKC 38.109", "Perfil Genético Atestado"],
-    rating: 4.8,
-    reviews: [
-      { tutor: "Beatriz Lima", stars: 5, text: "Cão maravilhoso, super saudável e dócil!" },
-    ],
-  },
-  {
-    id: "match-4",
-    name: "Luna",
-    breed: "Border Collie",
-    species: "Cachorro",
-    sex: "Fêmea",
-    age: "2 anos",
-    ageYears: 2,
-    distanceKm: 15,
-    city: "Anápolis, GO",
-    pedigree: true,
-    availableForBreeding: true,
-    img: petLuna,
-    gallery: [petLuna, petZeca],
-    tutor: { name: "Renata Pires", phone: "(62) 98455-9012", online: true, lastSeen: "agora" },
-    compat: { breed: 99, genetic: 98, temperament: 95, age: 92 },
-    temperament: ["Inteligente", "Ágil", "Atenta", "Obediente"],
-    medical: "CEA/CH livre por parentesco, MDR1 normal, displasia coxofemoral A.",
-    vaccines: [
-      { name: "V10 Vanguard", date: "12/01/2026" },
-      { name: "Antirrábica", date: "12/01/2026" },
-      { name: "Gripe Canina", date: "12/01/2026" },
-    ],
-    genetics: "Linha de trabalho e agilidade premiada.",
-    certifications: ["CBKC Oficial", "CEA Livre", "MDR1 Livre"],
-    rating: 5.0,
-    reviews: [
-      { tutor: "Lucas Rocha", stars: 5, text: "Inteligência fora da curva e temperamento espetacular!" },
-    ],
-  },
-  {
-    id: "match-5",
-    name: "Simba",
-    breed: "Persa",
-    species: "Gato",
-    sex: "Macho",
-    age: "2 anos",
-    ageYears: 2,
-    distanceKm: 18,
-    city: "Goiânia, GO",
-    pedigree: true,
-    availableForBreeding: false,
-    img: petSimba,
-    gallery: [petSimba, petAmora],
-    tutor: { name: "Camila Nogueira", phone: "(62) 99344-5566", online: false, lastSeen: "há 1h" },
-    compat: { breed: 91, genetic: 89, temperament: 97, age: 91 },
-    temperament: ["Dócil", "Carinhoso", "Caseiro"],
-    medical: "PKD negativo, exames renais regulares e perfeitos.",
-    vaccines: [
-      { name: "V5 Quíntupla", date: "18/11/2025" },
-      { name: "Antirrábica", date: "18/11/2025" },
-    ],
-    genetics: "Pelagem pura e volumosa, porte exemplar.",
-    certifications: ["PKD Livre", "FIV/FeLV Negativo"],
-    rating: 4.9,
-    reviews: [
-      { tutor: "Gabriel Santos", stars: 5, text: "Gato lindo e extremamente manso." },
-    ],
-  },
+const formatAge = (birthDateStr) => {
+  if (!birthDateStr) return "Registrado";
+  try {
+    const birth = new Date(birthDateStr);
+    const now = new Date();
+    const diffMonths =
+      (now.getFullYear() - birth.getFullYear()) * 12 +
+      (now.getMonth() - birth.getMonth());
+    if (diffMonths < 1) return "Menos de 1 mês";
+    if (diffMonths < 12)
+      return `${diffMonths} ${diffMonths === 1 ? "mês" : "meses"}`;
+    const years = Math.floor(diffMonths / 12);
+    const remainingMonths = diffMonths % 12;
+    if (remainingMonths === 0)
+      return `${years} ${years === 1 ? "ano" : "anos"}`;
+    return `${years}a ${remainingMonths}m`;
+  } catch {
+    return "Registrado";
+  }
+};
+
+const DEFAULT_BREEDS = [
+  "Golden Retriever",
+  "Bulldog Francês",
+  "Border Collie",
+  "Poodle",
+  "Pastor Alemão",
+  "Shih Tzu",
+  "Spitz Alemão",
+  "Labrador",
+  "Rottweiler",
+  "Siamês",
+  "Persa",
+  "SRD",
 ];
 
-const BASE_PUPPIES = [
-  {
-    id: "pup-1",
-    title: "Filhotes de Golden Retriever com Pedigree Oficial",
-    breed: "Golden Retriever",
-    species: "Cachorro",
-    sex: "Macho",
-    ageMonths: 2,
-    city: "Goiânia, GO",
-    price: 3200,
-    status: "Ativo",
-    pedigree: true,
-    img: petThor,
-    seller: { name: "Canil Vale Imperial", rating: 4.9, phone: "(62) 99812-4411" },
-    available: 3,
-    postedDaysAgo: 2,
-    description: "Filhotes vacinados com 1ª dose de V10 importada, desverminados e com microchip.",
-    photos: [petThor, petBento],
-  },
-  {
-    id: "pup-2",
-    title: "Gatinhos Siameses Puros — Linhagem Pointed",
-    breed: "Siamês",
-    species: "Gato",
-    sex: "Fêmea",
-    ageMonths: 2,
-    city: "Goiânia, GO",
-    price: 1800,
-    status: "Ativo",
-    pedigree: true,
-    img: petMia,
-    seller: { name: "Gatil Luar de Prata", rating: 5.0, phone: "(62) 98765-1234" },
-    available: 2,
-    postedDaysAgo: 4,
-    description: "Pais negativos para FIV/FeLV, acostumados com caixa de areia e ração super premium.",
-    photos: [petMia, petSimba],
-  },
-  {
-    id: "pup-3",
-    title: "Filhote Border Collie Linhagem Pastoreio e Agility",
-    breed: "Border Collie",
-    species: "Cachorro",
-    sex: "Fêmea",
-    ageMonths: 3,
-    city: "Anápolis, GO",
-    price: 2600,
-    status: "Ativo",
-    pedigree: true,
-    img: petLuna,
-    seller: { name: "Canil Estrela Guia", rating: 4.8, phone: "(62) 98455-9012" },
-    available: 1,
-    postedDaysAgo: 1,
-    description: "Pais com exames genéticos livres e laudo de displasia A.",
-    photos: [petLuna, petZeca],
-  },
-  {
-    id: "pup-4",
-    title: "Bulldog Francês Macho — Vacinas em Dia",
-    breed: "Bulldog Francês",
-    species: "Cachorro",
-    sex: "Macho",
-    ageMonths: 2,
-    city: "Aparecida de Goiânia, GO",
-    price: 3500,
-    status: "Ativo",
-    pedigree: true,
-    img: petBento,
-    seller: { name: "Canil Real Bull", rating: 4.9, phone: "(62) 99112-8877" },
-    available: 2,
-    postedDaysAgo: 3,
-    description: "Estrutura compacta, excelente padrão de respiração e acompanhamento veterinário.",
-    photos: [petBento, petThor],
-  },
-];
+const BASE_MATCH_PETS = [];
+const BASE_PUPPIES = [];
+const NOTIFICATIONS = [];
 
-const BREEDS = Array.from(
-  new Set([...BASE_MATCH_PETS.map((p) => p.breed), ...BASE_PUPPIES.map((p) => p.breed)]),
-).sort();
-
-const NOTIFICATIONS = [
-  {
-    id: "notif-1",
-    icon: Heart,
-    text: "Você tem um novo match de reprodução para Thor!",
-    time: "há 10 min",
-  },
-  {
-    id: "notif-2",
-    icon: ShieldCheck,
-    text: "Pedigree oficial validado na plataforma LivePet.",
-    time: "há 1h",
-  },
-  {
-    id: "notif-3",
-    icon: Sparkles,
-    text: "3 novos tutores curtiram seus pets no MatchPet.",
-    time: "há 3h",
-  },
-];
+const BREEDS = DEFAULT_BREEDS;
 
 const MatchPet = () => {
+  const navigate = useNavigate();
+  const [currentUser, setCurrentUser] = useState(null);
+
+  useEffect(() => {
+    setCurrentUser(authService.getCurrentUser());
+    const unsub = authService.onAuthStateChange((user) => setCurrentUser(user));
+    return unsub;
+  }, []);
+
+  const userDisplayName =
+    currentUser?.nome || currentUser?.email?.split("@")[0] || "Tutor";
+  const userInitials = initials(userDisplayName);
+
   // -------- estados gerais --------
   const [tab, setTab] = useState("descobrir");
   const [loading, setLoading] = useState(true);
-  const [matchPets, setMatchPets] = useState(BASE_MATCH_PETS);
-  const [puppies, setPuppies] = useState(BASE_PUPPIES);
+  const [matchPets, setMatchPets] = useState([]);
+  const [puppies, setPuppies] = useState([]);
 
   useEffect(() => {
     let isMounted = true;
@@ -384,37 +175,57 @@ const MatchPet = () => {
         if (!isMounted) return;
         if (Array.isArray(data) && data.length > 0) {
           const dbPets = data.map((p) => {
-            const isCat = p.especie?.toLowerCase() === "gato";
-            const defaultImg = isCat ? petMia : petThor;
+            const photo = getPetPhoto(p.foto_url);
             return {
               id: `db-${p.id}`,
               name: p.nome,
               breed: p.raca || "SRD",
               species: p.especie || "Cachorro",
               sex: p.sexo || "Macho",
-              age: "Registrado",
-              ageYears: 2,
-              distanceKm: 2,
-              city: "Goiânia, GO",
+              age: p.data_nascimento
+                ? formatAge(p.data_nascimento)
+                : p.idade
+                ? `${p.idade} anos`
+                : "Registrado",
+              ageYears: p.idade ? Number(p.idade) : 2,
+              distanceKm: 0,
+              city: p.cidade || "Goiânia, GO",
               pedigree: Boolean(p.lineage),
               availableForBreeding: true,
-              img: p.foto_url || defaultImg,
-              gallery: [p.foto_url || defaultImg],
-              tutor: { name: "Você (Tutor)", phone: "(62) 99999-0000", online: true, lastSeen: "agora" },
+              img: photo,
+              gallery: [photo],
+              tutor: {
+                name: p.tutor?.nome || "Você (Tutor)",
+                phone: p.tutor?.telefone || "",
+                online: true,
+                lastSeen: "agora",
+              },
               compat: { breed: 95, genetic: 92, temperament: 94, age: 90 },
               temperament: ["Dócil", "Sociável", "Acompanhado"],
-              medical: p.medical_records?.[0]?.descricao || "Acompanhamento preventivo em dia.",
-              vaccines: (p.vaccines || []).map((v) => ({ name: v.nome, date: v.data_aplicacao || "Em dia" })),
-              genetics: p.lineage?.registro ? `Registro Oficial ${p.lineage.registro}` : "Perfil registrado no LivePet",
-              certifications: p.lineage ? ["Pedigree LivePet", "Microchip Ativo"] : ["Cadastrado no LivePet"],
-              rating: 5.0,
+              medical:
+                p.medical_records?.[0]?.descricao ||
+                "Acompanhamento preventivo em dia.",
+              vaccines: (p.vaccines || []).map((v) => ({
+                name: v.nome,
+                date: v.data_aplicacao || "Em dia",
+              })),
+              genetics: p.lineage?.registro
+                ? `Registro Oficial ${p.lineage.registro}`
+                : "Perfil registrado no LivePet",
+              certifications: p.lineage
+                ? ["Pedigree LivePet", "Microchip Ativo"]
+                : ["Cadastrado no LivePet"],
+              rating: null,
               reviews: [],
             };
           });
-          setMatchPets([...BASE_MATCH_PETS, ...dbPets]);
+          setMatchPets(dbPets);
+        } else {
+          setMatchPets([]);
         }
       } catch (err) {
-        console.warn("Usando base padrão para MatchPet:", err);
+        console.warn("Erro ao carregar pets para MatchPet:", err);
+        if (isMounted) setMatchPets([]);
       } finally {
         if (isMounted) setLoading(false);
       }
@@ -748,9 +559,11 @@ const MatchPet = () => {
                   className="relative rounded-full"
                 >
                   <Bell className="h-4 w-4" />
-                  <span className="absolute -right-0.5 -top-0.5 flex h-4 w-4 items-center justify-center rounded-full bg-accent-warm text-[10px] font-bold text-white">
-                    {NOTIFICATIONS.length}
-                  </span>
+                  {NOTIFICATIONS.length > 0 && (
+                    <span className="absolute -right-0.5 -top-0.5 flex h-4 w-4 items-center justify-center rounded-full bg-accent-warm text-[10px] font-bold text-white">
+                      {NOTIFICATIONS.length}
+                    </span>
+                  )}
                 </Button>
               </PopoverTrigger>
               <PopoverContent align="end" className="w-80 rounded-2xl p-2">
@@ -758,30 +571,38 @@ const MatchPet = () => {
                   Notificações
                 </div>
                 <div className="max-h-72 space-y-1 overflow-y-auto py-1">
-                  {NOTIFICATIONS.map((n) => (
-                    <button
-                      key={n.id}
-                      onClick={() => toast(n.text)}
-                      className="flex w-full items-start gap-3 rounded-xl p-2 text-left text-sm hover:bg-muted"
-                    >
-                      <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-primary-soft text-primary">
-                        <n.icon className="h-4 w-4" />
-                      </span>
-                      <span className="flex-1">
-                        <span className="block">{n.text}</span>
-                        <span className="text-xs text-muted-foreground">
-                          {n.time}
+                  {NOTIFICATIONS.length === 0 ? (
+                    <div className="py-6 text-center text-xs text-muted-foreground">
+                      Nenhuma notificação nova no momento.
+                    </div>
+                  ) : (
+                    NOTIFICATIONS.map((n) => (
+                      <button
+                        key={n.id}
+                        onClick={() => toast(n.text)}
+                        className="flex w-full items-start gap-3 rounded-xl p-2 text-left text-sm hover:bg-muted"
+                      >
+                        <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-primary-soft text-primary">
+                          <n.icon className="h-4 w-4" />
                         </span>
-                      </span>
-                    </button>
-                  ))}
+                        <span className="flex-1">
+                          <span className="block">{n.text}</span>
+                          <span className="text-xs text-muted-foreground">
+                            {n.time}
+                          </span>
+                        </span>
+                      </button>
+                    ))
+                  )}
                 </div>
-                <button
-                  onClick={() => toast.success("Todas marcadas como lidas")}
-                  className="w-full rounded-xl p-2 text-center text-xs font-medium text-primary hover:bg-primary-soft"
-                >
-                  Marcar todas como lidas
-                </button>
+                {NOTIFICATIONS.length > 0 && (
+                  <button
+                    onClick={() => toast.success("Todas marcadas como lidas")}
+                    className="w-full rounded-xl p-2 text-center text-xs font-medium text-primary hover:bg-primary-soft"
+                  >
+                    Marcar todas como lidas
+                  </button>
+                )}
               </PopoverContent>
             </Popover>
 
@@ -789,18 +610,21 @@ const MatchPet = () => {
               <PopoverTrigger asChild>
                 <button className="group flex items-center gap-2 rounded-full border bg-card px-1 py-1 pr-3 shadow-soft transition-smooth hover:shadow-glow">
                   <Avatar className="h-8 w-8">
+                    {currentUser?.foto_url && (
+                      <AvatarImage src={currentUser.foto_url} alt={userDisplayName} />
+                    )}
                     <AvatarFallback className="bg-gradient-to-br from-primary to-primary-glow text-xs text-primary-foreground">
-                      MA
+                      {userInitials}
                     </AvatarFallback>
                   </Avatar>
                   <span className="hidden text-sm font-medium sm:inline">
-                    Marina
+                    {userDisplayName}
                   </span>
                 </button>
               </PopoverTrigger>
               <PopoverContent align="end" className="w-56 rounded-2xl p-2">
                 <button
-                  onClick={() => toast("Abrindo seu perfil…")}
+                  onClick={() => navigate("/perfil")}
                   className="w-full rounded-xl p-2 text-left text-sm hover:bg-muted"
                 >
                   Meu perfil
@@ -812,13 +636,16 @@ const MatchPet = () => {
                   Meus matches
                 </button>
                 <button
-                  onClick={() => toast("Configurações em breve")}
+                  onClick={() => navigate("/configuracoes")}
                   className="w-full rounded-xl p-2 text-left text-sm hover:bg-muted"
                 >
                   Configurações
                 </button>
                 <button
-                  onClick={() => toast("Sessão encerrada")}
+                  onClick={async () => {
+                    await authService.logout();
+                    navigate("/login");
+                  }}
                   className="w-full rounded-xl p-2 text-left text-sm text-destructive hover:bg-destructive/10"
                 >
                   Sair
@@ -987,35 +814,41 @@ const MatchPet = () => {
                     </h3>
                   </div>
                   <div className="space-y-2">
-                    {recommended.map((p) => (
-                      <button
-                        key={p.id}
-                        onClick={() => setProfilePet(p)}
-                        className="group flex w-full items-center gap-3 rounded-2xl border border-border/40 bg-background/60 p-2 text-left transition-smooth hover:border-primary/30 hover:bg-primary-soft"
-                      >
-                        <img
-                          src={p.img}
-                          alt={p.name}
-                          className="h-12 w-12 rounded-xl object-cover"
-                        />
-                        <div className="flex-1 min-w-0">
-                          <div className="flex items-center gap-1">
-                            <p className="truncate text-sm font-semibold">
-                              {p.name}
+                    {recommended.length === 0 ? (
+                      <p className="py-6 text-center text-xs text-muted-foreground">
+                        Nenhum pet recomendado no momento.
+                      </p>
+                    ) : (
+                      recommended.map((p) => (
+                        <button
+                          key={p.id}
+                          onClick={() => setProfilePet(p)}
+                          className="group flex w-full items-center gap-3 rounded-2xl border border-border/40 bg-background/60 p-2 text-left transition-smooth hover:border-primary/30 hover:bg-primary-soft"
+                        >
+                          <img
+                            src={p.img}
+                            alt={p.name}
+                            className="h-12 w-12 rounded-xl object-cover"
+                          />
+                          <div className="flex-1 min-w-0">
+                            <div className="flex items-center gap-1">
+                              <p className="truncate text-sm font-semibold">
+                                {p.name}
+                              </p>
+                              {p.pedigree && (
+                                <ShieldCheck className="h-3.5 w-3.5 text-primary" />
+                              )}
+                            </div>
+                            <p className="truncate text-xs text-muted-foreground">
+                              {p.breed} · {p.city}
                             </p>
-                            {p.pedigree && (
-                              <ShieldCheck className="h-3.5 w-3.5 text-primary" />
-                            )}
                           </div>
-                          <p className="truncate text-xs text-muted-foreground">
-                            {p.breed} · {p.city}
-                          </p>
-                        </div>
-                        <Badge className="rounded-full bg-primary/10 text-primary hover:bg-primary/10">
-                          {compatScore(p.compat)}%
-                        </Badge>
-                      </button>
-                    ))}
+                          <Badge className="rounded-full bg-primary/10 text-primary hover:bg-primary/10">
+                            {compatScore(p.compat)}%
+                          </Badge>
+                        </button>
+                      ))
+                    )}
                   </div>
                 </Card>
 
@@ -1026,27 +859,33 @@ const MatchPet = () => {
                       Pets populares
                     </h3>
                   </div>
-                  <div className="grid grid-cols-2 gap-2">
-                    {matchPets.slice(0, 4).map((p) => (
-                      <button
-                        key={p.id}
-                        onClick={() => setProfilePet(p)}
-                        className="group relative aspect-square overflow-hidden rounded-2xl"
-                      >
-                        <img
-                          src={p.img}
-                          alt={p.name}
-                          className="h-full w-full object-cover transition-transform duration-500 group-hover:scale-110"
-                        />
-                        <div className="absolute inset-x-0 bottom-0 bg-gradient-to-t from-black/80 to-transparent p-2 text-left">
-                          <p className="text-xs font-semibold text-white">
-                            {p.name}
-                          </p>
-                          <p className="text-[10px] text-white/80">{p.breed}</p>
-                        </div>
-                      </button>
-                    ))}
-                  </div>
+                  {matchPets.length === 0 ? (
+                    <p className="py-6 text-center text-xs text-muted-foreground">
+                      Nenhum pet popular disponível.
+                    </p>
+                  ) : (
+                    <div className="grid grid-cols-2 gap-2">
+                      {matchPets.slice(0, 4).map((p) => (
+                        <button
+                          key={p.id}
+                          onClick={() => setProfilePet(p)}
+                          className="group relative aspect-square overflow-hidden rounded-2xl"
+                        >
+                          <img
+                            src={p.img}
+                            alt={p.name}
+                            className="h-full w-full object-cover transition-transform duration-500 group-hover:scale-110"
+                          />
+                          <div className="absolute inset-x-0 bottom-0 bg-gradient-to-t from-black/80 to-transparent p-2 text-left">
+                            <p className="text-xs font-semibold text-white">
+                              {p.name}
+                            </p>
+                            <p className="text-[10px] text-white/80">{p.breed}</p>
+                          </div>
+                        </button>
+                      ))}
+                    </div>
+                  )}
                 </Card>
               </aside>
             </div>
@@ -2345,11 +2184,13 @@ const EmptyDeck = ({ likesCount, onReset }) => (
     <div className="mb-4 flex h-16 w-16 items-center justify-center rounded-full bg-primary-soft">
       <Sparkles className="h-8 w-8 text-primary animate-twinkle" />
     </div>
-    <h3 className="text-xl font-bold">Acabaram os pets por aqui</h3>
+    <h3 className="text-xl font-bold">
+      {likesCount > 0 ? "Acabaram os pets por aqui" : "Nenhum pet disponível no momento"}
+    </h3>
     <p className="mt-2 text-sm text-muted-foreground">
       {likesCount > 0
         ? `Você curtiu ${likesCount} pet${likesCount > 1 ? "s" : ""}. Confira na aba Matches.`
-        : "Ajuste os filtros e tente novamente."}
+        : "Cadastre novos pets para encontrar combinações no MatchPet."}
     </p>
     <Button
       onClick={onReset}
