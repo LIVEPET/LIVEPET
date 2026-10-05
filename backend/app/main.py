@@ -33,7 +33,17 @@ app.add_middleware(
     allow_credentials=_allow_credentials,
     allow_methods=["*"],
     allow_headers=["*"],
+    expose_headers=["X-Deploy-Id", "X-App-Version"],
 )
+
+
+@app.middleware("http")
+async def add_deploy_and_cache_headers(request, call_next):
+    response = await call_next(request)
+    response.headers["X-Deploy-Id"] = settings.DEPLOY_ID
+    response.headers["X-App-Version"] = settings.VERSION
+    return response
+
 
 # Inclusão dos roteadores da API
 app.include_router(health.router)

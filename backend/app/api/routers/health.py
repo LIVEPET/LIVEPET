@@ -31,5 +31,16 @@ def health_check(db: Session = Depends(get_db)):
         "database": db_status,
         "database_latency_ms": latency_ms,
         "version": settings.VERSION,
+        "deploy_id": settings.DEPLOY_ID,
+        "project": settings.PROJECT_NAME,
+    }
+
+
+@router.get("/version", summary="Consulta a versão e ID do deploy ativo no Render")
+def get_version():
+    """Retorna os dados de build e deploy atual para sincronização de cache do navegador."""
+    return {
+        "version": settings.VERSION,
+        "deploy_id": settings.DEPLOY_ID,
         "project": settings.PROJECT_NAME,
     }

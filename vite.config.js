@@ -22,4 +22,12 @@ export default defineConfig(({ mode }) => ({
     },
     dedupe: ["react", "react-dom", "react/jsx-runtime", "react/jsx-dev-runtime", "@tanstack/react-query", "@tanstack/query-core"],
   },
+  define: {
+    __APP_BUILD_ID__: JSON.stringify(
+      process.env.RENDER_GIT_COMMIT ||
+      process.env.RENDER_INSTANCE_ID ||
+      process.env.VITE_APP_BUILD_ID ||
+      `livepet-build-${Date.now()}`
+    ),
+  },
 }));

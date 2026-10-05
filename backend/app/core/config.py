@@ -1,3 +1,4 @@
+import os
 import warnings
 from typing import List, Union
 from pydantic import ValidationInfo, field_validator
@@ -9,6 +10,7 @@ class Settings(BaseSettings):
     VERSION: str = "1.0.0"
     API_V1_STR: str = "/api/v1"
     ENVIRONMENT: str = "development"
+    DEPLOY_ID: str = os.getenv("RENDER_GIT_COMMIT") or os.getenv("RENDER_INSTANCE_ID") or "livepet-build-1.0.0"
 
     # Conexão de Banco de Dados: SQLite local por padrão ou PostgreSQL
     DATABASE_URL: str = "sqlite:///./livepet.db"

@@ -3,9 +3,11 @@
  * Gerencia autenticação JWT, persistência de sessão e chamadas REST.
  */
 
-const API_BASE_URL =
+export const API_BASE_URL =
   import.meta.env.VITE_API_URL ||
   (import.meta.env.DEV ? "http://localhost:8000" : "https://livepet.onrender.com");
+
+import { handleBackendDeployId } from "./versionChecker";
 
 const TOKEN_KEY = "livepet_access_token";
 const USER_KEY = "livepet_current_user";
@@ -76,6 +78,16 @@ async function apiFetch(endpoint, options = {}) {
   }
 
   const response = await fetch(url, { ...options, headers });
+
+  // Verifica se o cabeçalho X-Deploy-Id do Render indica nova versão do backend
+  try {
+    const deployId = response.headers?.get("x-deploy-id");
+    if (deployId) {
+      handleBackendDeployId(deployId);
+    }
+  } catch (e) {
+    // Ignora
+  }
 
   if (!response.ok) {
     let errorDetail = "Ocorreu um erro na requisição.";
