@@ -11,8 +11,13 @@ import { Menu, Plus } from "lucide-react";
 import Logo from "./Logo";
 import NotificationBell from "./NotificationBell";
 import UserMenu from "./UserMenu";
+import { authService } from "@/services/api";
 
-const navItems = [
+const publicNavItems = [
+  { label: "Início", to: "/" },
+];
+
+const memberNavItems = [
   { label: "Início", to: "/" },
   { label: "Pets", to: "/pets" },
   { label: "Pedigree", to: "/pedigree" },
@@ -27,6 +32,18 @@ const navItems = [
 const Header = () => {
   const { pathname } = useLocation();
   const [scrolled, setScrolled] = useState(false);
+  const [currentUser, setCurrentUser] = useState(null);
+
+  useEffect(() => {
+    setCurrentUser(authService.getCurrentUser());
+    const unsubscribe = authService.onAuthStateChange((user) => {
+      setCurrentUser(user);
+    });
+    return unsubscribe;
+  }, []);
+
+  const isLoggedIn = Boolean(currentUser);
+  const navItems = isLoggedIn ? memberNavItems : publicNavItems;
 
   useEffect(() => {
     const onScroll = () => setScrolled(window.scrollY > 8);
@@ -77,17 +94,21 @@ const Header = () => {
         </nav>
 
         <div className="flex items-center gap-1.5 sm:gap-2">
-          <Button
-            asChild
-            size="sm"
-            className="hidden rounded-full gradient-primary px-4 text-primary-foreground shadow-soft transition-bounce hover:scale-[1.03] hover:shadow-glow md:inline-flex"
-          >
-            <Link to="/pets/novo">
-              <Plus className="h-4 w-4" />
-              Adicionar pet
-            </Link>
-          </Button>
-          <NotificationBell />
+          {isLoggedIn && (
+            <>
+              <Button
+                asChild
+                size="sm"
+                className="hidden rounded-full gradient-primary px-4 text-primary-foreground shadow-soft transition-bounce hover:scale-[1.03] hover:shadow-glow md:inline-flex"
+              >
+                <Link to="/pets/novo">
+                  <Plus className="h-4 w-4" />
+                  Adicionar pet
+                </Link>
+              </Button>
+              <NotificationBell />
+            </>
+          )}
           <UserMenu />
 
           {/* Mobile menu */}
@@ -118,23 +139,39 @@ const Header = () => {
                   ))}
                 </nav>
                 <div className="flex flex-col gap-2 px-4">
-                  <SheetClose asChild>
-                    <Button
-                      asChild
-                      variant="outline"
-                      className="w-full rounded-full border-primary/30 text-primary hover:bg-primary-soft hover:text-primary"
-                    >
-                      <Link to="/login">Entrar</Link>
-                    </Button>
-                  </SheetClose>
-                  <SheetClose asChild>
-                    <Button
-                      asChild
-                      className="w-full rounded-full gradient-primary text-primary-foreground shadow-soft transition-smooth hover:shadow-glow"
-                    >
-                      <Link to="/login">Criar conta</Link>
-                    </Button>
-                  </SheetClose>
+                  {!isLoggedIn ? (
+                    <>
+                      <SheetClose asChild>
+                        <Button
+                          asChild
+                          variant="outline"
+                          className="w-full rounded-full border-primary/30 text-primary hover:bg-primary-soft hover:text-primary"
+                        >
+                          <Link to="/login">Entrar</Link>
+                        </Button>
+                      </SheetClose>
+                      <SheetClose asChild>
+                        <Button
+                          asChild
+                          className="w-full rounded-full gradient-primary text-primary-foreground shadow-soft transition-smooth hover:shadow-glow"
+                        >
+                          <Link to="/login">Criar conta</Link>
+                        </Button>
+                      </SheetClose>
+                    </>
+                  ) : (
+                    <SheetClose asChild>
+                      <Button
+                        asChild
+                        className="w-full rounded-full gradient-primary text-primary-foreground shadow-soft transition-smooth hover:shadow-glow"
+                      >
+                        <Link to="/pets/novo">
+                          <Plus className="mr-1.5 h-4 w-4" />
+                          Adicionar pet
+                        </Link>
+                      </Button>
+                    </SheetClose>
+                  )}
                 </div>
               </div>
             </SheetContent>
