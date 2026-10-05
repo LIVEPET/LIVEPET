@@ -8,6 +8,7 @@ import {
   Stethoscope,
   Settings,
   ListChecks,
+  MessageCircle,
 } from "lucide-react";
 import { toast } from "sonner";
 import { authService } from "@/services/api";
@@ -125,6 +126,11 @@ const UserMenu = () => {
         <DropdownMenuItem asChild>
           <Link to="/pets" className="cursor-pointer gap-2">
             <PawPrint className="h-4 w-4" /> Meus Pets
+          </Link>
+        </DropdownMenuItem>
+        <DropdownMenuItem asChild>
+          <Link to="/chat" className="cursor-pointer gap-2">
+            <MessageCircle className="h-4 w-4 text-primary" /> Mensagens & Chat
           </Link>
         </DropdownMenuItem>
         <DropdownMenuItem asChild>

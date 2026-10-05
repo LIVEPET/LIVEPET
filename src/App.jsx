@@ -19,6 +19,7 @@ import PuppiesMarketplace from "./pages/PuppiesMarketplace";
 import PetHealth from "./pages/PetHealth";
 import PetCard from "./pages/PetCard";
 import Profile from "./pages/Profile";
+import Chat from "./pages/Chat";
 import NotFound from "./pages/NotFound";
 
 import ClinicLogin from "./pages/Clinic/ClinicLogin";
@@ -61,6 +62,7 @@ const App = () => (
               <Route path="/historico-medico" element={<MedicalHistory />} />
               <Route path="/matchpet" element={<MatchPet />} />
               <Route path="/saude" element={<PetHealth />} />
+              <Route path="/chat" element={<Chat />} />
               <Route path="/perfil" element={<Profile />} />
             </Route>
 
