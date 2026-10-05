@@ -8,6 +8,7 @@ from app.models.pet import Pet
 from app.models.user import User
 from app.models.vaccine import Vaccine
 from app.models.medical_record import MedicalRecord
+from app.models.care_contact import CareContact
 from app.schemas.pet import (
     PetCreate,
     PetExploreResponse,
@@ -17,6 +18,7 @@ from app.schemas.pet import (
 )
 from app.schemas.vaccine import VaccineCreate, VaccineResponse
 from app.schemas.medical_record import MedicalRecordCreate, MedicalRecordResponse
+from app.schemas.care_contact import CareContactCreate, CareContactResponse
 
 router = APIRouter(tags=["Pets"])
 
@@ -289,6 +291,7 @@ def get_public_pet_emergency(
         "tutor_telefone": pet.tutor.telefone if pet.tutor else None,
         "vacinas_principais": vacinas,
         "avisos_medicos": avisos_str,
+        "contatos_emergencia": [c for c in (pet.care_contacts or []) if c.categoria == "emergency"],
     }
 
 
@@ -552,3 +555,116 @@ def delete_pet_medical_record(
     db.delete(record)
     db.commit()
     return None
+
+
+@router.post(
+    "/pets/{pet_id}/care-contacts",
+    response_model=CareContactResponse,
+    status_code=status.HTTP_201_CREATED,
+    summary="Adicionar contato de emergência ou cuidador para o pet",
+)
+def create_pet_care_contact(
+    pet_id: int,
+    contact_in: CareContactCreate,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    pet = db.query(Pet).filter(Pet.id == pet_id).first()
+    if not pet:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Pet não encontrado.",
+        )
+    if pet.user_id != current_user.id:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Acesso não autorizado: este animal pertence a outro tutor.",
+        )
+
+    contact = CareContact(
+        pet_id=pet_id,
+        nome=contact_in.nome,
+        funcao=contact_in.funcao,
+        categoria=contact_in.categoria or "emergency",
+        telefone=contact_in.telefone,
+        email=contact_in.email,
+        foto_url=contact_in.foto_url,
+        relacao_tutor=contact_in.relacao_tutor,
+        relacao_pet=contact_in.relacao_pet,
+        nivel_vinculo=contact_in.nivel_vinculo or "Alto",
+        observacoes=contact_in.observacoes,
+    )
+    db.add(contact)
+    db.commit()
+    db.refresh(contact)
+    return contact
+
+
+@router.get(
+    "/pets/{pet_id}/care-contacts",
+    response_model=List[CareContactResponse],
+    summary="Listar contatos da rede de cuidados e emergência do pet",
+)
+def list_pet_care_contacts(
+    pet_id: int,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    pet = db.query(Pet).filter(Pet.id == pet_id).first()
+    if not pet:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Pet não encontrado.",
+        )
+    if pet.user_id != current_user.id:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Acesso não autorizado: este animal pertence a outro tutor.",
+        )
+
+    return (
+        db.query(CareContact)
+        .filter(CareContact.pet_id == pet_id)
+        .order_by(CareContact.criado_em.asc())
+        .all()
+    )
+
+
+@router.delete(
+    "/pets/{pet_id}/care-contacts/{contact_id}",
+    status_code=status.HTTP_204_NO_CONTENT,
+    summary="Remover um contato de emergência ou cuidador do pet",
+)
+def delete_pet_care_contact(
+    pet_id: int,
+    contact_id: int,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    pet = db.query(Pet).filter(Pet.id == pet_id).first()
+    if not pet:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Pet não encontrado.",
+        )
+    if pet.user_id != current_user.id:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Acesso não autorizado.",
+        )
+
+    contact = (
+        db.query(CareContact)
+        .filter(CareContact.id == contact_id, CareContact.pet_id == pet_id)
+        .first()
+    )
+    if not contact:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Contato não encontrado.",
+        )
+
+    db.delete(contact)
+    db.commit()
+    return None
+

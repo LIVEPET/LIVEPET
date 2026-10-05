@@ -196,6 +196,34 @@ class TestPetsCRUD(unittest.TestCase):
         self.assertEqual(qr_data["token_publico"], token_publico)
         self.assertIn(token_publico, qr_data["public_scan_url"])
 
+        # 12b. Care Contacts: Adiciona contato de emergência e lista
+        resp_cc = self.client.post(
+            f"/api/v1/pets/{pet1_id}/care-contacts",
+            json={
+                "nome": "Dra. Renata - Vet 24h",
+                "funcao": "Veterinária de Referência",
+                "categoria": "emergency",
+                "telefone": "(62) 99999-8888",
+                "relacao_pet": "Clínica 24h",
+            },
+            headers=headers1,
+        )
+        self.assertEqual(resp_cc.status_code, 201)
+        cc_id = resp_cc.json()["id"]
+
+        resp_cc_list = self.client.get(f"/api/v1/pets/{pet1_id}/care-contacts", headers=headers1)
+        self.assertEqual(resp_cc_list.status_code, 200)
+        self.assertEqual(len(resp_cc_list.json()), 1)
+
+        # Verifica se aparece no QR code público
+        resp_pub_with_cc = self.client.get(f"/api/v1/public/pet/{token_publico}")
+        self.assertEqual(resp_pub_with_cc.status_code, 200)
+        self.assertEqual(len(resp_pub_with_cc.json()["contatos_emergencia"]), 1)
+
+        # Deleta o contato de emergência
+        resp_del_cc = self.client.delete(f"/api/v1/pets/{pet1_id}/care-contacts/{cc_id}", headers=headers1)
+        self.assertEqual(resp_del_cc.status_code, 204)
+
         # 13. DELETE /pets/{id}: Tutor 2 tenta deletar pet do Tutor 1 (403 Forbidden)
         resp_del_unauth = self.client.delete(f"/api/v1/pets/{pet1_id}", headers=headers2)
         self.assertEqual(resp_del_unauth.status_code, 403)

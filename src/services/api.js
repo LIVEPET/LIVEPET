@@ -317,6 +317,32 @@ export const petsService = {
   async getPublicEmergency(token) {
     return apiFetch(`/api/v1/public/pet/${token}`);
   },
+
+  /**
+   * Lista contatos da rede de cuidados / emergência de um pet
+   */
+  async getCareContacts(petId) {
+    return apiFetch(`/api/v1/pets/${petId}/care-contacts`);
+  },
+
+  /**
+   * Cadastra contato de emergência ou cuidador para um pet
+   */
+  async addCareContact(petId, contactData) {
+    return apiFetch(`/api/v1/pets/${petId}/care-contacts`, {
+      method: "POST",
+      body: contactData,
+    });
+  },
+
+  /**
+   * Remove contato de cuidados ou emergência de um pet
+   */
+  async deleteCareContact(petId, contactId) {
+    return apiFetch(`/api/v1/pets/${petId}/care-contacts/${contactId}`, {
+      method: "DELETE",
+    });
+  },
 };
 
 export const lineageService = {

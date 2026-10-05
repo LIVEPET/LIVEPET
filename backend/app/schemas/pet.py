@@ -94,5 +94,6 @@ class PetPublicResponse(BaseModel):
     tutor_telefone: Optional[str] = None
     vacinas_principais: list[VaccinePublicSummary] = []
     avisos_medicos: Optional[str] = None
+    contatos_emergencia: list[CareContactResponse] = []
 
     model_config = ConfigDict(from_attributes=True)

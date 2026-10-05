@@ -5,6 +5,7 @@ import {
   Dialog,
   DialogContent,
   DialogDescription,
+  DialogFooter,
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
@@ -13,6 +14,17 @@ import { Badge } from "@/components/ui/badge";
 import { Card } from "@/components/ui/card";
 import { Progress } from "@/components/ui/progress";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Textarea } from "@/components/ui/textarea";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import { toast } from "sonner";
 import { getStoredUser, petsService } from "@/services/api";
 
 import {
@@ -53,6 +65,7 @@ import {
   Loader2,
   AlertCircle,
   Calendar,
+  Trash2,
 } from "lucide-react";
 
 import { BLANK_PET_IMAGE, getPetPhoto } from "@/lib/petPlaceholder";
@@ -141,6 +154,22 @@ const PetCard = () => {
   const [selectedContact, setSelectedContact] = useState(null);
   const [selectedAncestor, setSelectedAncestor] = useState(null);
 
+  // Contatos de Emergência e Cuidados customizados
+  const [customContacts, setCustomContacts] = useState([]);
+  const [isAddContactOpen, setIsAddContactOpen] = useState(false);
+  const [savingContact, setSavingContact] = useState(false);
+  const [deletingContactId, setDeletingContactId] = useState(null);
+
+  // Form de cadastro de novo contato
+  const [newContactName, setNewContactName] = useState("");
+  const [newContactRole, setNewContactRole] = useState("");
+  const [newContactCategory, setNewContactCategory] = useState("emergency");
+  const [newContactPhone, setNewContactPhone] = useState("");
+  const [newContactEmail, setNewContactEmail] = useState("");
+  const [newContactRelation, setNewContactRelation] = useState("");
+  const [newContactBond, setNewContactBond] = useState("Alto");
+  const [newContactNotes, setNewContactNotes] = useState("");
+
   // 1. Busca dados de emergência se token público estiver presente na URL
   useEffect(() => {
     if (!token) return;
@@ -212,6 +241,15 @@ const PetCard = () => {
     return getPetPhoto(selectedPet?.foto_url);
   }, [selectedPet]);
 
+  // Sincroniza contatos customizados quando o pet selecionado muda
+  useEffect(() => {
+    if (selectedPet?.care_contacts) {
+      setCustomContacts(selectedPet.care_contacts);
+    } else {
+      setCustomContacts([]);
+    }
+  }, [selectedPet]);
+
   // Dados consolidados do tutor autenticado
   const tutorData = useMemo(() => {
     return {
@@ -231,21 +269,79 @@ const PetCard = () => {
     return selectedPet?.medical_records || [];
   }, [selectedPet]);
 
-  // Veterinário de referência extraído do último registro de vacina ou prontuário
-  const vetInfo = useMemo(() => {
-    const vetFromVac = vaccinesList.find((v) => v.veterinario)?.veterinario;
-    return {
-      name: vetFromVac || "Clínica Veterinária Parceira",
-      crmv: "CRMV Regularizado",
-      phone: tutorData.phone,
-    };
-  }, [vaccinesList, tutorData]);
+  const resetContactForm = () => {
+    setNewContactName("");
+    setNewContactRole("");
+    setNewContactCategory("emergency");
+    setNewContactPhone("");
+    setNewContactEmail("");
+    setNewContactRelation("");
+    setNewContactBond("Alto");
+    setNewContactNotes("");
+  };
+
+  const handleAddCareContact = async (e) => {
+    e.preventDefault();
+    if (!newContactName.trim() || !newContactPhone.trim()) {
+      toast.error("Informe pelo menos o nome e o telefone do contato.");
+      return;
+    }
+    if (!selectedPet?.id) {
+      toast.error("Nenhum pet selecionado.");
+      return;
+    }
+
+    setSavingContact(true);
+    try {
+      const payload = {
+        nome: newContactName.trim(),
+        funcao:
+          newContactRole.trim() ||
+          (newContactCategory === "emergency"
+            ? "Contato de Emergência"
+            : "Cuidador(a)"),
+        categoria: newContactCategory,
+        telefone: newContactPhone.trim(),
+        email: newContactEmail.trim() || null,
+        relacao_pet: newContactRelation.trim() || null,
+        nivel_vinculo: newContactBond || "Alto",
+        observacoes: newContactNotes.trim() || null,
+      };
+
+      const created = await petsService.addCareContact(selectedPet.id, payload);
+      setCustomContacts((prev) => [...prev, created]);
+      toast.success("Contato cadastrado com sucesso!");
+      setIsAddContactOpen(false);
+      resetContactForm();
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : "Erro ao salvar contato";
+      toast.error("Falha ao salvar contato", { description: msg });
+    } finally {
+      setSavingContact(false);
+    }
+  };
+
+  const handleDeleteCareContact = async (contactId) => {
+    if (!selectedPet?.id) return;
+    setDeletingContactId(contactId);
+    try {
+      await petsService.deleteCareContact(selectedPet.id, contactId);
+      setCustomContacts((prev) => prev.filter((c) => c.id !== contactId));
+      setSelectedContact(null);
+      toast.success("Contato removido com sucesso!");
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : "Erro ao remover contato";
+      toast.error("Falha ao excluir contato", { description: msg });
+    } finally {
+      setDeletingContactId(null);
+    }
+  };
 
   // Rede de contatos: inclui sempre o tutor e veterinário vinculado
   const careNetwork = useMemo(() => {
     const contacts = [];
 
-    // Tutor Principal (usuário logado)
+    // 1. Tutor Principal (usuário autenticado - usa foto real ou avatar gerado, sem mocks)
     contacts.push({
       id: "tutor",
       name: tutorData.name,
@@ -254,8 +350,7 @@ const PetCard = () => {
       relationPet: "Tutor responsável",
       phone: tutorData.phone,
       email: tutorData.email,
-      photo:
-        "https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=120&h=120&fit=crop&crop=face",
+      photo: currentUser?.foto_url || null,
       category: "emergency",
       bondLevel: "Muito Alto",
       timeTogether: "Tutor Titular",
@@ -279,72 +374,91 @@ const PetCard = () => {
       notes: "Tutor titular cadastrado na plataforma oficial LivePet.",
     });
 
-    // Se houver contatos registrados no banco de dados
-    if (selectedPet?.care_contacts && selectedPet.care_contacts.length > 0) {
-      selectedPet.care_contacts.forEach((c) => {
-        contacts.push({
-          id: `db-${c.id}`,
-          name: c.nome,
-          role: c.funcao,
-          relationTutor: c.relacao_tutor || "Contato autorizado",
-          relationPet: c.relacao_pet || "Cuidador",
-          phone: c.telefone,
-          email: c.email,
-          photo:
-            c.foto_url ||
-            "https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=120&h=120&fit=crop&crop=face",
-          category: c.categoria || "care",
-          bondLevel: c.nivel_vinculo || "Alto",
-          timeTogether: "Rede ativa",
-          interactions: 24,
-          lastInteraction: "Recente",
-          frequency: "Semanal",
-          timesResponsible: 10,
-          totalDays: 20,
-          longestStreak: "5 dias",
-          lastResponsibility: "Recente",
-          activities: ["Passeios", "Alimentação"],
-          timeline: [
-            { date: "Recente", title: "Apoio ao tutor", type: "Cuidado" },
-          ],
-          notes: c.observacoes || "Contato cadastrado na rede de cuidados.",
-        });
-      });
-    } else {
-      // Contato de emergência da clínica
+    // 2. Contatos da rede de cuidados e emergência cadastrados pelo usuário
+    customContacts.forEach((c) => {
       contacts.push({
-        id: "vet",
-        name: vetInfo.name,
-        role: "Veterinário(a) de Referência",
-        relationTutor: "Profissional de saúde",
-        relationPet: "Atendimento clínico",
-        phone: vetInfo.phone,
-        photo:
-          "https://images.unsplash.com/photo-1622253692010-333f2da6031d?w=120&h=120&fit=crop&crop=face",
-        category: "emergency",
-        bondLevel: "Alto",
-        timeTogether: "Histórico clínico",
-        interactions: vaccinesList.length + medicalHistory.length,
-        lastInteraction: "Último registro",
-        frequency: "Semestral",
-        timesResponsible: 1,
-        totalDays: 1,
+        id: `db-${c.id}`,
+        dbId: c.id,
+        name: c.nome,
+        role: c.funcao,
+        relationTutor: c.relacao_tutor || "Contato autorizado",
+        relationPet:
+          c.relacao_pet ||
+          (c.categoria === "emergency" ? "Emergência" : "Cuidador"),
+        phone: c.telefone,
+        email: c.email,
+        photo: c.foto_url || null,
+        category: c.categoria || "emergency",
+        bondLevel: c.nivel_vinculo || "Alto",
+        timeTogether: "Rede ativa",
+        interactions: 12,
+        lastInteraction: "Recente",
+        frequency: "Conforme rotina",
+        timesResponsible: 5,
+        totalDays: 10,
         longestStreak: "—",
-        lastResponsibility: "Atendimento clínico",
-        activities: ["Consultas", "Vacinação", "Procedimentos"],
+        lastResponsibility: "Apoio e segurança",
+        activities: ["Cuidados", "Emergência"],
         timeline: [
           {
             date: "Ativo",
-            title: "Acompanhamento profissional",
-            type: "Consulta",
+            title: "Contato registrado na rede",
+            type: "Cuidado",
           },
         ],
-        notes: "Profissional ou clínica responsável pelos registros clínicos.",
+        notes:
+          c.observacoes ||
+          "Contato cadastrado na rede de cuidados e emergência do pet.",
       });
+    });
+
+    // 3. Veterinário de registro: se não houver um contato veterinário manual cadastrado,
+    // verifica se o prontuário de vacinas contém profissional responsável
+    const hasVetContact = contacts.some(
+      (c) =>
+        c.role?.toLowerCase().includes("vet") ||
+        c.role?.toLowerCase().includes("clínica") ||
+        c.name?.toLowerCase().includes("vet") ||
+        c.name?.toLowerCase().includes("dr.") ||
+        c.name?.toLowerCase().includes("dra.")
+    );
+
+    if (!hasVetContact) {
+      const vetFromVac = vaccinesList.find((v) => v.veterinario)?.veterinario;
+      if (vetFromVac) {
+        contacts.push({
+          id: "vet-vacina",
+          name: vetFromVac,
+          role: "Veterinário(a) de Registro",
+          relationTutor: "Profissional de saúde",
+          relationPet: "Atendimento clínico",
+          phone: tutorData.phone,
+          photo: null,
+          category: "emergency",
+          bondLevel: "Alto",
+          timeTogether: "Histórico clínico",
+          interactions: vaccinesList.length + medicalHistory.length,
+          lastInteraction: "Último atendimento",
+          frequency: "Semestral",
+          timesResponsible: 1,
+          totalDays: 1,
+          longestStreak: "—",
+          lastResponsibility: "Atendimento clínico",
+          activities: ["Consultas", "Vacinação", "Procedimentos"],
+          timeline: [
+            {
+              date: "Ativo",
+              title: "Acompanhamento profissional",
+              type: "Consulta",
+            },
+          ],
+          notes: "Profissional registrado nas doses de vacina ou prontuário.",
+        });
+      }
     }
 
     return contacts;
-  }, [tutorData, selectedPet, vetInfo, vaccinesList, medicalHistory]);
+  }, [tutorData, currentUser, customContacts, vaccinesList, medicalHistory]);
 
   // URL pública de emergência e QR Payload
   const publicEmergencyUrl = useMemo(() => {
@@ -613,6 +727,51 @@ const PetCard = () => {
               </div>
             )}
           </div>
+
+          {/* Contatos Adicionais de Emergência / Clínica */}
+          {emergencyPet.contatos_emergencia &&
+            emergencyPet.contatos_emergencia.length > 0 && (
+              <div className="rounded-2xl border border-rose-500/25 bg-rose-500/5 p-4 space-y-3">
+                <div className="flex items-center gap-1.5 text-xs font-bold text-rose-700 dark:text-rose-400">
+                  <Siren className="h-4 w-4" />
+                  <span>Contatos de Emergência Adicionais</span>
+                </div>
+                <div className="space-y-2">
+                  {emergencyPet.contatos_emergencia.map((c) => {
+                    const cCleanPhone = c.telefone
+                      ? c.telefone.replace(/\D/g, "")
+                      : "";
+                    return (
+                      <div
+                        key={c.id}
+                        className="flex items-center justify-between gap-2 rounded-xl border border-border/70 bg-card p-3 shadow-xs"
+                      >
+                        <div className="min-w-0 flex-1">
+                          <p className="truncate text-xs font-bold text-foreground">
+                            {c.nome}
+                          </p>
+                          <p className="truncate text-[11px] text-muted-foreground">
+                            {c.funcao} • {c.telefone}
+                          </p>
+                        </div>
+                        {cCleanPhone && (
+                          <Button
+                            asChild
+                            size="sm"
+                            variant="outline"
+                            className="h-8 shrink-0 rounded-full border-rose-200 text-rose-700 hover:bg-rose-50 dark:hover:bg-rose-950/40 text-xs px-3"
+                          >
+                            <a href={`tel:${cCleanPhone}`}>
+                              <Phone className="mr-1 h-3 w-3" /> Ligar
+                            </a>
+                          </Button>
+                        )}
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+            )}
 
           <div className="text-center pt-1">
             <p className="text-[11px] text-muted-foreground">
@@ -1066,11 +1225,25 @@ const PetCard = () => {
             >
               <div className="space-y-4">
                 <div>
-                  <div className="mb-2 flex items-center gap-2">
-                    <Siren className="h-3.5 w-3.5 text-rose-600" />
-                    <p className="text-[11px] font-semibold uppercase tracking-wider text-rose-700">
-                      Contatos de Emergência
-                    </p>
+                  <div className="mb-2 flex items-center justify-between">
+                    <div className="flex items-center gap-2">
+                      <Siren className="h-3.5 w-3.5 text-rose-600" />
+                      <p className="text-[11px] font-semibold uppercase tracking-wider text-rose-700">
+                        Contatos de Emergência
+                      </p>
+                    </div>
+                    <Button
+                      type="button"
+                      size="sm"
+                      variant="ghost"
+                      onClick={() => {
+                        setNewContactCategory("emergency");
+                        setIsAddContactOpen(true);
+                      }}
+                      className="h-6 rounded-full px-2 text-[11px] font-medium text-rose-700 hover:bg-rose-50"
+                    >
+                      <Plus className="mr-1 h-3 w-3" /> Adicionar
+                    </Button>
                   </div>
                   <div className="space-y-2">
                     {careNetwork
@@ -1084,16 +1257,31 @@ const PetCard = () => {
                       ))}
                   </div>
                 </div>
-                {careNetwork.some((c) => c.category === "care") && (
-                  <div>
-                    <div className="mb-2 flex items-center gap-2">
+
+                <div>
+                  <div className="mb-2 flex items-center justify-between">
+                    <div className="flex items-center gap-2">
                       <Heart className="h-3.5 w-3.5 text-sky-600" />
                       <p className="text-[11px] font-semibold uppercase tracking-wider text-sky-700">
                         Cuidadores e Apoio
                       </p>
                     </div>
-                    <div className="space-y-2">
-                      {careNetwork
+                    <Button
+                      type="button"
+                      size="sm"
+                      variant="ghost"
+                      onClick={() => {
+                        setNewContactCategory("care");
+                        setIsAddContactOpen(true);
+                      }}
+                      className="h-6 rounded-full px-2 text-[11px] font-medium text-sky-700 hover:bg-sky-50"
+                    >
+                      <Plus className="mr-1 h-3 w-3" /> Adicionar
+                    </Button>
+                  </div>
+                  <div className="space-y-2">
+                    {careNetwork.some((c) => c.category === "care") ? (
+                      careNetwork
                         .filter((c) => c.category === "care")
                         .map((c) => (
                           <CareCard
@@ -1101,10 +1289,14 @@ const PetCard = () => {
                             contact={c}
                             onClick={() => setSelectedContact(c)}
                           />
-                        ))}
-                    </div>
+                        ))
+                    ) : (
+                      <p className="rounded-xl border border-dashed border-border/80 bg-muted/20 p-2.5 text-center text-xs text-muted-foreground">
+                        Nenhum cuidador secundário cadastrado.
+                      </p>
+                    )}
                   </div>
-                )}
+                </div>
               </div>
             </InfoCard>
 
@@ -1560,10 +1752,12 @@ const PetCard = () => {
               <div className="relative rounded-t-2xl bg-gradient-to-br from-sky-50 via-white to-rose-50 p-6">
                 <div className="flex items-start gap-4">
                   <div className="relative">
-                    <img
-                      src={selectedContact.photo}
-                      alt={selectedContact.name}
-                      className="h-20 w-20 rounded-full border-4 border-white object-cover shadow-md"
+                    <ContactAvatar
+                      photo={selectedContact.photo}
+                      name={selectedContact.name}
+                      category={selectedContact.category}
+                      role={selectedContact.role}
+                      className="h-20 w-20 text-xl border-4 border-white shadow-md"
                     />
                     <span
                       className={`absolute -bottom-1 -right-1 flex h-7 w-7 items-center justify-center rounded-full border-2 border-white shadow-sm ${
@@ -1646,6 +1840,23 @@ const PetCard = () => {
                       </a>
                     </Button>
                   )}
+                  {selectedContact.dbId && (
+                    <Button
+                      type="button"
+                      size="sm"
+                      variant="outline"
+                      onClick={() =>
+                        handleDeleteCareContact(selectedContact.dbId)
+                      }
+                      disabled={deletingContactId === selectedContact.dbId}
+                      className="rounded-full border-rose-300 text-rose-600 hover:bg-rose-50 dark:hover:bg-rose-950/40"
+                    >
+                      <Trash2 className="mr-1.5 h-3.5 w-3.5" />
+                      {deletingContactId === selectedContact.dbId
+                        ? "Removendo..."
+                        : "Excluir da Rede"}
+                    </Button>
+                  )}
                 </div>
               </div>
 
@@ -1679,6 +1890,168 @@ const PetCard = () => {
               </div>
             </>
           )}
+        </DialogContent>
+      </Dialog>
+
+      {/* DIALOG 6: Cadastrar Contato de Emergência ou Cuidador */}
+      <Dialog open={isAddContactOpen} onOpenChange={setIsAddContactOpen}>
+        <DialogContent className="max-w-md rounded-2xl">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2 text-xl font-bold">
+              {newContactCategory === "emergency" ? (
+                <Siren className="h-5 w-5 text-rose-600" />
+              ) : (
+                <Heart className="h-5 w-5 text-sky-600" />
+              )}
+              {newContactCategory === "emergency"
+                ? "Adicionar Contato de Emergência"
+                : "Adicionar Cuidador / Apoio"}
+            </DialogTitle>
+            <DialogDescription>
+              Cadastre um contato de segurança ou clínica veterinária para {selectedPet?.nome}.
+            </DialogDescription>
+          </DialogHeader>
+
+          <form onSubmit={handleAddCareContact} className="space-y-4 pt-2">
+            <div>
+              <Label htmlFor="contact-category" className="text-xs font-semibold">
+                Tipo de Contato
+              </Label>
+              <Select
+                value={newContactCategory}
+                onValueChange={setNewContactCategory}
+              >
+                <SelectTrigger id="contact-category" className="mt-1">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="emergency">
+                    🚨 Contato de Emergência (Visível em QR Code)
+                  </SelectItem>
+                  <SelectItem value="care">
+                    💙 Cuidador / Rede de Apoio
+                  </SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+
+            <div>
+              <Label htmlFor="contact-name" className="text-xs font-semibold">
+                Nome do Contato ou Clínica *
+              </Label>
+              <Input
+                id="contact-name"
+                value={newContactName}
+                onChange={(e) => setNewContactName(e.target.value)}
+                placeholder="Ex: Dra. Juliana (Vet 24h), Co-tutor Pedro..."
+                required
+                className="mt-1"
+              />
+            </div>
+
+            <div className="grid grid-cols-2 gap-3">
+              <div>
+                <Label htmlFor="contact-role" className="text-xs font-semibold">
+                  Função / Vínculo
+                </Label>
+                <Input
+                  id="contact-role"
+                  value={newContactRole}
+                  onChange={(e) => setNewContactRole(e.target.value)}
+                  placeholder="Ex: Clínica 24h, Familiar..."
+                  className="mt-1"
+                />
+              </div>
+
+              <div>
+                <Label htmlFor="contact-phone" className="text-xs font-semibold">
+                  Telefone / WhatsApp *
+                </Label>
+                <Input
+                  id="contact-phone"
+                  value={newContactPhone}
+                  onChange={(e) => setNewContactPhone(e.target.value)}
+                  placeholder="Ex: (11) 98765-4321"
+                  required
+                  className="mt-1"
+                />
+              </div>
+            </div>
+
+            <div className="grid grid-cols-2 gap-3">
+              <div>
+                <Label htmlFor="contact-email" className="text-xs font-semibold">
+                  E-mail (opcional)
+                </Label>
+                <Input
+                  id="contact-email"
+                  type="email"
+                  value={newContactEmail}
+                  onChange={(e) => setNewContactEmail(e.target.value)}
+                  placeholder="contato@exemplo.com"
+                  className="mt-1"
+                />
+              </div>
+
+              <div>
+                <Label htmlFor="contact-bond" className="text-xs font-semibold">
+                  Nível de Vínculo
+                </Label>
+                <Select
+                  value={newContactBond}
+                  onValueChange={setNewContactBond}
+                >
+                  <SelectTrigger id="contact-bond" className="mt-1">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="Muito Alto">Muito Alto</SelectItem>
+                    <SelectItem value="Alto">Alto</SelectItem>
+                    <SelectItem value="Médio">Médio</SelectItem>
+                    <SelectItem value="Baixo">Baixo</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+            </div>
+
+            <div>
+              <Label htmlFor="contact-notes" className="text-xs font-semibold">
+                Observações
+              </Label>
+              <Textarea
+                id="contact-notes"
+                value={newContactNotes}
+                onChange={(e) => setNewContactNotes(e.target.value)}
+                placeholder="Ex: Ligar caso o tutor principal não atenda. Clínica com prontuário completo."
+                rows={2}
+                className="mt-1"
+              />
+            </div>
+
+            <DialogFooter className="pt-2">
+              <Button
+                type="button"
+                variant="outline"
+                onClick={() => setIsAddContactOpen(false)}
+                disabled={savingContact}
+              >
+                Cancelar
+              </Button>
+              <Button
+                type="submit"
+                disabled={savingContact}
+                className="gradient-primary text-primary-foreground"
+              >
+                {savingContact ? (
+                  <>
+                    <Loader2 className="mr-2 h-4 w-4 animate-spin" /> Salvando...
+                  </>
+                ) : (
+                  "Salvar Contato"
+                )}
+              </Button>
+            </DialogFooter>
+          </form>
         </DialogContent>
       </Dialog>
 
@@ -1815,6 +2188,59 @@ const LineageItem = ({ name, role, meta }) => (
   </li>
 );
 
+const ContactAvatar = ({
+  photo,
+  name,
+  category,
+  role,
+  className = "h-11 w-11",
+}) => {
+  const [imgError, setImgError] = useState(false);
+  const initials = (name || "C")
+    .split(" ")
+    .map((w) => w[0])
+    .filter(Boolean)
+    .slice(0, 2)
+    .join("")
+    .toUpperCase();
+
+  const isVet =
+    role?.toLowerCase().includes("vet") ||
+    role?.toLowerCase().includes("clínica") ||
+    name?.toLowerCase().includes("vet") ||
+    name?.toLowerCase().includes("dr.") ||
+    name?.toLowerCase().includes("dra.");
+
+  if (photo && !imgError) {
+    return (
+      <img
+        src={photo}
+        alt={name}
+        onError={() => setImgError(true)}
+        className={`${className} rounded-full object-cover ring-2 ring-background`}
+      />
+    );
+  }
+
+  return (
+    <div
+      className={`${className} flex items-center justify-center rounded-full font-bold text-xs shadow-xs ring-2 ring-background shrink-0 ${
+        category === "emergency"
+          ? "bg-rose-100 text-rose-700 dark:bg-rose-950/60 dark:text-rose-300"
+          : "bg-sky-100 text-sky-700 dark:bg-sky-950/60 dark:text-sky-300"
+      }`}
+    >
+      {isVet ? (
+        <Stethoscope className="h-5 w-5" />
+      ) : initials ? (
+        <span>{initials}</span>
+      ) : (
+        <User className="h-5 w-5" />
+      )}
+    </div>
+  );
+};
+
 const CareCard = ({ contact, onClick }) => (
   <button
     type="button"
@@ -1822,10 +2248,12 @@ const CareCard = ({ contact, onClick }) => (
     className="group flex w-full items-center gap-3 rounded-xl border bg-card p-2.5 text-left transition-all hover:-translate-y-0.5 hover:border-primary/30 hover:shadow-md"
   >
     <div className="relative shrink-0">
-      <img
-        src={contact.photo}
-        alt={contact.name}
-        className="h-11 w-11 rounded-full object-cover ring-2 ring-background"
+      <ContactAvatar
+        photo={contact.photo}
+        name={contact.name}
+        category={contact.category}
+        role={contact.role}
+        className="h-11 w-11"
       />
       <span
         className={`absolute -bottom-0.5 -right-0.5 flex h-4 w-4 items-center justify-center rounded-full border-2 border-card ${
