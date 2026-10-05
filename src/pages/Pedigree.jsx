@@ -52,6 +52,26 @@ const SIZES = ["Todos", "Pequeno", "Médio", "Grande"];
 const GROUPS = ["Todos", "Trabalho", "Pastor", "Toy", "Esportivo", "Companhia"];
 const ENTITIES = ["Todos", "CBKC", "FCI", "AKC"];
 
+const formatDateBR = (iso) => {
+  if (!iso) return "Não informada";
+  const str = String(iso).trim();
+  if (str === "Não informada") return "Não informada";
+  try {
+    const clean = str.split("T")[0];
+    if (clean.includes("-")) {
+      const [y, m, d] = clean.split("-");
+      if (y && m && d) return `${d}/${m}/${y}`;
+    }
+    const dt = new Date(str);
+    if (!isNaN(dt.getTime())) {
+      return dt.toLocaleDateString("pt-BR");
+    }
+    return str;
+  } catch {
+    return str;
+  }
+};
+
 const formatAge = (birthDateStr) => {
   if (!birthDateStr) return "Idade não informada";
   try {
@@ -105,14 +125,10 @@ const Pedigree = () => {
 
           const fatherName =
             lin.pai_nome ||
-            (lin.pai_pet_id
-              ? "Pai Vinculado LivePet"
-              : "Pai Sob Consulta Genealógica");
+            (lin.pai_pet_id ? "Pai Vinculado LivePet" : "");
           const motherName =
             lin.mae_nome ||
-            (lin.mae_pet_id
-              ? "Mãe Vinculada LivePet"
-              : "Mãe Sob Consulta Genealógica");
+            (lin.mae_pet_id ? "Mãe Vinculada LivePet" : "");
 
           return {
             id: p.id,
@@ -134,7 +150,8 @@ const Pedigree = () => {
               ? p.token_publico.slice(0, 12).toUpperCase()
               : String(p.id),
             color: p.cor || "Padrão",
-            birth: p.data_nascimento ? String(p.data_nascimento) : "Não informada",
+            birth: formatDateBR(p.data_nascimento),
+            rawBirth: p.data_nascimento || "",
             kennel: "Canil Oficial LivePet",
             breeder: "Tutor Responsável",
             owner: "Tutor Oficial",
@@ -470,6 +487,64 @@ const Pedigree = () => {
 
               {/* CATALOG */}
               <TabsContent value="catalogo" className="space-y-8">
+                {/* Pet Selector Bar */}
+                {dogs.length > 0 && (
+                  <div className="rounded-3xl border border-border/80 bg-card p-4 shadow-soft">
+                    <div className="mb-3 flex items-center justify-between">
+                      <div className="flex items-center gap-2">
+                        <Award className="h-4 w-4 text-primary" />
+                        <span className="text-xs font-bold uppercase tracking-wider text-foreground">
+                          Selecione o Pet para Pedigree
+                        </span>
+                      </div>
+                      <span className="text-[11px] text-muted-foreground">
+                        {dogs.length} {dogs.length === 1 ? "pet cadastrado" : "pets cadastrados"}
+                      </span>
+                    </div>
+
+                    <div className="flex items-center gap-2.5 overflow-x-auto pb-1 scrollbar-thin">
+                      {dogs.map((dog) => {
+                        const isCurrent = selected?.id === dog.id;
+                        return (
+                          <button
+                            key={dog.id}
+                            type="button"
+                            onClick={() => setSelected(dog)}
+                            className={`group relative flex shrink-0 items-center gap-3 rounded-2xl border-2 px-3.5 py-2.5 text-left transition-all duration-300 ${
+                              isCurrent
+                                ? "border-primary bg-primary/10 shadow-glow"
+                                : "border-border/70 bg-card hover:border-primary/50 hover:bg-muted/40"
+                            }`}
+                          >
+                            <img
+                              src={dog.img}
+                              alt={dog.name}
+                              className={`h-10 w-10 rounded-xl object-cover ring-2 transition-all ${
+                                isCurrent ? "ring-primary scale-105" : "ring-border/60"
+                              }`}
+                            />
+                            <div className="min-w-0 pr-1">
+                              <p
+                                className={`font-display text-xs font-bold leading-tight truncate ${
+                                  isCurrent ? "text-primary" : "text-foreground"
+                                }`}
+                              >
+                                {dog.name}
+                              </p>
+                              <p className="text-[10px] text-muted-foreground truncate">
+                                {dog.breed} · {dog.gender}
+                              </p>
+                            </div>
+                            {isCurrent && (
+                              <span className="flex h-2 w-2 rounded-full bg-primary animate-pulse" />
+                            )}
+                          </button>
+                        );
+                      })}
+                    </div>
+                  </div>
+                )}
+
                 {/* Selected dog certificate */}
                 {selected && (
                   <DigitalCertificate
@@ -580,8 +655,8 @@ const Pedigree = () => {
                                   )}
                                 </div>
                                 <span className="inline-flex items-center gap-1 rounded-full bg-black/45 px-2 py-1 text-[10px] font-bold text-primary-foreground backdrop-blur">
-                                  <Star className="h-3 w-3 fill-warm text-warm" />
-                                  {(dog.rating ?? 5.0).toFixed(1)}
+                                  <Calendar className="h-3 w-3 text-warm" />
+                                  {dog.birth !== "Não informada" ? dog.birth : dog.age}
                                 </span>
                               </div>
 
@@ -616,7 +691,7 @@ const Pedigree = () => {
                                     Pai
                                   </p>
                                   <p className="truncate font-semibold text-foreground">
-                                    {dog.parents?.father || "Pai Sob Consulta"}
+                                    {dog.parents?.father || "—"}
                                   </p>
                                 </div>
                                 <div className="rounded-lg border border-warm/20 bg-warm/10 px-2.5 py-1.5">
@@ -624,7 +699,7 @@ const Pedigree = () => {
                                     Mãe
                                   </p>
                                   <p className="truncate font-semibold text-foreground">
-                                    {dog.parents?.mother || "Mãe Sob Consulta"}
+                                    {dog.parents?.mother || "—"}
                                   </p>
                                 </div>
                               </div>
@@ -734,12 +809,9 @@ const DogDetailModal = ({ dog, onClose, onViewCertificate, onViewTree }) => {
                       </span>
                     )}
                   </div>
-                  <span className="inline-flex items-center gap-1 rounded-full bg-black/45 px-2 py-1 text-[11px] font-bold text-primary-foreground backdrop-blur">
-                    <Star className="h-3 w-3 fill-warm text-warm" />
-                    {(dog.rating ?? 5.0).toFixed(1)}
-                    <span className="font-normal opacity-80">
-                      ({dog.reviews ?? 1})
-                    </span>
+                  <span className="inline-flex items-center gap-1 rounded-full bg-black/45 px-2.5 py-1 text-[11px] font-bold text-primary-foreground backdrop-blur">
+                    <Calendar className="h-3 w-3 text-warm" />
+                    {dog.birth !== "Não informada" ? dog.birth : dog.age}
                   </span>
                 </div>
 
@@ -794,7 +866,7 @@ const DogDetailModal = ({ dog, onClose, onViewCertificate, onViewTree }) => {
                       Pai
                     </p>
                     <p className="truncate text-sm font-semibold text-foreground">
-                      {dog.parents?.father || "Pai Sob Consulta"}
+                      {dog.parents?.father || "—"}
                     </p>
                   </div>
                   <div className="rounded-xl border border-warm/20 bg-warm/10 px-3 py-2.5">
@@ -802,7 +874,7 @@ const DogDetailModal = ({ dog, onClose, onViewCertificate, onViewTree }) => {
                       Mãe
                     </p>
                     <p className="truncate text-sm font-semibold text-foreground">
-                      {dog.parents?.mother || "Mãe Sob Consulta"}
+                      {dog.parents?.mother || "—"}
                     </p>
                   </div>
                 </div>
@@ -886,23 +958,6 @@ const FilterChips = ({ label, options, value, onChange }) => (
 );
 
 const DigitalCertificate = ({ dog, certificateUrl }) => {
-  // Likes state — keyed by dog id so it resets per-pet
-  const baseLikes = 1200 + (dog.reviews ?? 0) * 7;
-  const baseVetLikes = 24 + Math.floor((dog.rating ?? 4.5) * 8);
-  const [liked, setLiked] = useState(false);
-  const [vetLiked, setVetLiked] = useState(false);
-  const [burst, setBurst] = useState(0);
-
-  // reset when dog changes
-  useEffect(() => {
-    setLiked(false);
-    setVetLiked(false);
-    setBurst(0);
-  }, [dog.id]);
-
-  const likeCount = baseLikes + (liked ? 1 : 0);
-  const vetLikeCount = baseVetLikes + (vetLiked ? 1 : 0);
-
   return (
     <Card className="relative overflow-hidden border-2 border-warm/30 bg-card p-0 shadow-glow">
       {/* decorative top stripe */}
@@ -945,116 +1000,43 @@ const DigitalCertificate = ({ dog, certificateUrl }) => {
               <p className="text-sm text-muted-foreground">
                 {dog.breed} · {dog.gender} · {dog.color}
               </p>
-              <div className="mt-2 flex flex-wrap items-center gap-3 text-xs">
-                <span className="flex items-center gap-1 font-bold text-foreground">
-                  <Star className="h-3.5 w-3.5 fill-warm text-warm" />
-                  {dog.rating}
-                  <span className="font-normal text-muted-foreground">
-                    ({dog.reviews} avaliações)
-                  </span>
+              <div className="mt-2 flex flex-wrap items-center gap-2 text-xs">
+                <span className="inline-flex items-center gap-1 rounded-full bg-primary/10 px-2.5 py-0.5 text-[11px] font-semibold text-primary">
+                  <ShieldCheck className="h-3 w-3" />
+                  {dog.entity || "CBKC"} Oficial
                 </span>
                 {dog.champion && (
-                  <span className="inline-flex items-center gap-1 rounded-full bg-warm px-2 py-0.5 text-[10px] font-bold uppercase text-warm-foreground">
+                  <span className="inline-flex items-center gap-1 rounded-full bg-warm px-2 py-0.5 text-[10px] font-bold uppercase text-warm-foreground shadow-warm">
                     <Crown className="h-3 w-3" />
                     Campeão
                   </span>
                 )}
+                <span className="inline-flex items-center gap-1 rounded-full bg-muted px-2.5 py-0.5 text-[11px] font-medium text-muted-foreground">
+                  <Calendar className="h-3 w-3" />
+                  Nascimento: {dog.birth}
+                </span>
               </div>
             </div>
           </div>
 
-          {/* Likes bar */}
-          <div className="flex flex-wrap items-stretch gap-3">
-            {/* General likes */}
-            <button
-              onClick={() => {
-                setLiked((l) => !l);
-                if (!liked) setBurst((b) => b + 1);
-              }}
-              className={`group relative flex flex-1 items-center gap-3 overflow-hidden rounded-2xl border-2 px-4 py-3 transition-all duration-300 ${
-                liked
-                  ? "border-rose-400 bg-rose-50 dark:bg-rose-950/30"
-                  : "border-border bg-card hover:border-rose-300 hover:bg-rose-50/50"
-              }`}
-            >
-              <span className="relative flex h-10 w-10 items-center justify-center rounded-full bg-rose-100 dark:bg-rose-950/50">
-                <Heart
-                  className={`h-5 w-5 transition-all duration-300 ${
-                    liked
-                      ? "scale-110 fill-rose-500 text-rose-500"
-                      : "text-rose-500 group-hover:scale-110"
-                  }`}
-                  strokeWidth={2.2}
-                />
-
-                {/* floating hearts burst */}
-                {liked && burst > 0 && (
-                  <span
-                    key={burst}
-                    className="pointer-events-none absolute inset-0"
-                  >
-                    {[...Array(5)].map((_, i) => (
-                      <Heart
-                        key={i}
-                        className="absolute left-1/2 top-1/2 h-3 w-3 fill-rose-400 text-rose-400"
-                        style={{
-                          animation: `heart-fly 0.9s ease-out forwards`,
-                          animationDelay: `${i * 60}ms`,
-                          // @ts-ignore custom prop for keyframes
-                          ["--tx"]: `${(i - 2) * 14}px`,
-                        }}
-                      />
-                    ))}
-                  </span>
-                )}
-              </span>
-              <div className="text-left">
-                <p className="font-display text-lg font-bold leading-none text-foreground">
-                  {likeCount.toLocaleString("pt-BR")}
-                </p>
-                <p className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">
-                  Curtidas
-                </p>
-              </div>
-            </button>
-
-            {/* Vet likes */}
-            <button
-              onClick={() => setVetLiked((v) => !v)}
-              className={`group relative flex flex-1 items-center gap-3 overflow-hidden rounded-2xl border-2 px-4 py-3 transition-all duration-300 ${
-                vetLiked
-                  ? "border-primary bg-primary-soft"
-                  : "border-border bg-card hover:border-primary/50 hover:bg-primary-soft/40"
-              }`}
-            >
-              <span className="relative flex h-10 w-10 items-center justify-center rounded-full bg-primary/10">
-                <HeartPulse
-                  className={`h-5 w-5 transition-all duration-300 ${
-                    vetLiked
-                      ? "scale-110 text-primary"
-                      : "text-primary group-hover:scale-110"
-                  }`}
-                  strokeWidth={2.2}
-                />
-
-                {vetLiked && (
-                  <span className="absolute -right-1 -top-1 flex h-4 w-4 items-center justify-center rounded-full bg-primary text-primary-foreground">
-                    <ThumbsUp className="h-2.5 w-2.5" strokeWidth={3} />
-                  </span>
-                )}
-              </span>
-              <div className="text-left">
-                <div className="flex items-center gap-1">
-                  <p className="font-display text-lg font-bold leading-none text-foreground">
-                    {vetLikeCount}
-                  </p>
-                  <ShieldCheck className="h-3.5 w-3.5 text-primary" />
-                </div>
-                <p className="text-[10px] font-bold uppercase tracking-wider text-primary">
-                  Vets verificados
-                </p>
-              </div>
-            </button>
+          {/* Pet Highlights strip */}
+          <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
+            <div className="rounded-2xl border border-border/80 bg-card p-3">
+              <p className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">Porte</p>
+              <p className="mt-0.5 font-display text-base font-bold text-foreground">{dog.size || "Médio"}</p>
+            </div>
+            <div className="rounded-2xl border border-border/80 bg-card p-3">
+              <p className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">Sexo</p>
+              <p className="mt-0.5 font-display text-base font-bold text-foreground">{dog.gender || "—"}</p>
+            </div>
+            <div className="rounded-2xl border border-border/80 bg-card p-3">
+              <p className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">Microchip / Token</p>
+              <p className="mt-0.5 font-mono text-xs font-bold text-foreground truncate">{dog.microchip || "—"}</p>
+            </div>
+            <div className="rounded-2xl border border-border/80 bg-card p-3">
+              <p className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">Idade Estimada</p>
+              <p className="mt-0.5 font-display text-base font-bold text-foreground">{dog.age || "—"}</p>
+            </div>
           </div>
 
           {/* Data grid */}
@@ -1063,10 +1045,10 @@ const DigitalCertificate = ({ dog, certificateUrl }) => {
             <InfoCell
               icon={ShieldCheck}
               label="Registro"
-              value={dog.registry}
+              value={dog.registry || "—"}
             />
-            <InfoCell icon={Dna} label="Pai" value={dog.parents?.father || "Pai Sob Consulta"} />
-            <InfoCell icon={Dna} label="Mãe" value={dog.parents?.mother || "Mãe Sob Consulta"} />
+            <InfoCell icon={Dna} label="Pai" value={dog.parents?.father || "—"} />
+            <InfoCell icon={Dna} label="Mãe" value={dog.parents?.mother || "—"} />
           </div>
 
           {/* Vet note */}
@@ -1155,7 +1137,7 @@ const FamilyTree = ({ dog }) => {
     id: "f",
     name:
       lin.pai_nome ||
-      (lin.pai_pet_id ? "Pai Vinculado LivePet" : "Pai Sob Consulta Genealógica"),
+      (lin.pai_pet_id ? "Pai Vinculado LivePet" : ""),
     role: "Pai",
     gen: 1,
     side: "paternal",
@@ -1167,13 +1149,13 @@ const FamilyTree = ({ dog }) => {
       ? lin.pai_titulos.split(",").map((t) => t.trim())
       : lin.pai_nome
       ? ["Pai registrado"]
-      : ["Pendente"],
+      : [],
   };
   const mother = {
     id: "m",
     name:
       lin.mae_nome ||
-      (lin.mae_pet_id ? "Mãe Vinculada LivePet" : "Mãe Sob Consulta Genealógica"),
+      (lin.mae_pet_id ? "Mãe Vinculada LivePet" : ""),
     role: "Mãe",
     gen: 1,
     side: "maternal",
@@ -1185,11 +1167,11 @@ const FamilyTree = ({ dog }) => {
       ? lin.mae_titulos.split(",").map((t) => t.trim())
       : lin.mae_nome
       ? ["Mãe registrada"]
-      : ["Pendente"],
+      : [],
   };
   const pGrandpa = {
     id: "pp",
-    name: lin.avo_pat_m_nome || "Avô paterno",
+    name: lin.avo_pat_m_nome || "",
     role: "Avô paterno",
     gen: 2,
     side: "paternal",
@@ -1201,7 +1183,7 @@ const FamilyTree = ({ dog }) => {
   };
   const pGrandma = {
     id: "pm",
-    name: lin.avo_pat_f_nome || "Avó paterna",
+    name: lin.avo_pat_f_nome || "",
     role: "Avó paterna",
     gen: 2,
     side: "paternal",
@@ -1213,7 +1195,7 @@ const FamilyTree = ({ dog }) => {
   };
   const mGrandpa = {
     id: "mp",
-    name: lin.avo_mat_m_nome || "Avô materno",
+    name: lin.avo_mat_m_nome || "",
     role: "Avô materno",
     gen: 2,
     side: "maternal",
@@ -1225,7 +1207,7 @@ const FamilyTree = ({ dog }) => {
   };
   const mGrandma = {
     id: "mm",
-    name: lin.avo_mat_f_nome || "Avó materna",
+    name: lin.avo_mat_f_nome || "",
     role: "Avó materna",
     gen: 2,
     side: "maternal",
@@ -1355,7 +1337,7 @@ const FamilyTree = ({ dog }) => {
             </span>
           </div>
           <p className="mt-0.5 font-display text-[13px] font-bold leading-tight text-foreground truncate">
-            {n.name}
+            {n.name || "—"}
           </p>
           {n.registry && (
             <p className="font-mono text-[10px] text-muted-foreground/80 truncate">
@@ -1612,7 +1594,7 @@ const FamilyTree = ({ dog }) => {
               Em foco
             </p>
             <p className="font-display text-sm font-bold text-foreground">
-              {focused.name}
+              {focused.name || "Não informado"}
             </p>
             <p className="text-[11px] text-muted-foreground">
               {focused.role} · {focused.registry ?? "—"}
@@ -1741,6 +1723,7 @@ const RegistrationForm = ({ pets = [], selectedPet, onSaved }) => {
 
   // Form fields
   const [registro, setRegistro] = useState("");
+  const [dataNascimento, setDataNascimento] = useState("");
   const [paiNome, setPaiNome] = useState("");
   const [paiRegistro, setPaiRegistro] = useState("");
   const [paiTitulos, setPaiTitulos] = useState("");
@@ -1837,6 +1820,12 @@ const RegistrationForm = ({ pets = [], selectedPet, onSaved }) => {
   }, [targetPetId]);
 
   const activePet = pets.find((p) => String(p.id) === String(targetPetId));
+
+  useEffect(() => {
+    if (activePet) {
+      setDataNascimento(activePet.rawBirth || "");
+    }
+  }, [activePet]);
 
   const handleSearchPai = async () => {
     if (!paiTokenInput.trim()) return;
@@ -1938,6 +1927,17 @@ const RegistrationForm = ({ pets = [], selectedPet, onSaved }) => {
         avo_mat_f_nome: avoMatFNome.trim() || null,
         avo_mat_f_registro: avoMatFRegistro.trim() || null,
       });
+
+      if (dataNascimento !== (activePet?.rawBirth || "")) {
+        try {
+          await petsService.update(targetPetId, {
+            data_nascimento: dataNascimento || null,
+          });
+        } catch (birthErr) {
+          console.warn("Erro ao atualizar data de nascimento:", birthErr);
+        }
+      }
+
       setSaveSuccess(true);
       toast.success("Dados do pedigree salvos com sucesso!");
       if (onSaved) onSaved();
@@ -2054,13 +2054,25 @@ const RegistrationForm = ({ pets = [], selectedPet, onSaved }) => {
               <Award className="h-4 w-4 text-primary" />
               Identificação Cinófila do Pet
             </h3>
-            <div className="grid gap-4 sm:grid-cols-2">
+            <div className="grid gap-4 sm:grid-cols-3">
               <Field
                 label="Número de Registro Oficial (CBKC / FCI / AKC)"
                 placeholder="Ex.: CBKC 14.892 ou FCI 99.412"
                 value={registro}
                 onChange={(e) => setRegistro(e.target.value)}
               />
+              <div className="space-y-2">
+                <Label className="text-xs font-bold uppercase tracking-wider text-muted-foreground">
+                  Data de Nascimento
+                </Label>
+                <Input
+                  type="date"
+                  value={dataNascimento}
+                  max={new Date().toISOString().split("T")[0]}
+                  onChange={(e) => setDataNascimento(e.target.value)}
+                  className="bg-card"
+                />
+              </div>
               <div className="space-y-2">
                 <Label className="text-xs font-bold uppercase tracking-wider text-muted-foreground">
                   Token Público de Validação

@@ -386,42 +386,42 @@ const PetCard = () => {
           {
             name:
               lin?.pai_nome ||
-              (lin?.pai_pet_id ? "Pai Vinculado LivePet" : "Pai Sob Consulta"),
+              (lin?.pai_pet_id ? "Pai Vinculado LivePet" : "—"),
             role: "Pai",
             registry: lin?.pai_registro || "—",
             titles:
               lin?.pai_titulos ||
-              (lin?.pai_nome ? "Pedigree Declarado" : "Pendente"),
+              (lin?.pai_nome ? "Pedigree Declarado" : "—"),
           },
           {
             name:
               lin?.mae_nome ||
-              (lin?.mae_pet_id ? "Mãe Vinculada LivePet" : "Mãe Sob Consulta"),
+              (lin?.mae_pet_id ? "Mãe Vinculada LivePet" : "—"),
             role: "Mãe",
             registry: lin?.mae_registro || "—",
             titles:
               lin?.mae_titulos ||
-              (lin?.mae_nome ? "Pedigree Declarado" : "Pendente"),
+              (lin?.mae_nome ? "Pedigree Declarado" : "—"),
           },
         ],
         grandparents: [
           {
-            name: lin?.avo_pat_m_nome || "Avô paterno",
+            name: lin?.avo_pat_m_nome || "—",
             role: "Avô paterno",
             registry: lin?.avo_pat_m_registro || "—",
           },
           {
-            name: lin?.avo_pat_f_nome || "Avó paterna",
+            name: lin?.avo_pat_f_nome || "—",
             role: "Avó paterna",
             registry: lin?.avo_pat_f_registro || "—",
           },
           {
-            name: lin?.avo_mat_m_nome || "Avô materno",
+            name: lin?.avo_mat_m_nome || "—",
             role: "Avô materno",
             registry: lin?.avo_mat_m_registro || "—",
           },
           {
-            name: lin?.avo_mat_f_nome || "Avó materna",
+            name: lin?.avo_mat_f_nome || "—",
             role: "Avó materna",
             registry: lin?.avo_mat_f_registro || "—",
           },

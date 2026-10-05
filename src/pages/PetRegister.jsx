@@ -15,6 +15,7 @@ import {
   CheckCircle2,
   Phone,
   Cake,
+  Calendar,
   Stethoscope,
 } from "lucide-react";
 import { toast } from "sonner";
@@ -38,6 +39,7 @@ const petSchema = z.object({
   name: z.string().trim().min(1, "Informe o nome do pet").max(60),
   species: z.string().trim().min(1, "Selecione a espécie").max(40),
   breed: z.string().trim().max(60).optional().or(z.literal("")),
+  data_nascimento: z.string().optional().or(z.literal("")),
   size: z.enum(["Pequeno", "Médio", "Grande"], {
     errorMap: () => ({ message: "Selecione o porte" }),
   }),
@@ -47,10 +49,8 @@ const petSchema = z.object({
   age: z
     .string()
     .trim()
-    .min(1, "Informe a idade do pet")
-    .refine((v) => /^\d+$/.test(v) && Number(v) <= 40, {
-      message: "Idade inválida (use anos inteiros, de 0 a 40)",
-    }),
+    .optional()
+    .or(z.literal("")),
   tutorPhone: z
     .string()
     .trim()
@@ -100,6 +100,7 @@ const PetRegister = () => {
     name: "",
     species: "Cachorro",
     breed: "",
+    data_nascimento: "",
     age: "",
     size: "",
     gender: "",
@@ -170,6 +171,7 @@ const PetRegister = () => {
       name: "",
       species: "Cachorro",
       breed: "",
+      data_nascimento: "",
       age: "",
       size: "",
       gender: "",
@@ -227,6 +229,7 @@ const PetRegister = () => {
         nome: parsed.data.name,
         especie: parsed.data.species,
         raca: parsed.data.breed || null,
+        data_nascimento: form.data_nascimento || null,
         porte: parsed.data.size,
         sexo: parsed.data.gender,
         peso: parsed.data.weight
@@ -399,7 +402,33 @@ const PetRegister = () => {
             <Card className="border-border/60 p-6 shadow-card sm:p-8">
               <SectionTitle icon={Activity} title="Características físicas" />
               <div className="mt-4 grid gap-4 sm:grid-cols-2">
-                <Field label="Idade (anos) *" error={errors.age} icon={Cake}>
+                <Field label="Data de nascimento" error={errors.data_nascimento} icon={Calendar}>
+                  <Input
+                    type="date"
+                    value={form.data_nascimento}
+                    max={new Date().toISOString().split("T")[0]}
+                    onChange={(e) => {
+                      const birthStr = e.target.value;
+                      let calculatedAge = form.age;
+                      if (birthStr) {
+                        const birthDate = new Date(birthStr);
+                        const today = new Date();
+                        let years = today.getFullYear() - birthDate.getFullYear();
+                        const m = today.getMonth() - birthDate.getMonth();
+                        if (m < 0 || (m === 0 && today.getDate() < birthDate.getDate())) {
+                          years--;
+                        }
+                        calculatedAge = Math.max(0, years).toString();
+                      }
+                      setForm({
+                        ...form,
+                        data_nascimento: birthStr,
+                        age: calculatedAge,
+                      });
+                    }}
+                  />
+                </Field>
+                <Field label="Idade (anos)" error={errors.age} icon={Cake}>
                   <Input
                     value={form.age}
                     onChange={(e) => setForm({ ...form, age: e.target.value.replace(/\D/g, "").slice(0, 2) })}
