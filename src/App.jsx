@@ -15,6 +15,7 @@ import Partnerships from "./pages/Partnerships";
 import MedicalHistory from "./pages/MedicalHistory";
 import PetRegister from "./pages/PetRegister";
 import MatchPet from "./pages/MatchPet";
+import PuppiesMarketplace from "./pages/PuppiesMarketplace";
 import PetHealth from "./pages/PetHealth";
 import PetCard from "./pages/PetCard";
 import Profile from "./pages/Profile";
@@ -49,6 +50,7 @@ const App = () => (
           <Route element={<Layout />}>
             <Route path="/" element={<Index />} />
             <Route path="/parcerias" element={<Partnerships />} />
+            <Route path="/filhotes" element={<PuppiesMarketplace />} />
             <Route path="/cartao" element={<PetCard />} />
 
             <Route element={<ProtectedRoute />}>

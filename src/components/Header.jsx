@@ -15,14 +15,16 @@ import { authService } from "@/services/api";
 
 const publicNavItems = [
   { label: "Início", to: "/" },
+  { label: "Filhotes", to: "/filhotes" },
+  { label: "Parcerias", to: "/parcerias" },
 ];
 
 const memberNavItems = [
   { label: "Início", to: "/" },
   { label: "Pets", to: "/pets" },
   { label: "Saúde", to: "/saude" },
-  { label: "Pedigree", to: "/pedigree" },
   { label: "MatchPet", to: "/matchpet" },
+  { label: "Filhotes", to: "/filhotes" },
   { label: "Parcerias", to: "/parcerias" },
 ];
 
@@ -51,8 +53,18 @@ const Header = () => {
 
   const isActive = (to) => {
     if (to === "/") return pathname === "/";
-    if (to === "/pets") return pathname === "/pets" || pathname === "/tasks" || pathname === "/cartao";
-    if (to === "/saude") return pathname === "/saude" || pathname === "/historico-medico";
+    if (to === "/pets") {
+      return (
+        pathname.startsWith("/pets") ||
+        pathname === "/tasks" ||
+        pathname === "/cartao" ||
+        pathname.startsWith("/pedigree")
+      );
+    }
+    if (to === "/saude") {
+      return pathname.startsWith("/saude") || pathname.startsWith("/historico-medico");
+    }
+    if (to === "/filhotes") return pathname.startsWith("/filhotes");
     return pathname.startsWith(to);
   };
 

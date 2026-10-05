@@ -17,23 +17,23 @@ import {
   Dog,
   Cat,
   Award,
-  ShoppingBag,
   HeartHandshake,
   MessageCircle,
   Send,
   Bell,
-  Share2,
   Bookmark,
   Calendar as CalendarIcon,
-  Camera,
-  Plus,
   Undo2,
   Zap,
   Trophy,
   TrendingUp,
   CheckCheck,
-  Image as ImageIcon,
   Flame,
+  SlidersHorizontal,
+  Check,
+  Info,
+  Calendar,
+  ExternalLink,
 } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
@@ -74,26 +74,48 @@ import { Label } from "@/components/ui/label";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Slider } from "@/components/ui/slider";
-import { Progress } from "@/components/ui/progress";
-import { Textarea } from "@/components/ui/textarea";
 import { Skeleton } from "@/components/ui/skeleton";
 
 // ============================================================
-// Helpers
+// Constantes & Persistência Local
 // ============================================================
-const compatScore = (c) => {
-  if (!c) return 90;
-  return Math.round(
-    ((c.breed || 90) + (c.genetic || 90) + (c.temperament || 90) + (c.age || 90)) / 4
-  );
-};
+const LIKES_KEY = "livepet_matchpet_likes_v2";
+const SWIPED_KEY = (userId, petId) =>
+  `livepet_swiped_${userId || "anon"}_${petId || "default"}`;
+const TEMPERAMENT_KEY = (petId) => `livepet_temperament_${petId}`;
+const CHAT_KEY = "livepet_matchpet_chats_v2";
 
-const formatBRL = (n) =>
-  n.toLocaleString("pt-BR", {
-    style: "currency",
-    currency: "BRL",
-    minimumFractionDigits: 0,
-  });
+export const AVAILABLE_TEMPERAMENTS = [
+  "Dócil",
+  "Sociável",
+  "Brincalhão",
+  "Calmo",
+  "Ativo & Enérgico",
+  "Protetor",
+  "Carinhoso",
+  "Curioso",
+  "Independente",
+  "Sociável com cães",
+  "Sociável com gatos",
+  "Amigável com crianças",
+];
+
+const DEFAULT_BREEDS = [
+  "Golden Retriever",
+  "Bulldog Francês",
+  "Border Collie",
+  "Poodle",
+  "Pastor Alemão",
+  "Shih Tzu",
+  "Spitz Alemão",
+  "Labrador",
+  "Rottweiler",
+  "Siamês",
+  "Persa",
+  "SRD",
+];
+
+const NOTIFICATIONS = [];
 
 const initials = (name) => {
   if (!name) return "TU";
@@ -125,27 +147,85 @@ const formatAge = (birthDateStr) => {
   }
 };
 
-const DEFAULT_BREEDS = [
-  "Golden Retriever",
-  "Bulldog Francês",
-  "Border Collie",
-  "Poodle",
-  "Pastor Alemão",
-  "Shih Tzu",
-  "Spitz Alemão",
-  "Labrador",
-  "Rottweiler",
-  "Siamês",
-  "Persa",
-  "SRD",
-];
+const getStoredLikes = () => {
+  try {
+    return JSON.parse(localStorage.getItem(LIKES_KEY) || "[]");
+  } catch {
+    return [];
+  }
+};
 
-const BASE_MATCH_PETS = [];
-const BASE_PUPPIES = [];
-const NOTIFICATIONS = [];
+const saveStoredLikes = (likes) => {
+  try {
+    localStorage.setItem(LIKES_KEY, JSON.stringify(likes));
+  } catch (e) {
+    console.error(e);
+  }
+};
 
-const BREEDS = DEFAULT_BREEDS;
+const getSwipedSet = (userId, petId) => {
+  if (!petId) return new Set();
+  try {
+    const raw = localStorage.getItem(SWIPED_KEY(userId, petId));
+    return new Set(raw ? JSON.parse(raw) : []);
+  } catch {
+    return new Set();
+  }
+};
 
+const addSwipedId = (userId, petId, targetRawId) => {
+  if (!petId || !targetRawId) return;
+  try {
+    const current = getSwipedSet(userId, petId);
+    current.add(String(targetRawId));
+    localStorage.setItem(SWIPED_KEY(userId, petId), JSON.stringify([...current]));
+  } catch (e) {
+    console.error(e);
+  }
+};
+
+const removeSwipedId = (userId, petId, targetRawId) => {
+  if (!petId || !targetRawId) return;
+  try {
+    const current = getSwipedSet(userId, petId);
+    current.delete(String(targetRawId));
+    localStorage.setItem(SWIPED_KEY(userId, petId), JSON.stringify([...current]));
+  } catch (e) {
+    console.error(e);
+  }
+};
+
+const clearSwipedIds = (userId, petId) => {
+  if (!petId) return;
+  try {
+    localStorage.removeItem(SWIPED_KEY(userId, petId));
+  } catch (e) {
+    console.error(e);
+  }
+};
+
+const getStoredTemperament = (petId) => {
+  if (!petId) return null;
+  try {
+    const raw = localStorage.getItem(TEMPERAMENT_KEY(petId));
+    return raw ? JSON.parse(raw) : null;
+  } catch {
+    return null;
+  }
+};
+
+const saveStoredTemperament = (petId, tags) => {
+  if (!petId) return;
+  try {
+    localStorage.setItem(TEMPERAMENT_KEY(petId), JSON.stringify(tags));
+  } catch (e) {
+    console.error(e);
+  }
+};
+
+// ============================================================
+// Componente Principal MatchPet
+// ============================================================
 const MatchPet = () => {
   const navigate = useNavigate();
   const [currentUser, setCurrentUser] = useState(null);
@@ -160,26 +240,40 @@ const MatchPet = () => {
     currentUser?.nome || currentUser?.email?.split("@")[0] || "Tutor";
   const userInitials = initials(userDisplayName);
 
-  // -------- estados gerais --------
+  // -------- Estados de pets --------
   const [tab, setTab] = useState("descobrir");
   const [loading, setLoading] = useState(true);
   const [matchPets, setMatchPets] = useState([]);
   const [myPets, setMyPets] = useState([]);
   const [activeMyPetId, setActiveMyPetId] = useState(null);
-  const [puppies, setPuppies] = useState([]);
+  const [swipedSet, setSwipedSet] = useState(new Set());
+  const [allLikes, setAllLikes] = useState(() => getStoredLikes());
 
-  const myPetIds = useMemo(
-    () => new Set(myPets.map((p) => p.id)),
-    [myPets]
-  );
+  // Pet ativo atual
+  const activePet = useMemo(() => {
+    if (!myPets || myPets.length === 0) return null;
+    return myPets.find((p) => p.id === activeMyPetId) || myPets[0];
+  }, [myPets, activeMyPetId]);
 
+  const myPetIds = useMemo(() => new Set(myPets.map((p) => p.id)), [myPets]);
+
+  // Atualiza swipedSet quando troca de usuário ou pet ativo
+  useEffect(() => {
+    if (currentUser?.id && activePet?.id) {
+      setSwipedSet(getSwipedSet(currentUser.id, activePet.id));
+    } else {
+      setSwipedSet(new Set());
+    }
+  }, [currentUser?.id, activePet?.id]);
+
+  // Carrega pets da API
   useEffect(() => {
     let isMounted = true;
     const loadPets = async () => {
       try {
         setLoading(true);
 
-        // 1. Carrega pets do tutor logado para controle e seleção
+        // 1. Pets do tutor logado
         let userPets = [];
         try {
           userPets = await petsService.list();
@@ -196,7 +290,7 @@ const MatchPet = () => {
         const myIds = new Set((userPets || []).map((p) => p.id));
         const currentUserId = currentUser?.id;
 
-        // 2. Carrega pets da comunidade disponíveis para match (exclui do backend os pets do tutor)
+        // 2. Pets da comunidade para match
         let data = [];
         try {
           data = await petsService.listExplore();
@@ -207,7 +301,6 @@ const MatchPet = () => {
         if (!isMounted) return;
 
         if (Array.isArray(data) && data.length > 0) {
-          // Filtro defensivo no front: NUNCA inclui pets do próprio usuário
           const communityPets = data.filter((p) => {
             if (currentUserId && p.user_id === currentUserId) return false;
             if (p.tutor_id && currentUserId && p.tutor_id === currentUserId) return false;
@@ -217,6 +310,14 @@ const MatchPet = () => {
 
           const dbPets = communityPets.map((p) => {
             const photo = getPetPhoto(p.foto_url);
+            const customTemp = getStoredTemperament(p.id);
+            const temperament =
+              customTemp && customTemp.length > 0
+                ? customTemp
+                : p.temperamento
+                ? [p.temperamento]
+                : ["Dócil", "Sociável"];
+
             return {
               id: `db-${p.id}`,
               rawId: p.id,
@@ -245,8 +346,7 @@ const MatchPet = () => {
                 online: true,
                 lastSeen: "agora",
               },
-              compat: { breed: 95, genetic: 92, temperament: 94, age: 90 },
-              temperament: ["Dócil", "Sociável", "Acompanhado"],
+              temperament,
               medical:
                 p.medical_records?.[0]?.descricao ||
                 "Acompanhamento preventivo em dia.",
@@ -256,10 +356,10 @@ const MatchPet = () => {
               })),
               genetics: p.lineage?.registro
                 ? `Registro Oficial ${p.lineage.registro}`
-                : "Perfil registrado no LivePet",
+                : "Cadastrado no LivePet",
               certifications: p.lineage
                 ? ["Pedigree LivePet", "Microchip Ativo"]
-                : ["Cadastrado no LivePet"],
+                : ["Perfil Registrado no LivePet"],
               rating: null,
               reviews: [],
             };
@@ -282,7 +382,7 @@ const MatchPet = () => {
     };
   }, [currentUser?.id]);
 
-  // -------- filtros --------
+  // -------- Filtros --------
   const [filtersOpen, setFiltersOpen] = useState(false);
   const [breed, setBreed] = useState("Todas");
   const [sex, setSex] = useState("Todos");
@@ -312,10 +412,10 @@ const MatchPet = () => {
     setBreedingOnly(false);
   };
 
-  // -------- match deck --------
+  // -------- Deck de Descoberta (com exclusão de pets já swipados) --------
   const filteredMatches = useMemo(() => {
     return matchPets.filter((p) => {
-      // Bloqueia categoricamente pets pertencentes ao tutor logado
+      // Bloqueia pets do próprio usuário
       if (
         (p.userId && currentUser?.id && p.userId === currentUser.id) ||
         (p.tutorId && currentUser?.id && p.tutorId === currentUser.id) ||
@@ -323,6 +423,13 @@ const MatchPet = () => {
       ) {
         return false;
       }
+
+      // Bloqueia pets que já foram visualizados/swipados por este pet ativo
+      const targetRawStr = String(p.rawId || p.id);
+      if (swipedSet.has(targetRawStr)) {
+        return false;
+      }
+
       if (breed !== "Todas" && p.breed !== breed) return false;
       if (sex !== "Todos" && p.sex !== sex) return false;
       if (speciesF !== "Todas" && p.species !== speciesF) return false;
@@ -345,6 +452,7 @@ const MatchPet = () => {
     matchPets,
     currentUser?.id,
     myPetIds,
+    swipedSet,
     breed,
     sex,
     speciesF,
@@ -358,10 +466,8 @@ const MatchPet = () => {
   const [deckIndex, setDeckIndex] = useState(0);
   const [swipeDir, setSwipeDir] = useState(null);
   const [history, setHistory] = useState([]);
-  const [likes, setLikes] = useState(new Set());
-  const [superLikes, setSuperLikes] = useState(new Set());
   const [favorites, setFavorites] = useState(new Set());
-  const [matchPet, setMatchPet] = useState(null); // celebração
+  const [matchPet, setMatchPet] = useState(null); // Celebração de Match real
 
   useEffect(() => {
     setDeckIndex(0);
@@ -370,57 +476,131 @@ const MatchPet = () => {
   const current = filteredMatches[deckIndex] ?? null;
   const upNext = filteredMatches[deckIndex + 1] ?? null;
 
+  // Real Swipe Handler (Matching Mútuo Real e Persistência)
   const doSwipe = (dir) => {
-    if (!current) return;
+    if (!current || !activePet) {
+      if (!activePet) {
+        toast.error("Cadastre ou selecione um pet seu para dar matches!");
+      }
+      return;
+    }
+
+    const currentRawId = current.rawId || current.id;
+    const targetRawStr = String(currentRawId);
+    const myPetIdStr = String(activePet.id);
 
     // Proteção absoluta contra match com o próprio pet
     const isOwn =
       (current.userId && currentUser?.id && current.userId === currentUser.id) ||
       (current.tutorId && currentUser?.id && current.tutorId === currentUser.id) ||
-      myPetIds.has(current.rawId || current.id);
+      myPetIds.has(currentRawId);
 
     if (isOwn) {
-      if (dir === "right" || dir === "super") {
-        toast.error("Você não pode curtir ou dar match com seu próprio pet.");
-        setDeckIndex((i) => i + 1);
-        return;
-      }
+      toast.error("Você não pode curtir ou dar match com seu próprio pet.");
+      setDeckIndex((i) => i + 1);
+      return;
     }
 
     const animDir = dir === "left" ? "left" : "right";
     setSwipeDir(animDir);
+
     setTimeout(() => {
+      // 1. Salva swipe no histórico da sessão
       setHistory((h) => [...h, { pet: current, dir: animDir }].slice(-20));
-      if (dir === "right") {
-        setLikes((p) => new Set(p).add(current.id));
-        if (Math.random() > 0.4) setMatchPet(current);
-        else toast.success(`Você curtiu ${current.name}!`);
-      } else if (dir === "super") {
-        setSuperLikes((p) => new Set(p).add(current.id));
-        setLikes((p) => new Set(p).add(current.id));
-        setMatchPet(current);
+
+      // 2. Persiste swipe no localStorage para nunca repetir este pet no reload
+      addSwipedId(currentUser?.id, activePet.id, currentRawId);
+      setSwipedSet((prev) => new Set(prev).add(targetRawStr));
+
+      if (dir === "right" || dir === "super") {
+        const stored = getStoredLikes();
+
+        // Verifica se o outro pet já curtiu o pet ativo (MATCHING MÚTUO REAL)
+        const otherLikedMe = stored.some(
+          (l) =>
+            String(l.fromPetId) === targetRawStr &&
+            String(l.toPetId) === myPetIdStr
+        );
+
+        // Salva a curtida atual
+        const newLike = {
+          fromPetId: activePet.id,
+          fromTutorId: currentUser?.id,
+          toPetId: currentRawId,
+          toTutorId: current.userId || current.tutorId,
+          superLike: dir === "super",
+          createdAt: new Date().toISOString(),
+        };
+
+        const updatedLikes = [
+          ...stored.filter(
+            (l) =>
+              !(
+                String(l.fromPetId) === myPetIdStr &&
+                String(l.toPetId) === targetRawStr
+              )
+          ),
+          newLike,
+        ];
+        saveStoredLikes(updatedLikes);
+        setAllLikes(updatedLikes);
+
+        if (otherLikedMe) {
+          // 🎉 DEU MATCH REAL! Ambos os tutores curtiram mutualmente!
+          setMatchPet(current);
+          toast.success(
+            `🎉 É um Match! O tutor de ${current.name} também curtiu ${activePet.nome}!`
+          );
+        } else {
+          toast.success(
+            `Você curtiu ${current.name}! Quando o tutor curtir ${activePet.nome} de volta, vocês darão match.`
+          );
+        }
       }
+
       setDeckIndex((i) => i + 1);
       setSwipeDir(null);
     }, 280);
   };
 
   const undo = () => {
-    if (history.length === 0) {
+    if (history.length === 0 || !activePet) {
       toast("Nada para desfazer");
       return;
     }
     const last = history[history.length - 1];
     setHistory((h) => h.slice(0, -1));
     setDeckIndex((i) => Math.max(0, i - 1));
+
+    const rawId = last.pet.rawId || last.pet.id;
+    removeSwipedId(currentUser?.id, activePet.id, rawId);
+    setSwipedSet((prev) => {
+      const n = new Set(prev);
+      n.delete(String(rawId));
+      return n;
+    });
+
     if (last.dir === "right") {
-      setLikes((p) => {
-        const n = new Set(p);
-        n.delete(last.pet.id);
-        return n;
-      });
+      const updated = allLikes.filter(
+        (l) =>
+          !(
+            String(l.fromPetId) === String(activePet.id) &&
+            String(l.toPetId) === String(rawId)
+          )
+      );
+      saveStoredLikes(updated);
+      setAllLikes(updated);
     }
     toast(`Voltamos para ${last.pet.name}`);
+  };
+
+  const resetSwipedHistory = () => {
+    if (!activePet) return;
+    clearSwipedIds(currentUser?.id, activePet.id);
+    setSwipedSet(new Set());
+    setDeckIndex(0);
+    setHistory([]);
+    toast.success("Histórico reiniciado para " + activePet.nome + "!");
   };
 
   const toggleFavorite = (id) => {
@@ -437,147 +617,168 @@ const MatchPet = () => {
     });
   };
 
-  // -------- perfil sheet --------
+  // -------- Matches Confirmados Mútuos --------
+  const matchList = useMemo(() => {
+    if (!activePet) return [];
+    const myPetIdStr = String(activePet.id);
+    const likesFromMe = new Set(
+      allLikes
+        .filter((l) => String(l.fromPetId) === myPetIdStr)
+        .map((l) => String(l.toPetId))
+    );
+    const likesToMe = new Set(
+      allLikes
+        .filter((l) => String(l.toPetId) === myPetIdStr)
+        .map((l) => String(l.fromPetId))
+    );
+
+    return matchPets.filter((p) => {
+      const targetIdStr = String(p.rawId || p.id);
+      return likesFromMe.has(targetIdStr) && likesToMe.has(targetIdStr);
+    });
+  }, [allLikes, activePet, matchPets]);
+
+  const recommended = useMemo(() => {
+    return matchPets
+      .filter((p) => !myPetIds.has(p.rawId || p.id))
+      .slice(0, 4);
+  }, [matchPets, myPetIds]);
+
+  // -------- Perfil Sheet --------
   const [profilePet, setProfilePet] = useState(null);
   const [galleryIdx, setGalleryIdx] = useState(0);
   useEffect(() => setGalleryIdx(0), [profilePet?.id]);
 
-  // -------- chat --------
+  // -------- Mini Perfil de Temperamento do Pet Ativo --------
+  const [temperamentDialogOpen, setTemperamentDialogOpen] = useState(false);
+  const [editingTemperament, setEditingTemperament] = useState([]);
+
+  const openTemperamentDialog = () => {
+    if (!activePet) return;
+    const existing =
+      getStoredTemperament(activePet.id) ||
+      (activePet.temperamento ? [activePet.temperamento] : ["Dócil", "Sociável"]);
+    setEditingTemperament(existing);
+    setTemperamentDialogOpen(true);
+  };
+
+  const toggleTemperamentTag = (tag) => {
+    setEditingTemperament((prev) =>
+      prev.includes(tag) ? prev.filter((t) => t !== tag) : [...prev, tag]
+    );
+  };
+
+  const saveTemperament = () => {
+    if (!activePet) return;
+    saveStoredTemperament(activePet.id, editingTemperament);
+    // Atualiza estado local de pets
+    setMyPets((list) =>
+      list.map((p) =>
+        p.id === activePet.id ? { ...p, temperamento: editingTemperament.join(", ") } : p
+      )
+    );
+    setTemperamentDialogOpen(false);
+    toast.success(`Mini perfil de ${activePet.nome} atualizado!`);
+  };
+
+  // -------- Chat Funcional Tutor a Tutor --------
   const [chatPet, setChatPet] = useState(null);
-  const [chatStore, setChatStore] = useState({});
+  const [chatsData, setChatsData] = useState(() => {
+    try {
+      return JSON.parse(localStorage.getItem(CHAT_KEY) || "{}");
+    } catch {
+      return {};
+    }
+  });
   const [chatInput, setChatInput] = useState("");
   const chatBottomRef = useRef(null);
 
-  const openChat = (pet) => {
-    setChatPet(pet);
-    setChatStore((s) => {
-      if (s[pet.id]) return s;
-      return {
-        ...s,
-        [pet.id]: [
-          {
-            from: "them",
-            text: `Olá! Sou tutor(a) de ${pet.name}. Que bom o seu interesse!`,
-            time: "09:21",
-          },
-        ],
-      };
-    });
+  const getChatKey = (targetPet) => {
+    if (!activePet || !targetPet) return "default";
+    const myId = String(activePet.id);
+    const theirId = String(targetPet.rawId || targetPet.id);
+    return [myId, theirId].sort().join("__");
   };
 
+  const openChat = (pet) => {
+    setChatPet(pet);
+    try {
+      const stored = JSON.parse(localStorage.getItem(CHAT_KEY) || "{}");
+      setChatsData(stored);
+    } catch (e) {
+      console.warn(e);
+    }
+  };
+
+  const activeChatMessages = useMemo(() => {
+    if (!chatPet || !activePet) return [];
+    const key = getChatKey(chatPet);
+    return chatsData[key] || [];
+  }, [chatsData, chatPet, activePet]);
+
   const sendMessage = () => {
-    if (!chatPet || !chatInput.trim()) return;
+    if (!chatPet || !chatInput.trim() || !activePet) return;
+    const text = chatInput.trim();
     const time = new Date().toLocaleTimeString("pt-BR", {
       hour: "2-digit",
       minute: "2-digit",
     });
-    setChatStore((s) => ({
-      ...s,
-      [chatPet.id]: [
-        ...(s[chatPet.id] ?? []),
-        { from: "me", text: chatInput.trim(), time },
-      ],
-    }));
+    const key = getChatKey(chatPet);
+    const newMsg = {
+      id: Date.now(),
+      senderPetId: activePet.id,
+      senderTutorId: currentUser?.id,
+      senderName: userDisplayName,
+      petName: activePet.nome,
+      text,
+      time,
+    };
+
+    setChatsData((prev) => {
+      const updated = {
+        ...prev,
+        [key]: [...(prev[key] || []), newMsg],
+      };
+      try {
+        localStorage.setItem(CHAT_KEY, JSON.stringify(updated));
+      } catch (e) {
+        console.error(e);
+      }
+      return updated;
+    });
     setChatInput("");
-    setTimeout(() => {
-      const t = new Date().toLocaleTimeString("pt-BR", {
-        hour: "2-digit",
-        minute: "2-digit",
-      });
-      setChatStore((s) => ({
-        ...s,
-        [chatPet.id]: [
-          ...(s[chatPet.id] ?? []),
-          {
-            from: "them",
-            text: "Combinado! Posso te enviar mais informações e fotos 📸",
-            time: t,
-          },
-        ],
-      }));
-    }, 1200);
   };
 
   useEffect(() => {
     chatBottomRef.current?.scrollIntoView({ behavior: "smooth" });
-  }, [chatStore, chatPet]);
-
-  // -------- compartilhar --------
-  const share = async (pet) => {
-    const url = `${window.location.origin}/matchpet?pet=${pet.id}`;
-    try {
-      if (navigator.share) {
-        await navigator.share({ title: `MatchPet — ${pet.name}`, url });
-      } else {
-        await navigator.clipboard.writeText(url);
-        toast.success("Link copiado!");
-      }
-    } catch {
-      /* user cancelled */
-    }
-  };
-
-  // -------- marketplace --------
-  const [puppyQuery, setPuppyQuery] = useState("");
-  const [puppySort, setPuppySort] = useState("recent");
-  const [puppyFavs, setPuppyFavs] = useState(new Set());
-  const [announceOpen, setAnnounceOpen] = useState(false);
-  const [puppyPreview, setPuppyPreview] = useState(null);
-
-  const filteredPuppies = useMemo(() => {
-    let list = puppies.filter((p) => {
-      if (breed !== "Todas" && p.breed !== breed) return false;
-      if (speciesF !== "Todas" && p.species !== speciesF) return false;
-      if (pedigreeOnly && !p.pedigree) return false;
-      if (puppyQuery) {
-        const q = puppyQuery.toLowerCase();
-        if (
-          !p.breed.toLowerCase().includes(q) &&
-          !p.city.toLowerCase().includes(q) &&
-          !p.title.toLowerCase().includes(q) &&
-          !p.seller.name.toLowerCase().includes(q)
-        )
-          return false;
-      }
-      return true;
-    });
-    if (puppySort === "price-asc")
-      list = [...list].sort((a, b) => a.price - b.price);
-    if (puppySort === "price-desc")
-      list = [...list].sort((a, b) => b.price - a.price);
-    if (puppySort === "recent")
-      list = [...list].sort((a, b) => a.postedDaysAgo - b.postedDaysAgo);
-    return list;
-  }, [breed, speciesF, pedigreeOnly, puppyQuery, puppySort]);
-
-  const togglePuppyFav = (id) => {
-    setPuppyFavs((p) => {
-      const n = new Set(p);
-      if (n.has(id)) n.delete(id);
-      else n.add(id);
-      return n;
-    });
-  };
-
-  // -------- listas derivadas --------
-  const matchList = matchPets.filter((p) => likes.has(p.id));
-  const recommended = [...matchPets]
-    .sort((a, b) => compatScore(b.compat) - compatScore(a.compat))
-    .slice(0, 4);
+  }, [activeChatMessages, chatPet]);
 
   const heroStats = [
-    { label: "Pets curtidos", value: likes.size, icon: Heart },
-    { label: "Super likes", value: superLikes.size, icon: Zap },
-    { label: "Matches", value: matchList.length, icon: HeartHandshake },
-    { label: "Próximos", value: filteredMatches.length, icon: Flame },
+    {
+      label: "Visualizados",
+      value: swipedSet.size,
+      icon: Flame,
+    },
+    {
+      label: "Matches Mútuos",
+      value: matchList.length,
+      icon: HeartHandshake,
+    },
+    {
+      label: "Favoritos",
+      value: favorites.size,
+      icon: Bookmark,
+    },
+    {
+      label: "Restantes no deck",
+      value: filteredMatches.length,
+      icon: PawPrint,
+    },
   ];
 
-  // ============================================================
-  // Render
-  // ============================================================
   return (
     <div className="relative min-h-screen overflow-hidden bg-gradient-to-br from-secondary via-background to-primary-soft">
-      {/* Decorativos */}
+      {/* Elementos decorativos de fundo */}
       <div className="pointer-events-none absolute inset-0 gradient-mesh opacity-60" />
       <div className="blob h-[480px] w-[480px] -left-32 -top-24 bg-primary/20 animate-blob" />
       <div className="blob h-[420px] w-[420px] -right-24 top-1/3 bg-accent-warm/20 animate-blob" />
@@ -588,7 +789,7 @@ const MatchPet = () => {
       />
 
       <main className="container relative z-10 py-8 md:py-12">
-        {/* ===== Sub-header in-app ===== */}
+        {/* ===== Header da página MatchPet ===== */}
         <Card className="rounded-3xl border bg-card/80 p-4 shadow-soft backdrop-blur">
           <div className="flex flex-wrap items-center gap-3">
             <div className="flex items-center gap-2 rounded-full bg-primary-soft px-3 py-1.5">
@@ -598,27 +799,47 @@ const MatchPet = () => {
               </span>
             </div>
 
+            {/* Seletor do Pet Ativo & Botão de Mini Perfil de Temperamento */}
             {myPets.length > 0 && (
-              <div className="flex items-center gap-1.5 rounded-full border bg-background/80 px-3 py-1.5 text-xs shadow-soft">
-                <span className="text-muted-foreground hidden lg:inline">Buscando para:</span>
-                {myPets.length === 1 ? (
-                  <span className="font-semibold text-primary truncate max-w-[140px]">
-                    🐾 {myPets[0].nome}
+              <div className="flex flex-wrap items-center gap-2">
+                <div className="flex items-center gap-1.5 rounded-full border bg-background/80 px-3 py-1.5 text-xs shadow-soft">
+                  <span className="text-muted-foreground hidden lg:inline">
+                    Buscando para:
                   </span>
-                ) : (
-                  <select
-                    value={activeMyPetId || myPets[0].id}
-                    onChange={(e) => setActiveMyPetId(Number(e.target.value))}
-                    className="bg-transparent font-semibold text-primary focus:outline-none cursor-pointer text-xs"
-                    title="Selecione qual dos seus pets está buscando combinações"
-                  >
-                    {myPets.map((p) => (
-                      <option key={p.id} value={p.id} className="text-foreground bg-card">
-                        🐾 {p.nome}
-                      </option>
-                    ))}
-                  </select>
-                )}
+                  {myPets.length === 1 ? (
+                    <span className="font-semibold text-primary truncate max-w-[140px]">
+                      🐾 {myPets[0].nome}
+                    </span>
+                  ) : (
+                    <select
+                      value={activeMyPetId || myPets[0].id}
+                      onChange={(e) => setActiveMyPetId(Number(e.target.value))}
+                      className="bg-transparent font-semibold text-primary focus:outline-none cursor-pointer text-xs"
+                      title="Selecione qual dos seus pets está buscando combinações"
+                    >
+                      {myPets.map((p) => (
+                        <option
+                          key={p.id}
+                          value={p.id}
+                          className="text-foreground bg-card"
+                        >
+                          🐾 {p.nome}
+                        </option>
+                      ))}
+                    </select>
+                  )}
+                </div>
+
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={openTemperamentDialog}
+                  className="rounded-full text-xs h-8 border-primary/30 text-primary hover:bg-primary-soft gap-1.5"
+                  title="Configurar temperamento e características do pet ativo"
+                >
+                  <SlidersHorizontal className="h-3.5 w-3.5" />
+                  Mini Perfil de Temperamento
+                </Button>
               </div>
             )}
 
@@ -648,65 +869,13 @@ const MatchPet = () => {
 
             <Popover>
               <PopoverTrigger asChild>
-                <Button
-                  variant="outline"
-                  size="icon"
-                  className="relative rounded-full"
-                >
-                  <Bell className="h-4 w-4" />
-                  {NOTIFICATIONS.length > 0 && (
-                    <span className="absolute -right-0.5 -top-0.5 flex h-4 w-4 items-center justify-center rounded-full bg-accent-warm text-[10px] font-bold text-white">
-                      {NOTIFICATIONS.length}
-                    </span>
-                  )}
-                </Button>
-              </PopoverTrigger>
-              <PopoverContent align="end" className="w-80 rounded-2xl p-2">
-                <div className="border-b px-2 py-2 text-sm font-semibold">
-                  Notificações
-                </div>
-                <div className="max-h-72 space-y-1 overflow-y-auto py-1">
-                  {NOTIFICATIONS.length === 0 ? (
-                    <div className="py-6 text-center text-xs text-muted-foreground">
-                      Nenhuma notificação nova no momento.
-                    </div>
-                  ) : (
-                    NOTIFICATIONS.map((n) => (
-                      <button
-                        key={n.id}
-                        onClick={() => toast(n.text)}
-                        className="flex w-full items-start gap-3 rounded-xl p-2 text-left text-sm hover:bg-muted"
-                      >
-                        <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-primary-soft text-primary">
-                          <n.icon className="h-4 w-4" />
-                        </span>
-                        <span className="flex-1">
-                          <span className="block">{n.text}</span>
-                          <span className="text-xs text-muted-foreground">
-                            {n.time}
-                          </span>
-                        </span>
-                      </button>
-                    ))
-                  )}
-                </div>
-                {NOTIFICATIONS.length > 0 && (
-                  <button
-                    onClick={() => toast.success("Todas marcadas como lidas")}
-                    className="w-full rounded-xl p-2 text-center text-xs font-medium text-primary hover:bg-primary-soft"
-                  >
-                    Marcar todas como lidas
-                  </button>
-                )}
-              </PopoverContent>
-            </Popover>
-
-            <Popover>
-              <PopoverTrigger asChild>
                 <button className="group flex items-center gap-2 rounded-full border bg-card px-1 py-1 pr-3 shadow-soft transition-smooth hover:shadow-glow">
                   <Avatar className="h-8 w-8">
                     {currentUser?.foto_url && (
-                      <AvatarImage src={currentUser.foto_url} alt={userDisplayName} />
+                      <AvatarImage
+                        src={currentUser.foto_url}
+                        alt={userDisplayName}
+                      />
                     )}
                     <AvatarFallback className="bg-gradient-to-br from-primary to-primary-glow text-xs text-primary-foreground">
                       {userInitials}
@@ -749,7 +918,7 @@ const MatchPet = () => {
             </Popover>
           </div>
 
-          {/* Stats */}
+          {/* Stats Bar */}
           <div className="mt-4 grid grid-cols-2 gap-2 sm:grid-cols-4">
             {heroStats.map((s) => (
               <div
@@ -768,13 +937,13 @@ const MatchPet = () => {
           </div>
         </Card>
 
-        {/* ===== Tabs ===== */}
+        {/* ===== Tabs: Descobrir, Matches, Conversas ===== */}
         <Tabs
           value={tab}
           onValueChange={(v) => setTab(v)}
           className="mx-auto mt-6"
         >
-          <TabsList className="mx-auto grid w-full max-w-2xl grid-cols-4 rounded-full bg-card/80 p-1 backdrop-blur">
+          <TabsList className="mx-auto grid w-full max-w-xl grid-cols-3 rounded-full bg-card/80 p-1 backdrop-blur">
             <TabsTrigger
               value="descobrir"
               className="rounded-full data-[state=active]:gradient-primary data-[state=active]:text-primary-foreground"
@@ -798,24 +967,18 @@ const MatchPet = () => {
             >
               <MessageCircle className="mr-1.5 h-4 w-4" /> Conversas
             </TabsTrigger>
-            <TabsTrigger
-              value="filhotes"
-              className="rounded-full data-[state=active]:gradient-primary data-[state=active]:text-primary-foreground"
-            >
-              <ShoppingBag className="mr-1.5 h-4 w-4" /> Filhotes
-            </TabsTrigger>
           </TabsList>
 
-          {/* ============ DESCOBRIR ============ */}
+          {/* ============ ABA DESCOBRIR ============ */}
           <TabsContent value="descobrir" className="mt-8">
             <div className="grid gap-8 lg:grid-cols-[1fr_320px]">
-              {/* Deck */}
+              {/* Deck Central */}
               <div className="flex flex-col items-center">
                 {loading ? (
                   <SkeletonCard />
                 ) : current ? (
                   <div className="relative h-[560px] w-full max-w-sm">
-                    {/* card de trás */}
+                    {/* Card de trás */}
                     {upNext && (
                       <Card className="absolute inset-0 translate-y-3 scale-95 overflow-hidden rounded-3xl border-2 border-primary/10 opacity-60 shadow-soft">
                         <img
@@ -825,7 +988,7 @@ const MatchPet = () => {
                         />
                       </Card>
                     )}
-                    {/* card atual */}
+                    {/* Card atual interativo */}
                     <SwipeCard
                       pet={current}
                       swipeDir={swipeDir}
@@ -836,30 +999,24 @@ const MatchPet = () => {
                   </div>
                 ) : (
                   <EmptyDeck
-                    likesCount={likes.size}
-                    onReset={() => {
-                      clearFilters();
-                      setHistory([]);
-                      setLikes(new Set());
-                      setSuperLikes(new Set());
-                      setDeckIndex(0);
-                    }}
+                    swipedCount={swipedSet.size}
+                    onReset={resetSwipedHistory}
                   />
                 )}
 
-                {/* Ações */}
+                {/* Controles de Ação do Deck */}
                 {current && !loading && (
                   <>
                     <div className="mt-7 flex items-center justify-center gap-3">
                       <ActionBtn
-                        title="Desfazer"
+                        title="Desfazer último swipe"
                         onClick={undo}
                         className="h-12 w-12 border-2 border-accent-yellow/40 text-accent-yellow"
                       >
                         <Undo2 className="!h-5 !w-5" />
                       </ActionBtn>
                       <ActionBtn
-                        title="Não curtir"
+                        title="Pular pet"
                         onClick={() => doSwipe("left")}
                         className="h-16 w-16 border-2 border-destructive/40 text-destructive hover:bg-destructive hover:text-destructive-foreground"
                       >
@@ -873,7 +1030,7 @@ const MatchPet = () => {
                         <Zap className="!h-6 !w-6" />
                       </ActionBtn>
                       <ActionBtn
-                        title="Curtir"
+                        title="Curtir pet"
                         onClick={() => doSwipe("right")}
                         className="h-16 w-16 gradient-primary text-primary-foreground shadow-glow"
                       >
@@ -892,26 +1049,26 @@ const MatchPet = () => {
                       </ActionBtn>
                     </div>
                     <p className="mt-3 text-center text-xs text-muted-foreground">
-                      {filteredMatches.length - deckIndex - 1} pets restantes ·{" "}
-                      {likes.size} curtidos
+                      {filteredMatches.length - deckIndex - 1} pets restantes no
+                      deck · {swipedSet.size} avaliados
                     </p>
                   </>
                 )}
               </div>
 
-              {/* Sidebar recomendações */}
+              {/* Sidebar Lateral */}
               <aside className="space-y-6">
                 <Card className="rounded-3xl border bg-card/80 p-5 shadow-soft backdrop-blur">
                   <div className="mb-3 flex items-center gap-2">
                     <TrendingUp className="h-4 w-4 text-primary" />
                     <h3 className="text-sm font-semibold uppercase tracking-wider text-muted-foreground">
-                      Recomendados para você
+                      Pets da Comunidade
                     </h3>
                   </div>
                   <div className="space-y-2">
                     {recommended.length === 0 ? (
                       <p className="py-6 text-center text-xs text-muted-foreground">
-                        Nenhum pet recomendado no momento.
+                        Nenhum pet encontrado no momento.
                       </p>
                     ) : (
                       recommended.map((p) => (
@@ -938,8 +1095,11 @@ const MatchPet = () => {
                               {p.breed} · {p.city}
                             </p>
                           </div>
-                          <Badge className="rounded-full bg-primary/10 text-primary hover:bg-primary/10">
-                            {compatScore(p.compat)}%
+                          <Badge
+                            variant="secondary"
+                            className="rounded-full text-[11px]"
+                          >
+                            {p.sex}
                           </Badge>
                         </button>
                       ))
@@ -951,59 +1111,41 @@ const MatchPet = () => {
                   <div className="mb-3 flex items-center gap-2">
                     <Trophy className="h-4 w-4 text-accent-warm" />
                     <h3 className="text-sm font-semibold uppercase tracking-wider text-muted-foreground">
-                      Pets populares
+                      Dica LivePet
                     </h3>
                   </div>
-                  {matchPets.length === 0 ? (
-                    <p className="py-6 text-center text-xs text-muted-foreground">
-                      Nenhum pet popular disponível.
-                    </p>
-                  ) : (
-                    <div className="grid grid-cols-2 gap-2">
-                      {matchPets.slice(0, 4).map((p) => (
-                        <button
-                          key={p.id}
-                          onClick={() => setProfilePet(p)}
-                          className="group relative aspect-square overflow-hidden rounded-2xl"
-                        >
-                          <img
-                            src={p.img}
-                            alt={p.name}
-                            className="h-full w-full object-cover transition-transform duration-500 group-hover:scale-110"
-                          />
-                          <div className="absolute inset-x-0 bottom-0 bg-gradient-to-t from-black/80 to-transparent p-2 text-left">
-                            <p className="text-xs font-semibold text-white">
-                              {p.name}
-                            </p>
-                            <p className="text-[10px] text-white/80">{p.breed}</p>
-                          </div>
-                        </button>
-                      ))}
-                    </div>
-                  )}
+                  <p className="text-xs text-muted-foreground leading-relaxed">
+                    O MatchPet conecta tutores com interesses mútuos de
+                    socialização, passeios ou acasalamento responsável. Matches
+                    só acontecem quando ambos os tutores confirmam interesse!
+                  </p>
                 </Card>
               </aside>
             </div>
           </TabsContent>
 
-          {/* ============ MATCHES ============ */}
+          {/* ============ ABA MATCHES ============ */}
           <TabsContent value="matches" className="mt-8">
             <div className="mb-5 flex items-end justify-between">
               <div>
-                <h2 className="text-2xl font-bold">Suas combinações</h2>
+                <h2 className="text-2xl font-bold">Matches Mútuos</h2>
                 <p className="text-sm text-muted-foreground">
-                  Pets que você curtiu — converse, agende ou compartilhe.
+                  Pets onde ambos os tutores demonstraram interesse de conexão.
                 </p>
               </div>
               <Badge className="rounded-full bg-primary-soft text-primary hover:bg-primary-soft">
-                {matchList.length} matches
+                {matchList.length} matches confirmados
               </Badge>
             </div>
             {matchList.length === 0 ? (
               <EmptyState
                 icon={<HeartHandshake className="h-8 w-8 text-primary" />}
-                title="Nenhum match ainda"
-                description="Volte para Descobrir e comece a curtir pets compatíveis."
+                title="Nenhum match confirmado ainda"
+                description={
+                  activePet
+                    ? `Curta outros pets na aba Descobrir! Quando o tutor curtir ${activePet.nome} de volta, a combinação aparecerá aqui.`
+                    : "Cadastre um pet seu para começar a combinar!"
+                }
                 action={
                   <Button
                     onClick={() => setTab("descobrir")}
@@ -1027,14 +1169,9 @@ const MatchPet = () => {
                         className="h-full w-full object-cover transition-transform duration-500 group-hover:scale-110"
                       />
                       <div className="absolute inset-0 bg-gradient-to-t from-black/70 via-transparent to-transparent" />
-                      <Badge className="absolute left-3 top-3 rounded-full bg-primary/90 text-primary-foreground">
-                        {compatScore(p.compat)}% match
+                      <Badge className="absolute left-3 top-3 rounded-full bg-emerald-500 text-white">
+                        <HeartHandshake className="mr-1 h-3.5 w-3.5" /> Match Mútuo
                       </Badge>
-                      {superLikes.has(p.id) && (
-                        <Badge className="absolute right-3 top-3 rounded-full bg-accent-warm text-white hover:bg-accent-warm">
-                          <Zap className="mr-1 h-3 w-3" /> Super
-                        </Badge>
-                      )}
                       <div className="absolute inset-x-0 bottom-0 p-3 text-white">
                         <p className="text-lg font-bold">
                           {p.name}, {p.ageYears}a
@@ -1057,16 +1194,9 @@ const MatchPet = () => {
                         variant="outline"
                         onClick={() => setProfilePet(p)}
                         className="rounded-full"
+                        title="Ver detalhes do pet"
                       >
                         <Star className="h-4 w-4" />
-                      </Button>
-                      <Button
-                        size="icon"
-                        variant="outline"
-                        onClick={() => share(p)}
-                        className="rounded-full"
-                      >
-                        <Share2 className="h-4 w-4" />
                       </Button>
                     </div>
                   </Card>
@@ -1075,7 +1205,7 @@ const MatchPet = () => {
             )}
           </TabsContent>
 
-          {/* ============ CONVERSAS ============ */}
+          {/* ============ ABA CONVERSAS ============ */}
           <TabsContent value="conversas" className="mt-8">
             <div className="mb-5">
               <h2 className="text-2xl font-bold">Conversas</h2>
@@ -1087,7 +1217,7 @@ const MatchPet = () => {
               <EmptyState
                 icon={<MessageCircle className="h-8 w-8 text-primary" />}
                 title="Sem conversas ainda"
-                description="Faça matches para começar a conversar com tutores."
+                description="Faça matches mútuos para começar a conversar com outros tutores."
                 action={
                   <Button
                     onClick={() => setTab("descobrir")}
@@ -1101,7 +1231,8 @@ const MatchPet = () => {
               <Card className="overflow-hidden rounded-3xl border bg-card shadow-soft">
                 <ul className="divide-y">
                   {matchList.map((p) => {
-                    const msgs = chatStore[p.id] ?? [];
+                    const key = getChatKey(p);
+                    const msgs = chatsData[key] ?? [];
                     const lastMsg = msgs[msgs.length - 1];
                     return (
                       <li key={p.id}>
@@ -1126,13 +1257,17 @@ const MatchPet = () => {
                                 {p.tutor.name}
                               </p>
                               <span className="text-[11px] text-muted-foreground">
-                                {p.tutor.lastSeen}
+                                {lastMsg ? lastMsg.time : p.tutor.lastSeen}
                               </span>
                             </div>
                             <p className="truncate text-xs text-muted-foreground">
                               {lastMsg
-                                ? `${lastMsg.from === "me" ? "Você: " : ""}${lastMsg.text}`
-                                : `Diga oi sobre ${p.name}!`}
+                                ? `${
+                                    lastMsg.senderTutorId === currentUser?.id
+                                      ? "Você: "
+                                      : `${lastMsg.senderName || "Tutor"}: `
+                                  }${lastMsg.text}`
+                                : `Iniciar conversa sobre ${p.name}!`}
                             </p>
                           </div>
                           <Badge variant="secondary" className="rounded-full">
@@ -1146,184 +1281,100 @@ const MatchPet = () => {
               </Card>
             )}
           </TabsContent>
-
-          {/* ============ FILHOTES ============ */}
-          <TabsContent value="filhotes" className="mt-8">
-            <div className="mb-5 flex flex-wrap items-end justify-between gap-3">
-              <div>
-                <h2 className="text-2xl font-bold">Marketplace de filhotes</h2>
-                <p className="text-sm text-muted-foreground">
-                  {filteredPuppies.length} anúncios disponíveis
-                </p>
-              </div>
-              <Button
-                onClick={() => setAnnounceOpen(true)}
-                className="rounded-full gradient-primary text-primary-foreground shadow-soft hover:shadow-glow"
-              >
-                <Plus className="h-4 w-4" /> Anunciar filhote
-              </Button>
-            </div>
-
-            <Card className="mb-5 rounded-3xl border bg-card/80 p-3 backdrop-blur">
-              <div className="flex flex-wrap items-center gap-2">
-                <div className="relative flex-1 min-w-[200px]">
-                  <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-                  <Input
-                    value={puppyQuery}
-                    onChange={(e) => setPuppyQuery(e.target.value)}
-                    placeholder="Buscar anúncios, raças, cidades…"
-                    className="rounded-full pl-9"
-                  />
-                </div>
-                <Select
-                  value={puppySort}
-                  onValueChange={(v) => setPuppySort(v)}
-                >
-                  <SelectTrigger className="w-[180px] rounded-full">
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="recent">Mais recentes</SelectItem>
-                    <SelectItem value="price-asc">Menor preço</SelectItem>
-                    <SelectItem value="price-desc">Maior preço</SelectItem>
-                  </SelectContent>
-                </Select>
-                <Button
-                  variant="outline"
-                  onClick={() => setFiltersOpen(true)}
-                  className="rounded-full"
-                >
-                  <Filter className="h-4 w-4" /> Filtros
-                </Button>
-              </div>
-            </Card>
-
-            {filteredPuppies.length === 0 ? (
-              <EmptyState
-                icon={<ShoppingBag className="h-8 w-8 text-primary" />}
-                title="Nenhum filhote encontrado"
-                description="Ajuste os filtros ou seja o primeiro a anunciar."
-                action={
-                  <Button
-                    onClick={() => setAnnounceOpen(true)}
-                    className="rounded-full gradient-primary text-primary-foreground"
-                  >
-                    <Plus className="h-4 w-4" /> Anunciar agora
-                  </Button>
-                }
-              />
-            ) : (
-              <div className="grid grid-cols-1 gap-5 sm:grid-cols-2 lg:grid-cols-3">
-                {filteredPuppies.map((p) => (
-                  <Card
-                    key={p.id}
-                    className="group cursor-pointer overflow-hidden rounded-3xl border bg-card shadow-soft transition-smooth hover:-translate-y-1 hover:shadow-glow"
-                    onClick={() => setPuppyPreview(p)}
-                  >
-                    <div className="relative aspect-[4/3] overflow-hidden">
-                      <img
-                        src={p.img}
-                        alt={p.breed}
-                        className="h-full w-full object-cover transition-transform duration-500 group-hover:scale-110"
-                      />
-                      <div className="absolute left-3 top-3 flex flex-col gap-1">
-                        {p.pedigree && (
-                          <Badge className="rounded-full border border-white/30 bg-white/15 text-white backdrop-blur">
-                            <Award className="mr-1 h-3.5 w-3.5" /> Pedigree
-                          </Badge>
-                        )}
-                        <Badge
-                          className={`rounded-full ${
-                            p.status === "Ativo"
-                              ? "bg-emerald-500"
-                              : p.status === "Reservado"
-                                ? "bg-accent-warm"
-                                : "bg-muted-foreground"
-                          } text-white hover:opacity-90`}
-                        >
-                          {p.status}
-                        </Badge>
-                      </div>
-                      <button
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          togglePuppyFav(p.id);
-                        }}
-                        className={`absolute right-3 top-3 flex h-9 w-9 items-center justify-center rounded-full backdrop-blur transition-smooth ${
-                          puppyFavs.has(p.id)
-                            ? "bg-accent-warm text-white"
-                            : "bg-white/80 text-foreground hover:bg-white"
-                        }`}
-                      >
-                        <Heart
-                          className={`h-4 w-4 ${puppyFavs.has(p.id) ? "fill-current" : ""}`}
-                        />
-                      </button>
-                      <div className="absolute right-3 bottom-3 rounded-full bg-card/95 px-3 py-1 text-sm font-bold text-primary shadow-soft backdrop-blur">
-                        {formatBRL(p.price)}
-                      </div>
-                    </div>
-                    <div className="p-4">
-                      <h3 className="line-clamp-1 text-base font-bold">
-                        {p.title}
-                      </h3>
-                      <div className="mt-1 flex items-center gap-2 text-xs text-muted-foreground">
-                        {p.species === "Cachorro" ? (
-                          <Dog className="h-3.5 w-3.5" />
-                        ) : (
-                          <Cat className="h-3.5 w-3.5" />
-                        )}
-                        {p.breed} · {p.ageMonths}{" "}
-                        {p.ageMonths === 1 ? "mês" : "meses"}
-                      </div>
-                      <div className="mt-1 flex items-center gap-2 text-xs text-muted-foreground">
-                        <MapPin className="h-3.5 w-3.5" /> {p.city}
-                      </div>
-                      <div className="mt-3 flex items-center justify-between border-t border-border/60 pt-3">
-                        <div className="text-xs">
-                          <p className="font-medium">{p.seller.name}</p>
-                          <p className="flex items-center gap-1 text-muted-foreground">
-                            <Star className="h-3 w-3 fill-accent-yellow text-accent-yellow" />{" "}
-                            {p.seller.rating}
-                            <span className="mx-1">·</span>
-                            {p.available} disp. · há {p.postedDaysAgo}d
-                          </p>
-                        </div>
-                        <Button
-                          size="sm"
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            toast.success("Contato enviado!", {
-                              description: `Falaremos com ${p.seller.name}.`,
-                            });
-                          }}
-                          className="rounded-full gradient-primary text-primary-foreground hover:shadow-glow"
-                        >
-                          <Phone className="h-3.5 w-3.5" /> Contatar
-                        </Button>
-                      </div>
-                    </div>
-                  </Card>
-                ))}
-              </div>
-            )}
-          </TabsContent>
         </Tabs>
       </main>
 
-      {/* ===== Filtros (Sheet) ===== */}
+      {/* ===== Dialog de Mini Perfil de Temperamento do Pet Ativo ===== */}
+      <Dialog
+        open={temperamentDialogOpen}
+        onOpenChange={setTemperamentDialogOpen}
+      >
+        <DialogContent className="max-w-md rounded-3xl p-6">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2 text-xl font-bold">
+              <SlidersHorizontal className="h-5 w-5 text-primary" />
+              Perfil Comportamental — {activePet?.nome || "Pet"}
+            </DialogTitle>
+            <DialogDescription>
+              Selecione as características e temperamento de {activePet?.nome}.
+              Essas informações aparecerão no MatchPet para outros tutores.
+            </DialogDescription>
+          </DialogHeader>
+
+          <div className="mt-4 space-y-4">
+            <div className="flex items-center gap-3 rounded-2xl border bg-muted/30 p-3">
+              <Avatar className="h-12 w-12 border">
+                <AvatarImage
+                  src={getPetPhoto(activePet?.foto_url)}
+                  alt={activePet?.nome}
+                />
+                <AvatarFallback className="bg-primary text-primary-foreground">
+                  {initials(activePet?.nome || "PT")}
+                </AvatarFallback>
+              </Avatar>
+              <div className="min-w-0 flex-1">
+                <p className="font-semibold truncate">{activePet?.nome}</p>
+                <p className="text-xs text-muted-foreground">
+                  {activePet?.raca || "SRD"} · {activePet?.especie || "Cachorro"}
+                </p>
+              </div>
+            </div>
+
+            <div>
+              <Label className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
+                Traços de Temperamento
+              </Label>
+              <div className="mt-2.5 flex flex-wrap gap-2">
+                {AVAILABLE_TEMPERAMENTS.map((tag) => {
+                  const selected = editingTemperament.includes(tag);
+                  return (
+                    <button
+                      key={tag}
+                      type="button"
+                      onClick={() => toggleTemperamentTag(tag)}
+                      className={`inline-flex items-center gap-1 rounded-full px-3 py-1.5 text-xs font-medium transition-smooth ${
+                        selected
+                          ? "bg-primary text-primary-foreground shadow-sm"
+                          : "border border-border/70 bg-card text-foreground hover:border-primary/40 hover:text-primary"
+                      }`}
+                    >
+                      {selected && <Check className="h-3 w-3" />}
+                      {tag}
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+          </div>
+
+          <DialogFooter className="mt-6 flex gap-2">
+            <Button
+              variant="outline"
+              onClick={() => setTemperamentDialogOpen(false)}
+              className="flex-1 rounded-full"
+            >
+              Cancelar
+            </Button>
+            <Button
+              onClick={saveTemperament}
+              className="flex-1 rounded-full gradient-primary text-primary-foreground"
+            >
+              Salvar Perfil
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* ===== Filtros Sheet ===== */}
       <Sheet open={filtersOpen} onOpenChange={setFiltersOpen}>
-        <SheetContent
-          side="right"
-          className="w-full overflow-y-auto sm:max-w-md"
-        >
+        <SheetContent side="right" className="w-full overflow-y-auto sm:max-w-md">
           <SheetHeader>
             <SheetTitle className="flex items-center gap-2">
-              <Filter className="h-5 w-5 text-primary" /> Filtros avançados
+              <Filter className="h-5 w-5 text-primary" /> Filtros de Descoberta
             </SheetTitle>
             <SheetDescription>
-              Refine para encontrar o match ideal — raça, distância, idade e
-              mais.
+              Filtre por espécie, raça, sexo e outros critérios para refinar
+              suas buscas.
             </SheetDescription>
           </SheetHeader>
 
@@ -1346,8 +1397,8 @@ const MatchPet = () => {
                     {s === "Cachorro"
                       ? "🐶 Cão"
                       : s === "Gato"
-                        ? "🐱 Gato"
-                        : "Todas"}
+                      ? "🐱 Gato"
+                      : "Todas"}
                   </button>
                 ))}
               </div>
@@ -1363,7 +1414,7 @@ const MatchPet = () => {
                 </SelectTrigger>
                 <SelectContent>
                   <SelectItem value="Todas">Todas as raças</SelectItem>
-                  {BREEDS.map((b) => (
+                  {DEFAULT_BREEDS.map((b) => (
                     <SelectItem key={b} value={b}>
                       {b}
                     </SelectItem>
@@ -1473,15 +1524,12 @@ const MatchPet = () => {
         </SheetContent>
       </Sheet>
 
-      {/* ===== Perfil completo (Sheet) ===== */}
+      {/* ===== Perfil Completo do Pet (Sheet) ===== */}
       <Sheet
         open={!!profilePet}
         onOpenChange={(o) => !o && setProfilePet(null)}
       >
-        <SheetContent
-          side="right"
-          className="w-full overflow-y-auto p-0 sm:max-w-xl"
-        >
+        <SheetContent side="right" className="w-full overflow-y-auto p-0 sm:max-w-xl">
           {profilePet && (
             <div className="flex flex-col">
               <div className="relative aspect-[4/3] overflow-hidden bg-muted">
@@ -1499,7 +1547,7 @@ const MatchPet = () => {
                         setGalleryIdx(
                           (i) =>
                             (i - 1 + profilePet.gallery.length) %
-                            profilePet.gallery.length,
+                            profilePet.gallery.length
                         )
                       }
                       className="absolute left-3 top-1/2 -translate-y-1/2 rounded-full bg-white/90 p-2 shadow-soft backdrop-blur transition-smooth hover:bg-white"
@@ -1509,7 +1557,7 @@ const MatchPet = () => {
                     <button
                       onClick={() =>
                         setGalleryIdx(
-                          (i) => (i + 1) % profilePet.gallery.length,
+                          (i) => (i + 1) % profilePet.gallery.length
                         )
                       }
                       className="absolute right-3 top-1/2 -translate-y-1/2 rounded-full bg-white/90 p-2 shadow-soft backdrop-blur transition-smooth hover:bg-white"
@@ -1530,7 +1578,7 @@ const MatchPet = () => {
                 )}
                 <Badge className="absolute right-3 top-3 rounded-full bg-primary/90 text-primary-foreground">
                   <Sparkles className="mr-1 h-3.5 w-3.5" />
-                  {compatScore(profilePet.compat)}% compatível
+                  Perfil Verificado
                 </Badge>
                 <div className="absolute inset-x-0 bottom-0 p-5 text-white">
                   <div className="flex items-end justify-between">
@@ -1545,7 +1593,7 @@ const MatchPet = () => {
                     </div>
                     {profilePet.pedigree && (
                       <Badge className="rounded-full border border-white/30 bg-white/15 text-white backdrop-blur">
-                        <ShieldCheck className="mr-1 h-3.5 w-3.5" /> Verificado
+                        <ShieldCheck className="mr-1 h-3.5 w-3.5" /> Pedigree
                       </Badge>
                     )}
                   </div>
@@ -1554,32 +1602,42 @@ const MatchPet = () => {
 
               <div className="space-y-5 p-5">
                 {/* Ações principais */}
-                <div className="grid grid-cols-4 gap-2">
+                <div className="grid grid-cols-3 gap-2">
                   <Button
                     onClick={() => {
                       if (profilePet) {
                         const isOwn =
-                          (profilePet.userId && currentUser?.id && profilePet.userId === currentUser.id) ||
-                          (profilePet.tutorId && currentUser?.id && profilePet.tutorId === currentUser.id) ||
+                          (profilePet.userId &&
+                            currentUser?.id &&
+                            profilePet.userId === currentUser.id) ||
+                          (profilePet.tutorId &&
+                            currentUser?.id &&
+                            profilePet.tutorId === currentUser.id) ||
                           myPetIds.has(profilePet.rawId || profilePet.id);
                         if (isOwn) {
-                          toast.error("Você não pode dar match no seu próprio pet!");
+                          toast.error(
+                            "Você não pode curtir o seu próprio pet!"
+                          );
                           return;
                         }
-                        setLikes((p) => new Set(p).add(profilePet.id));
-                        setMatchPet(profilePet);
+                        doSwipe("right");
+                        setProfilePet(null);
                       }
                     }}
                     className="rounded-2xl gradient-primary text-primary-foreground hover:shadow-glow"
                   >
-                    <Heart className="h-4 w-4" /> Match
+                    <Heart className="h-4 w-4" /> Curtir
                   </Button>
                   <Button
                     onClick={() => {
                       if (profilePet) {
                         const isOwn =
-                          (profilePet.userId && currentUser?.id && profilePet.userId === currentUser.id) ||
-                          (profilePet.tutorId && currentUser?.id && profilePet.tutorId === currentUser.id) ||
+                          (profilePet.userId &&
+                            currentUser?.id &&
+                            profilePet.userId === currentUser.id) ||
+                          (profilePet.tutorId &&
+                            currentUser?.id &&
+                            profilePet.tutorId === currentUser.id) ||
                           myPetIds.has(profilePet.rawId || profilePet.id);
                         if (isOwn) {
                           toast.error("Você não pode conversar com você mesmo.");
@@ -1605,200 +1663,134 @@ const MatchPet = () => {
                   >
                     <Bookmark className="h-4 w-4" /> Salvar
                   </Button>
-                  <Button
-                    onClick={() => share(profilePet)}
-                    variant="outline"
-                    className="rounded-2xl"
-                  >
-                    <Share2 className="h-4 w-4" /> Compartilhar
-                  </Button>
                 </div>
 
-                {/* Compatibilidade detalhada */}
-                <div className="rounded-2xl border bg-muted/30 p-4">
-                  <div className="mb-2 flex items-center justify-between">
+                {/* Dados e Certificações Reais */}
+                <div className="rounded-2xl border bg-muted/30 p-4 space-y-3">
+                  <div className="flex items-center justify-between">
                     <h3 className="text-sm font-semibold uppercase tracking-wider text-muted-foreground">
-                      Compatibilidade
+                      Dados & Registros do Pet
                     </h3>
-                    <Badge className="rounded-full bg-primary text-primary-foreground hover:bg-primary">
-                      {compatScore(profilePet.compat)}%
+                    <Badge variant="outline" className="rounded-full">
+                      {profilePet.species}
                     </Badge>
                   </div>
-                  <div className="space-y-3">
-                    <CompatBar label="Raça" value={profilePet.compat.breed} />
-                    <CompatBar
-                      label="Genética"
-                      value={profilePet.compat.genetic}
-                    />
-                    <CompatBar
-                      label="Temperamento"
-                      value={profilePet.compat.temperament}
-                    />
-                    <CompatBar
-                      label="Idade ideal"
-                      value={profilePet.compat.age}
-                    />
+                  <div className="grid grid-cols-2 gap-2 text-xs">
+                    <div className="rounded-xl border bg-background/80 p-2.5">
+                      <span className="text-muted-foreground block text-[10px] uppercase font-bold">
+                        Raça
+                      </span>
+                      <span className="font-semibold text-foreground">
+                        {profilePet.breed}
+                      </span>
+                    </div>
+                    <div className="rounded-xl border bg-background/80 p-2.5">
+                      <span className="text-muted-foreground block text-[10px] uppercase font-bold">
+                        Pedigree
+                      </span>
+                      <span className="font-semibold text-foreground">
+                        {profilePet.pedigree
+                          ? "Oficial Registrado"
+                          : "Sem registro oficial"}
+                      </span>
+                    </div>
+                    <div className="rounded-xl border bg-background/80 p-2.5">
+                      <span className="text-muted-foreground block text-[10px] uppercase font-bold">
+                        Vacinas
+                      </span>
+                      <span className="font-semibold text-foreground">
+                        {profilePet.vaccines.length > 0
+                          ? `${profilePet.vaccines.length} registradas`
+                          : "Acompanhamento em dia"}
+                      </span>
+                    </div>
+                    <div className="rounded-xl border bg-background/80 p-2.5">
+                      <span className="text-muted-foreground block text-[10px] uppercase font-bold">
+                        Idade
+                      </span>
+                      <span className="font-semibold text-foreground">
+                        {profilePet.age}
+                      </span>
+                    </div>
                   </div>
                 </div>
 
-                {/* Tabs informações */}
-                <Tabs defaultValue="info">
-                  <TabsList className="grid w-full grid-cols-4 rounded-full">
-                    <TabsTrigger value="info" className="rounded-full">
-                      Info
-                    </TabsTrigger>
-                    <TabsTrigger value="medico" className="rounded-full">
-                      Médico
-                    </TabsTrigger>
-                    <TabsTrigger value="pedigree" className="rounded-full">
-                      Pedigree
-                    </TabsTrigger>
-                    <TabsTrigger value="aval" className="rounded-full">
-                      Avaliações
-                    </TabsTrigger>
-                  </TabsList>
-                  <TabsContent value="info" className="mt-3 space-y-3">
-                    <InfoLine
-                      icon={<Sparkles className="h-4 w-4" />}
-                      title="Temperamento"
-                    >
-                      <div className="flex flex-wrap gap-1.5">
-                        {profilePet.temperament.map((t) => (
-                          <Badge
-                            key={t}
-                            variant="secondary"
-                            className="rounded-full"
-                          >
-                            {t}
-                          </Badge>
-                        ))}
-                      </div>
-                    </InfoLine>
-                    <InfoLine
-                      icon={<MapPin className="h-4 w-4" />}
-                      title="Localização"
-                    >
-                      <p className="text-sm text-muted-foreground">
-                        {profilePet.city} · {profilePet.distanceKm} km de você
-                      </p>
-                    </InfoLine>
-                    <InfoLine
-                      icon={
-                        <Avatar className="h-6 w-6">
-                          <AvatarFallback className="bg-primary text-primary-foreground text-[10px]">
-                            {initials(profilePet.tutor.name)}
-                          </AvatarFallback>
-                        </Avatar>
-                      }
-                      title="Tutor"
-                    >
-                      <p className="text-sm font-semibold">
-                        {profilePet.tutor.name}
-                      </p>
-                      <p className="text-xs text-muted-foreground">
-                        {profilePet.tutor.online
-                          ? "🟢 Online agora"
-                          : `Visto ${profilePet.tutor.lastSeen}`}
-                      </p>
-                    </InfoLine>
-                  </TabsContent>
-                  <TabsContent value="medico" className="mt-3 space-y-3">
+                {/* Informações detalhadas */}
+                <div className="space-y-3">
+                  <InfoLine
+                    icon={<Sparkles className="h-4 w-4" />}
+                    title="Temperamento Informado"
+                  >
+                    <div className="flex flex-wrap gap-1.5">
+                      {profilePet.temperament.map((t) => (
+                        <Badge
+                          key={t}
+                          variant="secondary"
+                          className="rounded-full"
+                        >
+                          {t}
+                        </Badge>
+                      ))}
+                    </div>
+                  </InfoLine>
+
+                  <InfoLine
+                    icon={<MapPin className="h-4 w-4" />}
+                    title="Localização"
+                  >
+                    <p className="text-sm text-muted-foreground">
+                      {profilePet.city} · Tutor parceiro LivePet
+                    </p>
+                  </InfoLine>
+
+                  <InfoLine
+                    icon={
+                      <Avatar className="h-6 w-6">
+                        <AvatarFallback className="bg-primary text-primary-foreground text-[10px]">
+                          {initials(profilePet.tutor.name)}
+                        </AvatarFallback>
+                      </Avatar>
+                    }
+                    title="Tutor Responsável"
+                  >
+                    <p className="text-sm font-semibold">
+                      {profilePet.tutor.name}
+                    </p>
+                    <p className="text-xs text-muted-foreground">
+                      {profilePet.tutor.online
+                        ? "🟢 Ativo no LivePet"
+                        : "Membro da Comunidade"}
+                    </p>
+                  </InfoLine>
+
+                  {profilePet.vaccines.length > 0 && (
                     <InfoLine
                       icon={<Stethoscope className="h-4 w-4" />}
-                      title="Histórico médico"
+                      title="Carteira de Vacinação"
                     >
-                      <p className="text-sm text-muted-foreground">
-                        {profilePet.medical}
-                      </p>
-                    </InfoLine>
-                    <InfoLine
-                      icon={<CalendarIcon className="h-4 w-4" />}
-                      title="Vacinas"
-                    >
-                      <ul className="space-y-1 text-sm text-muted-foreground">
-                        {profilePet.vaccines.map((v) => (
+                      <ul className="space-y-1">
+                        {profilePet.vaccines.map((v, i) => (
                           <li
-                            key={v.name}
-                            className="flex items-center justify-between"
+                            key={i}
+                            className="flex items-center justify-between text-xs text-muted-foreground"
                           >
-                            <span>{v.name}</span>
-                            <span className="text-xs">{v.date}</span>
+                            <span>💉 {v.name}</span>
+                            <Badge variant="outline" className="text-[10px]">
+                              {v.date}
+                            </Badge>
                           </li>
                         ))}
                       </ul>
                     </InfoLine>
-                  </TabsContent>
-                  <TabsContent value="pedigree" className="mt-3 space-y-3">
-                    <InfoLine
-                      icon={<Award className="h-4 w-4" />}
-                      title="Genética"
-                    >
-                      <p className="text-sm text-muted-foreground">
-                        {profilePet.genetics}
-                      </p>
-                    </InfoLine>
-                    <InfoLine
-                      icon={<ShieldCheck className="h-4 w-4" />}
-                      title="Certificações"
-                    >
-                      <div className="flex flex-wrap gap-1.5">
-                        {profilePet.certifications.map((c) => (
-                          <Badge
-                            key={c}
-                            className="rounded-full bg-primary-soft text-primary hover:bg-primary-soft"
-                          >
-                            {c}
-                          </Badge>
-                        ))}
-                      </div>
-                    </InfoLine>
-                  </TabsContent>
-                  <TabsContent value="aval" className="mt-3 space-y-2">
-                    <div className="flex items-center gap-2">
-                      <Star className="h-5 w-5 fill-accent-yellow text-accent-yellow" />
-                      <span className="text-2xl font-bold">
-                        {profilePet.rating}
-                      </span>
-                      <span className="text-sm text-muted-foreground">
-                        ({profilePet.reviews.length} avaliações)
-                      </span>
-                    </div>
-                    {profilePet.reviews.length === 0 ? (
-                      <p className="text-sm text-muted-foreground">
-                        Sem avaliações ainda.
-                      </p>
-                    ) : (
-                      profilePet.reviews.map((r, i) => (
-                        <div
-                          key={i}
-                          className="rounded-2xl border bg-muted/30 p-3"
-                        >
-                          <div className="flex items-center justify-between text-sm">
-                            <span className="font-semibold">{r.tutor}</span>
-                            <span className="flex items-center gap-0.5 text-accent-yellow">
-                              {Array.from({ length: r.stars }).map((_, k) => (
-                                <Star
-                                  key={k}
-                                  className="h-3.5 w-3.5 fill-current"
-                                />
-                              ))}
-                            </span>
-                          </div>
-                          <p className="mt-1 text-sm text-muted-foreground">
-                            {r.text}
-                          </p>
-                        </div>
-                      ))
-                    )}
-                  </TabsContent>
-                </Tabs>
+                  )}
+                </div>
               </div>
             </div>
           )}
         </SheetContent>
       </Sheet>
 
-      {/* ===== Chat Dialog ===== */}
+      {/* ===== Chat Tutor a Tutor Dialog ===== */}
       <Dialog open={!!chatPet} onOpenChange={(o) => !o && setChatPet(null)}>
         <DialogContent className="max-h-[85vh] max-w-md rounded-3xl p-0">
           {chatPet && (
@@ -1818,74 +1810,99 @@ const MatchPet = () => {
                 <div className="flex-1">
                   <p className="text-sm font-semibold">{chatPet.tutor.name}</p>
                   <p className="text-xs text-muted-foreground">
-                    {chatPet.tutor.online
-                      ? "Online"
-                      : `Visto ${chatPet.tutor.lastSeen}`}{" "}
-                    · sobre {chatPet.name}
+                    Tutor de {chatPet.name} · {chatPet.city}
                   </p>
                 </div>
+                {chatPet.tutor.phone && (
+                  <a
+                    href={`https://wa.me/${chatPet.tutor.phone.replace(/\D/g, "")}?text=${encodeURIComponent(
+                      `Olá ${chatPet.tutor.name}! Vi seu pet ${chatPet.name} no MatchPet do LivePet!`
+                    )}`}
+                    target="_blank"
+                    rel="noreferrer"
+                    className="flex items-center gap-1 rounded-full border border-emerald-500/40 bg-emerald-50 px-2.5 py-1 text-xs font-medium text-emerald-700 hover:bg-emerald-100"
+                  >
+                    <ExternalLink className="h-3 w-3" /> WhatsApp
+                  </a>
+                )}
               </div>
 
+              {/* Histórico Real de Mensagens */}
               <div className="h-80 space-y-3 overflow-y-auto bg-muted/20 p-4">
-                {(chatStore[chatPet.id] ?? []).map((m, i) => (
-                  <div
-                    key={i}
-                    className={`flex ${m.from === "me" ? "justify-end" : "justify-start"}`}
-                  >
-                    <div
-                      className={`max-w-[75%] rounded-2xl px-3 py-2 text-sm shadow-sm ${
-                        m.from === "me"
-                          ? "gradient-primary text-primary-foreground"
-                          : "bg-card"
-                      }`}
-                    >
-                      <p>{m.text}</p>
-                      <p
-                        className={`mt-1 flex items-center gap-1 text-[10px] ${m.from === "me" ? "text-white/70" : "text-muted-foreground"}`}
-                      >
-                        {m.time}
-                        {m.from === "me" && <CheckCheck className="h-3 w-3" />}
-                      </p>
+                {activeChatMessages.length === 0 ? (
+                  <div className="flex h-full flex-col items-center justify-center text-center p-6">
+                    <div className="flex h-12 w-12 items-center justify-center rounded-full bg-primary/10 text-primary mb-3">
+                      <MessageCircle className="h-6 w-6" />
                     </div>
+                    <p className="text-sm font-medium">Inicie a conversa!</p>
+                    <p className="text-xs text-muted-foreground mt-1 max-w-xs">
+                      Envie uma mensagem para {chatPet.tutor.name} combinarem um
+                      encontro ou conversarem sobre {chatPet.name} e{" "}
+                      {activePet?.nome || "seu pet"}.
+                    </p>
                   </div>
-                ))}
+                ) : (
+                  activeChatMessages.map((m) => {
+                    const isMe =
+                      m.senderTutorId === currentUser?.id ||
+                      m.senderPetId === activePet?.id;
+                    return (
+                      <div
+                        key={m.id}
+                        className={`flex ${
+                          isMe ? "justify-end" : "justify-start"
+                        }`}
+                      >
+                        <div
+                          className={`max-w-[75%] rounded-2xl px-3 py-2 text-sm shadow-sm ${
+                            isMe
+                              ? "gradient-primary text-primary-foreground"
+                              : "bg-card border"
+                          }`}
+                        >
+                          <p>{m.text}</p>
+                          <p
+                            className={`mt-1 flex items-center justify-end gap-1 text-[10px] ${
+                              isMe ? "text-white/70" : "text-muted-foreground"
+                            }`}
+                          >
+                            {m.time}
+                            {isMe && <CheckCheck className="h-3 w-3" />}
+                          </p>
+                        </div>
+                      </div>
+                    );
+                  })
+                )}
                 <div ref={chatBottomRef} />
               </div>
 
+              {/* Atalhos Rápidos */}
               <div className="flex flex-wrap gap-1.5 border-t bg-card px-3 pt-2">
                 {[
                   {
-                    label: "📸 Enviar foto",
-                    fn: () => toast("Galeria em breve"),
+                    label: "📅 Sugerir passeio no parque",
+                    text: `Olá! Que tal marcarmos um passeio para ${chatPet.name} e ${activePet?.nome || "meu pet"} no parque?`,
                   },
                   {
-                    label: "📅 Agendar encontro",
-                    fn: () => toast.success("Convite enviado para agendamento"),
-                  },
-                  {
-                    label: "💞 Solicitar reprodução",
-                    fn: () => toast.success("Solicitação enviada ao tutor"),
+                    label: "🐾 Saber mais sobre temperamento",
+                    text: `Olá! Adorei o perfil de ${chatPet.name}. Como ele se comporta no dia a dia com outros pets?`,
                   },
                 ].map((q) => (
                   <button
                     key={q.label}
-                    onClick={q.fn}
-                    className="rounded-full border bg-background px-3 py-1 text-xs hover:border-primary/40 hover:text-primary"
+                    onClick={() => {
+                      setChatInput(q.text);
+                    }}
+                    className="rounded-full border bg-background px-3 py-1 text-xs hover:border-primary/40 hover:text-primary transition-smooth"
                   >
                     {q.label}
                   </button>
                 ))}
               </div>
 
+              {/* Barra de Entrada de Mensagem */}
               <div className="flex items-center gap-2 border-t p-3">
-                <Button
-                  variant="outline"
-                  size="icon"
-                  onClick={() => toast("Galeria em breve")}
-                  className="rounded-full"
-                >
-                  <ImageIcon className="h-4 w-4" />
-                </Button>
                 <Input
                   value={chatInput}
                   onChange={(e) => setChatInput(e.target.value)}
@@ -1896,6 +1913,7 @@ const MatchPet = () => {
 
                 <Button
                   onClick={sendMessage}
+                  disabled={!chatInput.trim()}
                   size="icon"
                   className="rounded-full gradient-primary text-primary-foreground"
                 >
@@ -1907,7 +1925,7 @@ const MatchPet = () => {
         </DialogContent>
       </Dialog>
 
-      {/* ===== Celebração de Match ===== */}
+      {/* ===== Celebração de Match Mútuo Real ===== */}
       <Dialog open={!!matchPet} onOpenChange={(o) => !o && setMatchPet(null)}>
         <DialogContent className="max-w-md overflow-hidden rounded-3xl border-0 bg-gradient-to-br from-primary via-primary-glow to-accent-warm p-0 text-primary-foreground">
           {matchPet && (
@@ -1916,16 +1934,20 @@ const MatchPet = () => {
               <Sparkles className="absolute right-6 top-6 h-6 w-6 animate-twinkle" />
               <h2 className="text-4xl font-bold">É um Match! 🎉</h2>
               <p className="mt-2 text-sm opacity-90">
-                Você e {matchPet.name} podem se conectar agora.
+                Você e {matchPet.name} demonstraram interesse mútuo!
               </p>
               <div className="my-6 flex items-center justify-center gap-4">
-                <Avatar className="h-20 w-20 border-4 border-white">
-                  <AvatarFallback className="bg-white text-primary">
-                    EU
+                <Avatar className="h-20 w-20 border-4 border-white shadow-lg">
+                  <AvatarImage
+                    src={getPetPhoto(activePet?.foto_url)}
+                    alt={activePet?.nome}
+                  />
+                  <AvatarFallback className="bg-white text-primary font-bold">
+                    {initials(activePet?.nome || "EU")}
                   </AvatarFallback>
                 </Avatar>
                 <HeartHandshake className="h-8 w-8 animate-heartbeat" />
-                <Avatar className="h-20 w-20 border-4 border-white">
+                <Avatar className="h-20 w-20 border-4 border-white shadow-lg">
                   <AvatarImage src={matchPet.img} />
                   <AvatarFallback>{matchPet.name[0]}</AvatarFallback>
                 </Avatar>
@@ -1939,7 +1961,7 @@ const MatchPet = () => {
                   }}
                   className="flex-1 rounded-full bg-white text-primary hover:bg-white/90"
                 >
-                  <MessageCircle className="h-4 w-4" /> Conversar
+                  <MessageCircle className="h-4 w-4" /> Iniciar Conversa
                 </Button>
                 <Button
                   onClick={() => setMatchPet(null)}
@@ -1953,210 +1975,12 @@ const MatchPet = () => {
           )}
         </DialogContent>
       </Dialog>
-
-      {/* ===== Anunciar filhote ===== */}
-      <Dialog open={announceOpen} onOpenChange={setAnnounceOpen}>
-        <DialogContent className="max-h-[90vh] max-w-lg overflow-y-auto rounded-3xl">
-          <DialogHeader>
-            <DialogTitle className="flex items-center gap-2">
-              <Plus className="h-5 w-5 text-primary" /> Anunciar filhote
-            </DialogTitle>
-            <DialogDescription>
-              Preencha as informações para publicar no marketplace.
-            </DialogDescription>
-          </DialogHeader>
-          <form
-            className="space-y-4"
-            onSubmit={(e) => {
-              e.preventDefault();
-              setAnnounceOpen(false);
-              toast.success("Anúncio publicado!", {
-                description: "Seu anúncio está visível no marketplace.",
-              });
-            }}
-          >
-            <div>
-              <Label>Título</Label>
-              <Input
-                required
-                placeholder="Ex: Filhotes Golden ninhada de janeiro"
-                className="mt-1 rounded-full"
-              />
-            </div>
-            <div className="grid grid-cols-2 gap-3">
-              <div>
-                <Label>Raça</Label>
-                <Input
-                  required
-                  placeholder="Ex: Labrador"
-                  className="mt-1 rounded-full"
-                />
-              </div>
-              <div>
-                <Label>Espécie</Label>
-                <Select defaultValue="Cachorro">
-                  <SelectTrigger className="mt-1 rounded-full">
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="Cachorro">Cachorro</SelectItem>
-                    <SelectItem value="Gato">Gato</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
-              <div>
-                <Label>Idade (meses)</Label>
-                <Input
-                  required
-                  type="number"
-                  min={1}
-                  placeholder="2"
-                  className="mt-1 rounded-full"
-                />
-              </div>
-              <div>
-                <Label>Quantidade disponível</Label>
-                <Input
-                  required
-                  type="number"
-                  min={1}
-                  placeholder="3"
-                  className="mt-1 rounded-full"
-                />
-              </div>
-              <div>
-                <Label>Cidade</Label>
-                <Input
-                  required
-                  placeholder="São Paulo, SP"
-                  className="mt-1 rounded-full"
-                />
-              </div>
-              <div>
-                <Label>Preço (R$)</Label>
-                <Input
-                  required
-                  type="number"
-                  min={0}
-                  placeholder="3500"
-                  className="mt-1 rounded-full"
-                />
-              </div>
-            </div>
-            <div>
-              <Label>Descrição</Label>
-              <Textarea
-                placeholder="Conte sobre os filhotes, pais, certificações…"
-                className="mt-1 rounded-2xl"
-                rows={3}
-              />
-            </div>
-            <div className="flex items-center justify-between rounded-2xl border bg-muted/30 p-3">
-              <Label className="text-sm">Possui pedigree CBKC/CFA</Label>
-              <Switch defaultChecked />
-            </div>
-            <div className="rounded-2xl border-2 border-dashed border-border p-6 text-center">
-              <Camera className="mx-auto h-8 w-8 text-muted-foreground" />
-              <p className="mt-2 text-sm text-muted-foreground">
-                Clique ou arraste fotos dos filhotes
-              </p>
-            </div>
-            <DialogFooter>
-              <Button
-                type="button"
-                variant="outline"
-                onClick={() => setAnnounceOpen(false)}
-                className="rounded-full"
-              >
-                Cancelar
-              </Button>
-              <Button
-                type="submit"
-                className="rounded-full gradient-primary text-primary-foreground"
-              >
-                Publicar anúncio
-              </Button>
-            </DialogFooter>
-          </form>
-        </DialogContent>
-      </Dialog>
-
-      {/* ===== Preview filhote ===== */}
-      <Dialog
-        open={!!puppyPreview}
-        onOpenChange={(o) => !o && setPuppyPreview(null)}
-      >
-        <DialogContent className="max-w-lg overflow-hidden rounded-3xl p-0">
-          {puppyPreview && (
-            <>
-              <div className="relative aspect-video">
-                <img
-                  src={puppyPreview.img}
-                  alt={puppyPreview.title}
-                  className="h-full w-full object-cover"
-                />
-                <Badge className="absolute right-3 top-3 rounded-full bg-card text-primary shadow-soft hover:bg-card">
-                  {formatBRL(puppyPreview.price)}
-                </Badge>
-              </div>
-              <div className="space-y-3 p-5">
-                <DialogHeader>
-                  <DialogTitle>{puppyPreview.title}</DialogTitle>
-                  <DialogDescription>
-                    {puppyPreview.breed} · {puppyPreview.ageMonths} meses ·{" "}
-                    {puppyPreview.city}
-                  </DialogDescription>
-                </DialogHeader>
-                <div className="grid grid-cols-3 gap-2 text-center text-xs">
-                  <div className="rounded-xl border bg-muted/30 p-2">
-                    <p className="font-bold">{puppyPreview.available}</p>
-                    <p className="text-muted-foreground">disponíveis</p>
-                  </div>
-                  <div className="rounded-xl border bg-muted/30 p-2">
-                    <p className="font-bold">
-                      há {puppyPreview.postedDaysAgo}d
-                    </p>
-                    <p className="text-muted-foreground">anúncio</p>
-                  </div>
-                  <div className="rounded-xl border bg-muted/30 p-2">
-                    <p className="font-bold">{puppyPreview.status}</p>
-                    <p className="text-muted-foreground">status</p>
-                  </div>
-                </div>
-                <div className="flex items-center justify-between rounded-2xl border bg-muted/30 p-3">
-                  <div>
-                    <p className="text-sm font-semibold">
-                      {puppyPreview.seller.name}
-                    </p>
-                    <p className="flex items-center gap-1 text-xs text-muted-foreground">
-                      <Star className="h-3 w-3 fill-accent-yellow text-accent-yellow" />{" "}
-                      {puppyPreview.seller.rating}
-                    </p>
-                  </div>
-                  <Button
-                    size="sm"
-                    onClick={() => {
-                      toast.success("Mensagem enviada!", {
-                        description: `${puppyPreview.seller.name} receberá seu interesse.`,
-                      });
-                      setPuppyPreview(null);
-                    }}
-                    className="rounded-full gradient-primary text-primary-foreground"
-                  >
-                    <Phone className="h-3.5 w-3.5" /> Contatar
-                  </Button>
-                </div>
-              </div>
-            </>
-          )}
-        </DialogContent>
-      </Dialog>
     </div>
   );
 };
 
 // ============================================================
-// Subcomponentes
+// Subcomponentes Auxiliares
 // ============================================================
 const ActionBtn = ({ children, className = "", title, onClick }) => (
   <Button
@@ -2170,8 +1994,7 @@ const ActionBtn = ({ children, className = "", title, onClick }) => (
   </Button>
 );
 
-const SwipeCard = ({ pet, swipeDir, onOpenProfile, onLike, onDislike }) => {
-  const score = compatScore(pet.compat);
+const SwipeCard = ({ pet, swipeDir, onOpenProfile }) => {
   return (
     <Card
       onClick={onOpenProfile}
@@ -2179,8 +2002,8 @@ const SwipeCard = ({ pet, swipeDir, onOpenProfile, onLike, onDislike }) => {
         swipeDir === "right"
           ? "translate-x-[120%] rotate-12 opacity-0"
           : swipeDir === "left"
-            ? "-translate-x-[120%] -rotate-12 opacity-0"
-            : ""
+          ? "-translate-x-[120%] -rotate-12 opacity-0"
+          : ""
       }`}
     >
       <div className="relative h-full">
@@ -2192,33 +2015,41 @@ const SwipeCard = ({ pet, swipeDir, onOpenProfile, onLike, onDislike }) => {
 
         <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/10 to-transparent" />
 
-        {/* selos topo */}
+        {/* Selos Topo */}
         <div className="absolute left-4 right-4 top-4 flex items-start justify-between gap-2">
-          {pet.pedigree && (
-            <Badge className="rounded-full border border-white/30 bg-white/15 text-white backdrop-blur">
-              <ShieldCheck className="mr-1 h-3.5 w-3.5" />
+          {pet.pedigree ? (
+            <Badge className="rounded-full border border-white/30 bg-white/20 text-white backdrop-blur shadow-sm">
+              <ShieldCheck className="mr-1 h-3.5 w-3.5 text-emerald-400" />
               Pedigree verificado
             </Badge>
+          ) : (
+            <Badge className="rounded-full border border-white/30 bg-white/20 text-white backdrop-blur shadow-sm">
+              <PawPrint className="mr-1 h-3.5 w-3.5 text-primary" />
+              {pet.breed}
+            </Badge>
           )}
-          <Badge className="rounded-full border border-white/30 bg-primary/90 text-primary-foreground backdrop-blur">
-            <Sparkles className="mr-1 h-3.5 w-3.5" />
-            {score}% match
+          <Badge className="rounded-full border border-white/30 bg-primary/90 text-primary-foreground backdrop-blur shadow-sm">
+            {pet.species === "Cachorro" ? "🐶 Cão" : "🐱 Gato"} · {pet.sex}
           </Badge>
         </div>
 
-        {/* stamps direcionais */}
+        {/* Stamps Direcionais de Animação */}
         <div
-          className={`absolute right-6 top-16 rounded-2xl border-4 border-emerald-400 px-4 py-2 text-2xl font-bold uppercase text-emerald-400 transition-opacity ${swipeDir === "right" ? "opacity-100" : "opacity-0"} -rotate-12`}
+          className={`absolute right-6 top-16 rounded-2xl border-4 border-emerald-400 px-4 py-2 text-2xl font-bold uppercase text-emerald-400 transition-opacity ${
+            swipeDir === "right" ? "opacity-100" : "opacity-0"
+          } -rotate-12`}
         >
           Curtir
         </div>
         <div
-          className={`absolute left-6 top-16 rounded-2xl border-4 border-destructive px-4 py-2 text-2xl font-bold uppercase text-destructive transition-opacity ${swipeDir === "left" ? "opacity-100" : "opacity-0"} rotate-12`}
+          className={`absolute left-6 top-16 rounded-2xl border-4 border-destructive px-4 py-2 text-2xl font-bold uppercase text-destructive transition-opacity ${
+            swipeDir === "left" ? "opacity-100" : "opacity-0"
+          } rotate-12`}
         >
           Pular
         </div>
 
-        {/* info bottom */}
+        {/* Informações na parte inferior do card */}
         <div className="absolute inset-x-0 bottom-0 p-5 text-white">
           <div className="flex items-end justify-between gap-2">
             <div>
@@ -2237,39 +2068,38 @@ const SwipeCard = ({ pet, swipeDir, onOpenProfile, onLike, onDislike }) => {
           </div>
           <div className="mt-2 flex items-center gap-1.5 text-xs opacity-90">
             <MapPin className="h-3.5 w-3.5" />
-            {pet.city} · {pet.distanceKm} km
+            {pet.city} · Tutor: {pet.tutor.name}
           </div>
+
+          {/* Temperamento do Pet */}
           <div className="mt-3 flex flex-wrap gap-1.5">
             {pet.temperament.map((t) => (
               <span
                 key={t}
-                className="rounded-full bg-white/15 px-2.5 py-0.5 text-[11px] backdrop-blur"
+                className="rounded-full bg-white/20 px-2.5 py-0.5 text-[11px] font-medium text-white backdrop-blur border border-white/20"
               >
                 {t}
               </span>
             ))}
           </div>
-          <div className="mt-3 rounded-2xl bg-black/30 p-2 backdrop-blur">
-            <p className="mb-1 text-[10px] uppercase tracking-wider opacity-80">
-              Compatibilidade genética
-            </p>
-            <Progress value={score} className="h-1.5 bg-white/20" />
+
+          {/* Status Real de Saúde & Disponibilidade */}
+          <div className="mt-3 flex items-center justify-between rounded-2xl bg-black/40 px-3 py-1.5 backdrop-blur text-[11px]">
+            <span className="opacity-90 flex items-center gap-1">
+              <Stethoscope className="h-3.5 w-3.5 text-emerald-400" />
+              {pet.vaccines.length > 0
+                ? `${pet.vaccines.length} vacinas registradas`
+                : "Acompanhamento preventivo"}
+            </span>
+            <span className="font-semibold text-accent-warm">
+              {pet.availableForBreeding ? "Disponível para match" : "Socialização"}
+            </span>
           </div>
         </div>
       </div>
     </Card>
   );
 };
-
-const CompatBar = ({ label, value }) => (
-  <div>
-    <div className="mb-1 flex items-center justify-between text-xs">
-      <span className="font-medium">{label}</span>
-      <span className="text-muted-foreground">{value}%</span>
-    </div>
-    <Progress value={value} className="h-2" />
-  </div>
-);
 
 const InfoLine = ({ icon, title, children }) => (
   <div className="rounded-2xl border bg-muted/30 p-3">
@@ -2292,24 +2122,26 @@ const SkeletonCard = () => (
   </div>
 );
 
-const EmptyDeck = ({ likesCount, onReset }) => (
+const EmptyDeck = ({ swipedCount, onReset }) => (
   <Card className="flex h-[560px] w-full max-w-sm flex-col items-center justify-center rounded-3xl border bg-card p-8 text-center shadow-soft">
     <div className="mb-4 flex h-16 w-16 items-center justify-center rounded-full bg-primary-soft">
       <Sparkles className="h-8 w-8 text-primary animate-twinkle" />
     </div>
     <h3 className="text-xl font-bold">
-      {likesCount > 0 ? "Acabaram os pets por aqui" : "Nenhum pet disponível no momento"}
+      {swipedCount > 0
+        ? "Você visualizou todos os pets disponíveis"
+        : "Nenhum pet disponível no momento"}
     </h3>
     <p className="mt-2 text-sm text-muted-foreground">
-      {likesCount > 0
-        ? `Você curtiu ${likesCount} pet${likesCount > 1 ? "s" : ""}. Confira na aba Matches.`
-        : "Cadastre novos pets para encontrar combinações no MatchPet."}
+      {swipedCount > 0
+        ? `Você já avaliou ${swipedCount} pets para este perfil. Se quiser rever pets anteriores, você pode recomeçar.`
+        : "Cadastre novos pets ou ajuste os filtros para encontrar combinações no MatchPet."}
     </p>
     <Button
       onClick={onReset}
       className="mt-5 rounded-full gradient-primary text-primary-foreground shadow-soft hover:shadow-glow"
     >
-      <Undo2 className="h-4 w-4" /> Recomeçar
+      <Undo2 className="mr-1.5 h-4 w-4" /> Recomeçar Descoberta
     </Button>
   </Card>
 );
