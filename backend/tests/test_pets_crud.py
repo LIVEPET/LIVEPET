@@ -121,6 +121,18 @@ class TestPetsCRUD(unittest.TestCase):
         self.assertEqual(resp_list2.status_code, 200)
         self.assertEqual(len(resp_list2.json()), 0)
 
+        # 6b. GET /pets/explore: Tutor 1 NÃO vê seu próprio pet 'Thor' na descoberta
+        resp_exp1 = self.client.get("/api/v1/pets/explore", headers=headers1)
+        self.assertEqual(resp_exp1.status_code, 200)
+        self.assertEqual(len(resp_exp1.json()), 0)
+
+        # 6c. GET /pets/explore: Tutor 2 vê o pet 'Thor' de Tutor 1 para match/descoberta
+        resp_exp2 = self.client.get("/api/v1/pets/explore", headers=headers2)
+        self.assertEqual(resp_exp2.status_code, 200)
+        self.assertEqual(len(resp_exp2.json()), 1)
+        self.assertEqual(resp_exp2.json()[0]["nome"], "Thor")
+        self.assertEqual(resp_exp2.json()[0]["tutor_nome"], "Carlos Silva")
+
         # 7. Controle de Acesso: Tutor 2 tenta ver o pet do Tutor 1 (403 Forbidden)
         resp_get_unauthorized = self.client.get(f"/api/v1/pets/{pet1_id}", headers=headers2)
         self.assertEqual(resp_get_unauthorized.status_code, 403)

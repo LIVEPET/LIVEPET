@@ -54,6 +54,22 @@ class PetResponse(PetBase):
     model_config = ConfigDict(from_attributes=True)
 
 
+class PetExploreResponse(PetBase):
+    """Schema de resposta para pets disponíveis na comunidade / MatchPet."""
+    id: int
+    user_id: int
+    token_publico: str
+    tutor_id: int
+    tutor_nome: str
+    tutor_cidade: Optional[str] = None
+    tutor_telefone: Optional[str] = None
+    vaccines: list[VaccineResponse] = []
+    medical_records: list[MedicalRecordResponse] = []
+    lineage: Optional[LineageResponse] = None
+
+    model_config = ConfigDict(from_attributes=True)
+
+
 class VaccinePublicSummary(BaseModel):
     """Resumo de vacinação para comprovação em resgate ou emergência."""
     nome: str

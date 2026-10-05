@@ -10,6 +10,7 @@ from app.models.vaccine import Vaccine
 from app.models.medical_record import MedicalRecord
 from app.schemas.pet import (
     PetCreate,
+    PetExploreResponse,
     PetPublicResponse,
     PetResponse,
     PetUpdate,
@@ -79,6 +80,58 @@ def list_my_pets(
         .all()
     )
     return pets
+
+
+@router.get(
+    "/pets/explore",
+    response_model=List[PetExploreResponse],
+    summary="Listar pets da comunidade disponíveis para match/descoberta",
+)
+def list_explore_pets(
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    """
+    Retorna exclusivamente pets de outros tutores (excluindo os pets pertencentes ao usuário logado).
+    Garante que o tutor nunca veja ou dê match em seus próprios pets no MatchPet.
+    """
+    pets = (
+        db.query(Pet)
+        .filter(Pet.user_id != current_user.id)
+        .order_by(Pet.id.desc())
+        .all()
+    )
+    res = []
+    for p in pets:
+        tutor = p.tutor
+        cidade_desc = None
+        if tutor and tutor.cidade:
+            cidade_desc = f"{tutor.cidade}, {tutor.estado}" if tutor.estado else tutor.cidade
+
+        res.append(
+            PetExploreResponse(
+                id=p.id,
+                user_id=p.user_id,
+                nome=p.nome,
+                especie=p.especie,
+                raca=p.raca,
+                porte=p.porte,
+                sexo=p.sexo,
+                data_nascimento=p.data_nascimento,
+                cor=p.cor,
+                peso=p.peso,
+                foto_url=p.foto_url,
+                token_publico=p.token_publico,
+                tutor_id=tutor.id if tutor else 0,
+                tutor_nome=tutor.nome if tutor else "Tutor LivePet",
+                tutor_cidade=cidade_desc,
+                tutor_telefone=tutor.telefone if tutor else None,
+                vaccines=p.vaccines or [],
+                medical_records=p.medical_records or [],
+                lineage=p.lineage,
+            )
+        )
+    return res
 
 
 @router.get(

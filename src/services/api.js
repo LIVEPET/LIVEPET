@@ -234,6 +234,13 @@ export const petsService = {
   },
 
   /**
+   * Lista pets da comunidade disponíveis para descoberta/match (excluindo os pets do tutor logado)
+   */
+  async listExplore() {
+    return apiFetch("/api/v1/pets/explore");
+  },
+
+  /**
    * Detalhes de um pet específico
    */
   async get(id) {

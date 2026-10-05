@@ -164,20 +164,64 @@ const MatchPet = () => {
   const [tab, setTab] = useState("descobrir");
   const [loading, setLoading] = useState(true);
   const [matchPets, setMatchPets] = useState([]);
+  const [myPets, setMyPets] = useState([]);
+  const [activeMyPetId, setActiveMyPetId] = useState(null);
   const [puppies, setPuppies] = useState([]);
+
+  const myPetIds = useMemo(
+    () => new Set(myPets.map((p) => p.id)),
+    [myPets]
+  );
 
   useEffect(() => {
     let isMounted = true;
     const loadPets = async () => {
       try {
         setLoading(true);
-        const data = await petsService.list();
+
+        // 1. Carrega pets do tutor logado para controle e seleção
+        let userPets = [];
+        try {
+          userPets = await petsService.list();
+          if (Array.isArray(userPets) && isMounted) {
+            setMyPets(userPets);
+            if (userPets.length > 0) {
+              setActiveMyPetId((prev) => prev || userPets[0].id);
+            }
+          }
+        } catch (err) {
+          console.warn("Aviso ao carregar pets do tutor:", err);
+        }
+
+        const myIds = new Set((userPets || []).map((p) => p.id));
+        const currentUserId = currentUser?.id;
+
+        // 2. Carrega pets da comunidade disponíveis para match (exclui do backend os pets do tutor)
+        let data = [];
+        try {
+          data = await petsService.listExplore();
+        } catch (err) {
+          console.warn("Aviso ao buscar pets via listExplore:", err);
+        }
+
         if (!isMounted) return;
+
         if (Array.isArray(data) && data.length > 0) {
-          const dbPets = data.map((p) => {
+          // Filtro defensivo no front: NUNCA inclui pets do próprio usuário
+          const communityPets = data.filter((p) => {
+            if (currentUserId && p.user_id === currentUserId) return false;
+            if (p.tutor_id && currentUserId && p.tutor_id === currentUserId) return false;
+            if (myIds.has(p.id)) return false;
+            return true;
+          });
+
+          const dbPets = communityPets.map((p) => {
             const photo = getPetPhoto(p.foto_url);
             return {
               id: `db-${p.id}`,
+              rawId: p.id,
+              userId: p.user_id,
+              tutorId: p.tutor_id,
               name: p.nome,
               breed: p.raca || "SRD",
               species: p.especie || "Cachorro",
@@ -189,14 +233,15 @@ const MatchPet = () => {
                 : "Registrado",
               ageYears: p.idade ? Number(p.idade) : 2,
               distanceKm: 0,
-              city: p.cidade || "Goiânia, GO",
+              city: p.tutor_cidade || p.cidade || "Brasil",
               pedigree: Boolean(p.lineage),
               availableForBreeding: true,
               img: photo,
               gallery: [photo],
               tutor: {
-                name: p.tutor?.nome || "Você (Tutor)",
-                phone: p.tutor?.telefone || "",
+                id: p.tutor_id || p.user_id,
+                name: p.tutor_nome || "Tutor LivePet",
+                phone: p.tutor_telefone || "",
                 online: true,
                 lastSeen: "agora",
               },
@@ -235,7 +280,7 @@ const MatchPet = () => {
     return () => {
       isMounted = false;
     };
-  }, []);
+  }, [currentUser?.id]);
 
   // -------- filtros --------
   const [filtersOpen, setFiltersOpen] = useState(false);
@@ -270,6 +315,14 @@ const MatchPet = () => {
   // -------- match deck --------
   const filteredMatches = useMemo(() => {
     return matchPets.filter((p) => {
+      // Bloqueia categoricamente pets pertencentes ao tutor logado
+      if (
+        (p.userId && currentUser?.id && p.userId === currentUser.id) ||
+        (p.tutorId && currentUser?.id && p.tutorId === currentUser.id) ||
+        myPetIds.has(p.rawId || p.id)
+      ) {
+        return false;
+      }
       if (breed !== "Todas" && p.breed !== breed) return false;
       if (sex !== "Todos" && p.sex !== sex) return false;
       if (speciesF !== "Todas" && p.species !== speciesF) return false;
@@ -289,6 +342,9 @@ const MatchPet = () => {
       return true;
     });
   }, [
+    matchPets,
+    currentUser?.id,
+    myPetIds,
     breed,
     sex,
     speciesF,
@@ -316,6 +372,21 @@ const MatchPet = () => {
 
   const doSwipe = (dir) => {
     if (!current) return;
+
+    // Proteção absoluta contra match com o próprio pet
+    const isOwn =
+      (current.userId && currentUser?.id && current.userId === currentUser.id) ||
+      (current.tutorId && currentUser?.id && current.tutorId === currentUser.id) ||
+      myPetIds.has(current.rawId || current.id);
+
+    if (isOwn) {
+      if (dir === "right" || dir === "super") {
+        toast.error("Você não pode curtir ou dar match com seu próprio pet.");
+        setDeckIndex((i) => i + 1);
+        return;
+      }
+    }
+
     const animDir = dir === "left" ? "left" : "right";
     setSwipeDir(animDir);
     setTimeout(() => {
@@ -526,6 +597,30 @@ const MatchPet = () => {
                 MatchPet
               </span>
             </div>
+
+            {myPets.length > 0 && (
+              <div className="flex items-center gap-1.5 rounded-full border bg-background/80 px-3 py-1.5 text-xs shadow-soft">
+                <span className="text-muted-foreground hidden lg:inline">Buscando para:</span>
+                {myPets.length === 1 ? (
+                  <span className="font-semibold text-primary truncate max-w-[140px]">
+                    🐾 {myPets[0].nome}
+                  </span>
+                ) : (
+                  <select
+                    value={activeMyPetId || myPets[0].id}
+                    onChange={(e) => setActiveMyPetId(Number(e.target.value))}
+                    className="bg-transparent font-semibold text-primary focus:outline-none cursor-pointer text-xs"
+                    title="Selecione qual dos seus pets está buscando combinações"
+                  >
+                    {myPets.map((p) => (
+                      <option key={p.id} value={p.id} className="text-foreground bg-card">
+                        🐾 {p.nome}
+                      </option>
+                    ))}
+                  </select>
+                )}
+              </div>
+            )}
 
             <div className="relative ml-auto flex-1 min-w-[200px] max-w-md">
               <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
@@ -1463,6 +1558,14 @@ const MatchPet = () => {
                   <Button
                     onClick={() => {
                       if (profilePet) {
+                        const isOwn =
+                          (profilePet.userId && currentUser?.id && profilePet.userId === currentUser.id) ||
+                          (profilePet.tutorId && currentUser?.id && profilePet.tutorId === currentUser.id) ||
+                          myPetIds.has(profilePet.rawId || profilePet.id);
+                        if (isOwn) {
+                          toast.error("Você não pode dar match no seu próprio pet!");
+                          return;
+                        }
                         setLikes((p) => new Set(p).add(profilePet.id));
                         setMatchPet(profilePet);
                       }
@@ -1473,8 +1576,18 @@ const MatchPet = () => {
                   </Button>
                   <Button
                     onClick={() => {
-                      openChat(profilePet);
-                      setProfilePet(null);
+                      if (profilePet) {
+                        const isOwn =
+                          (profilePet.userId && currentUser?.id && profilePet.userId === currentUser.id) ||
+                          (profilePet.tutorId && currentUser?.id && profilePet.tutorId === currentUser.id) ||
+                          myPetIds.has(profilePet.rawId || profilePet.id);
+                        if (isOwn) {
+                          toast.error("Você não pode conversar com você mesmo.");
+                          return;
+                        }
+                        openChat(profilePet);
+                        setProfilePet(null);
+                      }
                     }}
                     variant="outline"
                     className="rounded-2xl border-primary/30 text-primary hover:bg-primary-soft"
