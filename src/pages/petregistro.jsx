@@ -13,7 +13,7 @@ export default function PetRegister() {
 
   const [mensagemSucesso, setMensagemSucesso] = useState(false);
 
-  const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>) => {
+  const handleChange = (e) => {
     const { name, value } = e.target;
     setFormData(prev => ({
       ...prev,
@@ -21,7 +21,7 @@ export default function PetRegister() {
     }));
   };
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = (e) => {
     e.preventDefault();
     console.log('Dados do Pet e Tutor salvos:', formData);
     setMensagemSucesso(true);
