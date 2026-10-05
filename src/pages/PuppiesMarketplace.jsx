@@ -61,6 +61,7 @@ const formatBRL = (n) => {
   });
 };
 
+const PuppiesMarketplace = () => {
   const navigate = useNavigate();
   const [searchParams, setSearchParams] = useSearchParams();
   const fileInputRef = useRef(null);
