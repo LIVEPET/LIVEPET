@@ -262,7 +262,7 @@ def delete_listing(
     db.delete(listing)
     db.commit()
 
-    return {"message": "Anúncio excluído com sucesso do banco de dados.", "deleted_id": listing_id}
+    return {"message": "Anúncio excluído com sucesso.", "deleted_id": listing_id}
 
 
 @router.post(

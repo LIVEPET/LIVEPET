@@ -21,7 +21,7 @@ def health_check(db: Session = Depends(get_db)):
         logging.getLogger("uvicorn.error").error(f"Erro no healthcheck do banco de dados: {exc}")
         raise HTTPException(
             status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
-            detail="Serviço de banco de dados temporariamente indisponível.",
+            detail="Serviço temporariamente indisponível. Tente novamente em instantes.",
         )
 
     latency_ms = round((time.time() - start_time) * 1000, 2)

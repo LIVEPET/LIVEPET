@@ -298,7 +298,7 @@ const Pets = () => {
         proxima_dose: dueDate,
         veterinario: "Clínica Veterinária Parceira",
       });
-      toast.success(`${vaccineName} registrada com sucesso no banco de dados`, {
+      toast.success(`${vaccineName} registrada com sucesso na carteira do pet!`, {
         description: `Próxima dose agendada para ${dueDate}.`,
       });
     } catch (err) {
@@ -668,7 +668,7 @@ const Pets = () => {
           <div className="my-16 flex flex-col items-center justify-center gap-3">
             <Loader2 className="h-8 w-8 animate-spin text-primary" />
             <p className="text-sm text-muted-foreground">
-              Carregando seus pets do banco de dados...
+              Carregando seus pets cadastrados...
             </p>
           </div>
         )}

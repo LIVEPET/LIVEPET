@@ -146,7 +146,7 @@ const PuppiesMarketplace = () => {
       }
     } catch (err) {
       console.error("Erro ao carregar anúncios do marketplace:", err);
-      toast.error("Não foi possível carregar os anúncios do banco de dados.");
+      toast.error("Não foi possível carregar os anúncios no momento.");
       setListings([]);
     } finally {
       setLoading(false);
@@ -286,10 +286,10 @@ const PuppiesMarketplace = () => {
       };
 
       const newListing = await marketplaceService.create(payload);
-      toast.success("Anúncio salvo com sucesso no banco de dados!");
+      toast.success("Anúncio publicado com sucesso no LivePet!");
       setAnnounceOpen(false);
 
-      // Recarrega listagem oficial do banco
+      // Recarrega listagem oficial
       await loadMarketplaceListings();
 
       // Reset Form
@@ -303,7 +303,7 @@ const PuppiesMarketplace = () => {
       setFormPedigree(false);
       setFormPedigreeReg("");
     } catch (err) {
-      toast.error(err.message || "Erro ao salvar anúncio no banco de dados.");
+      toast.error(err.message || "Erro ao publicar anúncio.");
     } finally {
       setPublishing(false);
     }
@@ -340,13 +340,13 @@ const PuppiesMarketplace = () => {
     navigate(`/chat?id=${conversationId}`);
   };
 
-  // Excluir anúncio próprio do banco de dados
+  // Excluir anúncio próprio
   const handleDeleteListing = async (listingId) => {
     if (!confirm("Tem certeza de que deseja excluir este anúncio do catálogo?")) return;
 
     try {
       await marketplaceService.delete(listingId);
-      toast.success("Anúncio excluído com sucesso do banco de dados!");
+      toast.success("Anúncio excluído com sucesso!");
       if (previewPuppy?.id === listingId) setPreviewPuppy(null);
       await loadMarketplaceListings();
     } catch (err) {
@@ -370,7 +370,7 @@ const PuppiesMarketplace = () => {
   const handleSimulateExpire24h = async (listingId) => {
     try {
       await marketplaceService.simulateExpire24h(listingId);
-      toast.info("Simulação de 24h executada! O anúncio sem resposta foi excluído automaticamente do banco.");
+      toast.info("Simulação de 24h executada! O anúncio sem resposta foi excluído automaticamente do catálogo.");
       if (previewPuppy?.id === listingId) setPreviewPuppy(null);
       await loadMarketplaceListings();
     } catch (err) {
@@ -423,8 +423,8 @@ const PuppiesMarketplace = () => {
             <span className="italic text-warm">comunidade</span>.
           </h1>
           <p className="mt-3 max-w-2xl text-base text-primary-foreground/75">
-            Apenas anúncios reais cadastrados no banco de dados. Transparência com pedigree certificado,
-            chat direto com o tutor e ciclo de verificação automática a cada 30 dias.
+            Apenas anúncios verificados e publicados por tutores da comunidade. Transparência com pedigree certificado,
+            chat direto com o tutor e ciclo de verificação periódica a cada 30 dias.
           </p>
         </div>
       </section>
@@ -499,7 +499,7 @@ const PuppiesMarketplace = () => {
               size="icon"
               onClick={loadMarketplaceListings}
               className="rounded-full h-11 w-11"
-              title="Recarregar do banco"
+              title="Atualizar catálogo"
             >
               <RotateCw className={`h-4 w-4 ${loading ? "animate-spin" : ""}`} />
             </Button>
@@ -523,8 +523,8 @@ const PuppiesMarketplace = () => {
             <div className="mx-auto mb-4 flex h-12 w-12 items-center justify-center rounded-full bg-primary/10 text-primary animate-pulse">
               <PawPrint className="h-6 w-6" />
             </div>
-            <p className="text-base font-semibold">Consultando banco de dados...</p>
-            <p className="text-xs text-muted-foreground">Carregando anúncios oficiais de filhotes e ninhadas.</p>
+            <p className="text-base font-semibold">Carregando anúncios...</p>
+            <p className="text-xs text-muted-foreground">Consultando catálogo oficial de filhotes e ninhadas.</p>
           </div>
         ) : filteredAndSortedListings.length === 0 ? (
           <div className="rounded-3xl border border-dashed bg-card/60 p-12 text-center">
@@ -676,7 +676,7 @@ const PuppiesMarketplace = () => {
                           size="icon"
                           onClick={() => handleDeleteListing(p.id)}
                           className="rounded-full text-rose-500 hover:bg-rose-50 hover:text-rose-600 h-8 w-8"
-                          title="Excluir este anúncio do banco de dados"
+                          title="Excluir este anúncio"
                         >
                           <Trash2 className="h-4 w-4" />
                         </Button>
@@ -700,7 +700,7 @@ const PuppiesMarketplace = () => {
                             type="button"
                             onClick={() => handleSimulateExpire24h(p.id)}
                             className="rounded-md bg-muted px-1.5 py-0.5 font-medium text-rose-600 hover:bg-rose-50 transition-smooth"
-                            title="Simula 24h sem resposta e executa a exclusão automática do banco"
+                            title="Simula 24h sem resposta e executa a exclusão automática do catálogo"
                           >
                             Simular 24h
                           </button>
@@ -860,7 +860,7 @@ const PuppiesMarketplace = () => {
               Anunciar Filhote ou Ninhada
             </DialogTitle>
             <DialogDescription className="text-xs">
-              Cadastre no banco de dados para que tutores interessados possam encontrar e entrar em contato.
+              Publique seu anúncio no catálogo para que tutores interessados possam encontrar e entrar em contato.
             </DialogDescription>
           </DialogHeader>
 
@@ -1164,7 +1164,7 @@ const PuppiesMarketplace = () => {
                 disabled={publishing}
                 className="rounded-full gradient-primary text-primary-foreground text-xs font-semibold"
               >
-                {publishing ? "Salvando no Banco..." : "Salvar e Publicar Anúncio"}
+                {publishing ? "Publicando..." : "Salvar e Publicar Anúncio"}
               </Button>
             </DialogFooter>
           </form>

@@ -239,7 +239,7 @@ const PetRegister = () => {
       });
 
       toast.success(`${parsed.data.name} foi cadastrado(a) com sucesso!`, {
-        description: "Pet salvo com sucesso no banco de dados Neon.",
+        description: "Pet adicionado com sucesso ao seu perfil!",
         icon: <CheckCircle2 className="h-4 w-4" />,
       });
       reset();

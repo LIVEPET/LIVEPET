@@ -349,7 +349,7 @@ const Chat = () => {
             text:
               action === "renovar"
                 ? `✅ Resposta registrada: "Sim, ainda estou vendendo". O anúncio foi renovado com sucesso por mais 30 dias no catálogo!`
-                : `🗑️ Resposta registrada: "Não, já foi adotado / vendido". O anúncio foi excluído permanentemente do banco de dados.`,
+                : `🗑️ Resposta registrada: "Não, já foi adotado / vendido". O anúncio foi removido permanentemente do catálogo.`,
             time: timeStr,
           };
 
@@ -729,7 +729,7 @@ const Chat = () => {
                               {isExpired && (
                                 <div className="flex items-center gap-1.5 text-xs text-muted-foreground font-semibold bg-muted border p-2 rounded-xl">
                                   <Clock className="h-4 w-4 text-rose-500" />
-                                  <span>Prazo de 24h esgotado sem resposta. Anúncio removido do banco.</span>
+                                  <span>Prazo de 24h esgotado sem resposta. Anúncio removido do catálogo.</span>
                                 </div>
                               )}
                             </Card>

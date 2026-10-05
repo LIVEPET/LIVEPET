@@ -350,7 +350,7 @@ const MedicalHistory = () => {
 
       setEvents((prev) => [newEv, ...prev]);
       toast.success("Registro clínico adicionado com sucesso!", {
-        description: `Vinculado ao pet no banco de dados Neon.`,
+        description: `Vinculado ao prontuário do pet.`,
       });
 
       setDescription("");
@@ -812,7 +812,7 @@ const MedicalHistory = () => {
             </DialogTitle>
             <DialogDescription>
               Adicione uma consulta, exame ou procedimento veterinário ao
-              banco de dados do animal.
+              prontuário médico do animal.
             </DialogDescription>
           </DialogHeader>
 

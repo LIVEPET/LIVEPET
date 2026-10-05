@@ -593,7 +593,7 @@ const Pedigree = () => {
                     <div className="flex flex-col items-center justify-center gap-3 py-16">
                       <Loader2 className="h-8 w-8 animate-spin text-primary" />
                       <p className="text-sm text-muted-foreground">
-                        Carregando registros genealógicos do banco de dados...
+                        Carregando registros genealógicos do pet...
                       </p>
                     </div>
                   ) : dogs.length === 0 ? (
@@ -2044,7 +2044,7 @@ const RegistrationForm = ({ pets = [], selectedPet, onSaved }) => {
       {saveSuccess && (
         <div className="border-b border-emerald-500/30 bg-emerald-500/10 p-4 text-center text-sm font-bold text-emerald-600">
           <CheckCircle2 className="inline-block mr-2 h-4 w-4" />
-          Pedigree salvo com sucesso no banco de dados! A árvore genealógica já foi atualizada.
+          Pedigree salvo com sucesso! A árvore genealógica já foi atualizada.
         </div>
       )}
 

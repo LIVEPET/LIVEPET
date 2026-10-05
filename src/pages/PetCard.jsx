@@ -888,7 +888,7 @@ const PetCard = () => {
             </h1>
             <p className="mt-2 max-w-xl text-muted-foreground">
               Identificação oficial do pet com QR Code de emergência vinculado ao
-              banco de dados. Dados exclusivos do tutor{" "}
+              sistema LivePet. Dados exclusivos do tutor{" "}
               <strong className="text-foreground">{tutorData.name}</strong>.
             </p>
           </div>

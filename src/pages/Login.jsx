@@ -66,7 +66,7 @@ const Login = () => {
           senha: password,
         });
         toast.success("Conta criada com sucesso!", {
-          description: "Dados salvos no banco Neon e sessão iniciada.",
+          description: "Sua conta foi criada e sua sessão já está iniciada.",
         });
         navigate("/pets");
       } else {

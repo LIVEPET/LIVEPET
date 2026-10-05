@@ -317,7 +317,7 @@ const PetHealth = ({ pets: initialPets, petInicial }) => {
           </h1>
           <p className="mt-4 max-w-2xl text-lg text-primary-foreground/75">
             Acompanhamento preventivo de {pet.apelido} — {pet.raca} ·{" "}
-            {pet.registro}. Atualizado com base no prontuário do banco de dados.
+            {pet.registro}. Atualizado com base no prontuário oficial do pet.
           </p>
         </div>
       </section>
@@ -639,7 +639,7 @@ const PetHealth = ({ pets: initialPets, petInicial }) => {
               Registrar Vacina para {pet.apelido}
             </DialogTitle>
             <DialogDescription>
-              A vacina será salva diretamente no banco de dados e aparecerá no
+              A vacina será registrada na carteira de saúde do pet e aparecerá no
               cartão digital e no QR Code de emergência.
             </DialogDescription>
           </DialogHeader>
