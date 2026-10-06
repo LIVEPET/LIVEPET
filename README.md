@@ -77,15 +77,19 @@ Desenvolvido como Projeto Integrador, com foco em usabilidade e em um fluxo que 
 
 | Rota | O que faz |
 | :--- | :--- |
+| `/` | Landing page institucional com apresentação dos pilares da plataforma |
 | `/login` | Autenticação e cadastro de tutores via API FastAPI (JWT) |
 | `/pets` | Painel com os pets do tutor, alertas de vacina e acesso ao perfil |
 | `/pets/novo` | Cadastro de pet conectado à API com persistência no Neon |
 | `/saude` | Carteira de vacinas — doses, prazos de reforço, status de pendência e avisos veterinários |
-| `/historico-medico` | Exames, consultas e controle de peso com gráficos de evolução |
+| `/historico-medico` | Prontuário clínico, exames, consultas e evolução de peso com persistência |
+| `/vitrine-pet` | Vitrine/Marketplace de filhotes e ninhadas com filtros, ciclo de 30 dias e persistência |
 | `/matchpet` | Compatibilidade entre pets para cruzamento responsável ou adoção |
-| `/pedigree` | Árvore genealógica de até três gerações e validador de certificados |
-| `/cartao` | Identificação digital com QR Code, exportável em imagem ou PDF |
-| `/tasks` | Lembretes e tarefas diárias de cuidado |
+| `/pedigree` | Árvore genealógica de até três gerações, requisição de parentesco e validador de certificados |
+| `/cartao` | Identificação digital com QR Code público de emergência, cuidadores e exportação em imagem/PDF |
+| `/tasks` | Lembretes e tarefas diárias de cuidado integradas aos pets |
+| `/chat` | Central interna de mensagens, alertas do sistema e avisos de renovação de anúncios |
+| `/perfil` | Gestão do perfil do tutor com atualização cadastral e foto de avatar |
 | `/parcerias` | Clínicas, petshops e prestadores com cupons de desconto |
 | `/clinica/entrar`, `/clinica/*` | Portal da clínica: login, dashboard, agenda, pacientes e perfil |
 
@@ -99,33 +103,56 @@ Desenvolvido como Projeto Integrador, com foco em usabilidade e em um fluxo que 
 - Python 3.10+ (para executar o backend localmente)
 - PostgreSQL ou SQLite local
 
-### Instalação
+### 1. Clonar o repositório
 
 ```bash
 git clone https://github.com/LIVEPET/LIVEPET.git
 cd LIVEPET
-npm install
 ```
 
-### Variáveis de ambiente
+### 2. Front-end (React / Vite)
+
+Instale as dependências e configure o ambiente:
 
 ```bash
+npm install
 cp .env.example .env
 ```
 
-Preencha a URL da API FastAPI (local ou em nuvem):
+Preencha a URL da API FastAPI no `.env` (local ou em nuvem):
 
 ```env
 VITE_API_URL=http://localhost:8000
 ```
 
-### Rodando
+Inicie o servidor de desenvolvimento:
 
 ```bash
 npm run dev
 ```
 
 Disponível em **http://localhost:8080**
+
+### 3. Back-end API (FastAPI) — Opcional para dev local
+
+Caso queira executar a API localmente (consulte detalhes em [backend/README.md](backend/README.md)):
+
+```bash
+cd backend
+python -m venv venv
+
+# Windows (PowerShell):
+.\venv\Scripts\activate
+
+# Linux / Mac:
+source venv/bin/activate
+
+pip install -r requirements.txt
+cp .env.example .env
+uvicorn app.main:app --reload
+```
+
+A API local estará disponível em **http://localhost:8000** (Swagger em **/docs**).
 
 <details>
 <summary><b>Build de produção</b></summary>
@@ -166,20 +193,26 @@ Abrir o `index.html` diretamente no navegador não funciona: ele referencia o c�
 livepet/
 ├── backend/                  API RESTful em Python / FastAPI e banco Neon
 │   ├── app/                  Modelos, schemas, rotas e dependências
-│   └── tests/                Testes automatizados com Pytest
+│   ├── sql/                  Scripts e esquemas DDL do banco de dados
+│   ├── tests/                Testes automatizados com Pytest
+│   └── manage_db.py          Gerenciador de migrações e seed do banco
 ├── docs/                     Roadmap, comunicados e levantamento de requisitos
+├── public/                   Ícones, manifesto e arquivos estáticos públicos
 ├── src/
 │   ├── assets/               Imagens e recursos estáticos
 │   ├── components/           Componentes reutilizáveis
 │   │   └── ui/               Componentes base do shadcn/ui
+│   ├── data/                 Dados mock para demonstração e previews
 │   ├── hooks/                Hooks customizados
 │   ├── lib/                  Utilitários e regras de negócio
 │   ├── pages/                Páginas da aplicação
+│   │   └── Clinic/           Portal e telas da clínica veterinária
 │   ├── services/             Cliente HTTP (api.js) integrado à FastAPI
 │   ├── test/                 Configuração da suíte de testes
 │   ├── App.jsx               Roteador central e provedores de contexto
 │   ├── main.jsx              Ponto de entrada do React
 │   └── index.css             Estilos globais e design tokens
+├── render.yaml               Especificação de deploy no Render (Front e Back)
 ├── eslint.config.js
 ├── tailwind.config.js
 ├── vite.config.js
@@ -249,18 +282,21 @@ A descrição deve trazer o resumo da alteração, o roteiro de teste para quem 
 
 ## Estado atual
 
-Parte das telas ainda opera com dados de demonstração definidos em código. A autenticação e o cadastro de pets já estão conectados à API FastAPI e ao banco PostgreSQL (Neon).
+Os principais fluxos operacionais estão integrados à API FastAPI e ao banco PostgreSQL (Neon): autenticação com JWT, cadastro e listagem de pets, carteira de vacinas, prontuários médicos, árvore de linhagens/pedigree com requisições de parentesco, consulta pública de emergência via QR Code e marketplace de filhotes.
 
-A landing page (números, depoimentos, planos e selos de validação) é conteúdo ilustrativo, sem valor real.
+A landing page (números, depoimentos, planos e selos de validação) é conteúdo ilustrativo para demonstração da proposta de valor.
 
-Em aberto, acompanhado pela equipe:
+Acompanhado pela equipe:
 
 | Item | Situação |
 | :--- | :--- |
-| Integração das listagens com o banco | Em andamento |
-| Controle de acesso por papel — tutor, veterinário, administrador | Planejado |
+| Autenticação JWT e perfil do tutor | Concluído |
+| CRUD de pets conectado ao banco | Concluído |
 | Proteção de rotas autenticadas | Concluído |
-| Divisão do bundle por rota | Planejado |
+| Integração das listagens centrais (pets, vacinas, marketplace) | Concluído |
+| Sistema de linhagens e aprovação de parentesco | Concluído |
+| Controle de acesso por papel — tutor, veterinário, administrador | Planejado |
+| Divisão do bundle por rota (code splitting) | Planejado |
 | Ampliação da cobertura de testes | Contínuo |
 
 <br>
