@@ -76,3 +76,53 @@ def test_cors_origins_parsing():
         BACKEND_CORS_ORIGINS="http://localhost:3000, https://meusite.com",
     )
     assert cfg.BACKEND_CORS_ORIGINS == ["http://localhost:3000", "https://meusite.com"]
+
+
+def test_docs_and_redoc_disabled_in_production():
+    """Valida que /docs e /redoc retornam None quando em ambiente de produção."""
+    cfg_dev = Settings(ENVIRONMENT="development", SECRET_KEY="livepet-local-dev-secret-key-12345")
+    assert cfg_dev.DOCS_URL == "/docs"
+    assert cfg_dev.REDOC_URL == "/redoc"
+
+    cfg_prod = Settings(ENVIRONMENT="production", SECRET_KEY="a" * 32)
+    assert cfg_prod.DOCS_URL is None
+    assert cfg_prod.REDOC_URL is None
+
+
+def test_password_strength_requires_letters_and_numbers():
+    """Valida que senhas puramente numéricas ou puramente alfabéticas são rejeitadas."""
+    from app.schemas.user import UserCreate
+
+    # Sem números
+    with pytest.raises(ValidationError):
+        UserCreate(nome="Teste", email="teste@livepet.com", senha="apenasletras")
+
+    # Sem letras
+    with pytest.raises(ValidationError):
+        UserCreate(nome="Teste", email="teste@livepet.com", senha="12345678")
+
+    # Válida (letras e números)
+    valid_user = UserCreate(nome="Teste", email="teste@livepet.com", senha="senhaSegura123")
+    assert valid_user.senha == "senhaSegura123"
+
+
+def test_safe_image_url_validation():
+    """Valida que esquemas perigosos e payloads gigantes de imagem são bloqueados."""
+    from app.schemas.pet import PetCreate
+
+    # Protocolo inseguro javascript:
+    with pytest.raises(ValidationError):
+        PetCreate(nome="Rex", especie="Cachorro", foto_url="javascript:alert(1)")
+
+    # Protocolo inválido
+    with pytest.raises(ValidationError):
+        PetCreate(nome="Rex", especie="Cachorro", foto_url="ftp://servidor/foto.png")
+
+    # Payload maior que 3MB
+    huge_data = "data:image/png;base64," + ("A" * 3_100_000)
+    with pytest.raises(ValidationError):
+        PetCreate(nome="Rex", especie="Cachorro", foto_url=huge_data)
+
+    # Imagem válida via HTTPS
+    pet_valid = PetCreate(nome="Rex", especie="Cachorro", foto_url="https://exemplo.com/foto.jpg")
+    assert pet_valid.foto_url == "https://exemplo.com/foto.jpg"

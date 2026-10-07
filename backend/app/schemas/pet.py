@@ -1,6 +1,7 @@
 from datetime import date
 from typing import Optional
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import BaseModel, ConfigDict, Field, field_validator
+from app.schemas.user import validate_safe_image_url
 
 
 class PetBase(BaseModel):
@@ -14,6 +15,10 @@ class PetBase(BaseModel):
     cor: Optional[str] = Field(None, max_length=80, description="Cor da pelagem/penas")
     peso: Optional[float] = Field(None, ge=0, description="Peso em kg")
     foto_url: Optional[str] = Field(None, description="URL ou data-url da foto do animal")
+
+    @field_validator("foto_url")
+    def check_foto_url(cls, v: Optional[str]) -> Optional[str]:
+        return validate_safe_image_url(v)
 
 
 class PetCreate(PetBase):
@@ -33,6 +38,10 @@ class PetUpdate(BaseModel):
     cor: Optional[str] = Field(None, max_length=80)
     peso: Optional[float] = Field(None, ge=0)
     foto_url: Optional[str] = Field(None, description="URL ou data-url da foto do animal")
+
+    @field_validator("foto_url")
+    def check_foto_url(cls, v: Optional[str]) -> Optional[str]:
+        return validate_safe_image_url(v)
 
 
 from app.schemas.medical_record import MedicalRecordResponse
