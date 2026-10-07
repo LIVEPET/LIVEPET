@@ -19,8 +19,8 @@ app = FastAPI(
     version=settings.VERSION,
     description="API RESTful do Projeto Integrador LivePet para gestão de saúde, vacinas, pedigree e QR Code.",
     lifespan=lifespan,
-    docs_url="/docs",
-    redoc_url="/redoc",
+    docs_url=settings.DOCS_URL,
+    redoc_url=settings.REDOC_URL,
 )
 
 # Configuração de CORS (Cross-Origin Resource Sharing)
@@ -31,8 +31,8 @@ app.add_middleware(
     CORSMiddleware,
     allow_origins=_origins,
     allow_credentials=_allow_credentials,
-    allow_methods=["*"],
-    allow_headers=["*"],
+    allow_methods=["GET", "POST", "PUT", "DELETE", "PATCH", "OPTIONS", "HEAD"],
+    allow_headers=["Authorization", "Content-Type", "Accept", "X-Deploy-Id", "X-App-Version"],
     expose_headers=["X-Deploy-Id", "X-App-Version"],
 )
 

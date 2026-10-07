@@ -91,7 +91,8 @@ def get_client_ip(request: Request) -> str:
     return request.client.host if request.client else "127.0.0.1"
 
 
-# Limitadores dedicados para endpoints sensíveis de autenticação
+# Limitadores dedicados para endpoints sensíveis de autenticação e rotas públicas
 login_rate_limiter = InMemoryRateLimiter(max_requests=15, window_seconds=60)
 register_rate_limiter = InMemoryRateLimiter(max_requests=10, window_seconds=600)
+public_qr_rate_limiter = InMemoryRateLimiter(max_requests=60, window_seconds=60)
 
