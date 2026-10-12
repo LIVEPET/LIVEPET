@@ -7,7 +7,11 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
+import EmptyState from "@/components/EmptyState";
 import { clinicProfile } from "@/data/clinicDemo";
+
+const comingSoon = (what) => () =>
+  toast("Em breve", { description: `${what} estará disponível em breve.` });
 
 const ClinicProfile = () => {
   const [form, setForm] = useState({
@@ -92,7 +96,17 @@ const ClinicProfile = () => {
               </CardTitle>
             </CardHeader>
             <CardContent className="space-y-2 text-sm">
-              {clinicProfile.hours.map((h) => (
+              {clinicProfile.hours.length === 0 ? (
+                <EmptyState
+                  compact
+                  className="w-full"
+                  icon={<Clock className="h-5 w-5" />}
+                  title="Horários não definidos"
+                  description="Informe quando a clínica atende."
+                  actionLabel="Adicionar horários"
+                  onAction={comingSoon("O cadastro de horários")}
+                />
+              ) : clinicProfile.hours.map((h) => (
                 <div key={h.day} className="flex items-center justify-between rounded-xl bg-muted px-3 py-2">
                   <span className="text-muted-foreground">{h.day}</span>
                   <span className="font-medium">{h.time}</span>
@@ -108,7 +122,17 @@ const ClinicProfile = () => {
               </CardTitle>
             </CardHeader>
             <CardContent className="flex flex-wrap gap-2">
-              {clinicProfile.services.map((s) => (
+              {clinicProfile.services.length === 0 ? (
+                <EmptyState
+                  compact
+                  className="w-full"
+                  icon={<Stethoscope className="h-5 w-5" />}
+                  title="Nenhum serviço cadastrado"
+                  description="Liste o que sua clínica oferece."
+                  actionLabel="Adicionar serviço"
+                  onAction={comingSoon("O cadastro de serviços")}
+                />
+              ) : clinicProfile.services.map((s) => (
                 <Badge key={s} variant="secondary" className="rounded-full">
                   {s}
                 </Badge>
@@ -123,7 +147,16 @@ const ClinicProfile = () => {
               </CardTitle>
             </CardHeader>
             <CardContent className="space-y-3 text-sm">
-              {clinicProfile.team.map((t) => (
+              {clinicProfile.team.length === 0 ? (
+                <EmptyState
+                  compact
+                  icon={<Users className="h-5 w-5" />}
+                  title="Equipe não cadastrada"
+                  description="Adicione os veterinários da clínica."
+                  actionLabel="Adicionar profissional"
+                  onAction={comingSoon("O cadastro da equipe")}
+                />
+              ) : clinicProfile.team.map((t) => (
                 <div key={t.name} className="rounded-xl border border-border p-3">
                   <p className="font-semibold">{t.name}</p>
                   <p className="text-xs text-muted-foreground">{t.role} · {t.crmv}</p>
@@ -134,9 +167,9 @@ const ClinicProfile = () => {
 
           <Card className="border-border/70 shadow-card">
             <CardContent className="space-y-2 p-5 text-sm text-muted-foreground">
-              <p className="flex items-center gap-2"><Mail className="h-4 w-4" /> {form.email}</p>
-              <p className="flex items-center gap-2"><Phone className="h-4 w-4" /> {form.phone}</p>
-              <p className="flex items-center gap-2"><MapPin className="h-4 w-4" /> {form.address}</p>
+              <p className="flex items-center gap-2"><Mail className="h-4 w-4" /> {form.email || "Não informado"}</p>
+              <p className="flex items-center gap-2"><Phone className="h-4 w-4" /> {form.phone || "Não informado"}</p>
+              <p className="flex items-center gap-2"><MapPin className="h-4 w-4" /> {form.address || "Não informado"}</p>
             </CardContent>
           </Card>
         </div>
