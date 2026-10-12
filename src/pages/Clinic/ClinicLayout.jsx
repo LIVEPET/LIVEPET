@@ -1,4 +1,4 @@
-import { NavLink, Outlet, useNavigate } from "react-router-dom";
+import { Link, NavLink, Outlet, useNavigate } from "react-router-dom";
 import { CalendarDays, LayoutDashboard, LogOut, Menu, PawPrint, Stethoscope, Building2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Sheet, SheetContent, SheetTrigger, SheetClose } from "@/components/ui/sheet";
@@ -12,8 +12,17 @@ const links = [
   { to: "/clinica/perfil", label: "Perfil da clínica", icon: Building2 },
 ];
 
+const getInitials = (name) =>
+  name
+    .trim()
+    .split(/\s+/)
+    .filter(Boolean)
+    .slice(0, 2)
+    .map((w) => w[0].toUpperCase())
+    .join("");
+
 const NavItems = ({ onNavigate }) => (
-  <nav className="flex flex-col gap-1">
+  <nav className="flex flex-col gap-1.5">
     {links.map(({ to, label, icon: Icon, end }) => (
       <NavLink
         key={to}
@@ -21,9 +30,9 @@ const NavItems = ({ onNavigate }) => (
         end={end}
         onClick={onNavigate}
         className={({ isActive }) =>
-          `flex items-center gap-3 rounded-2xl px-4 py-3 text-sm font-medium transition-all ${
+          `flex items-center gap-3 rounded-2xl px-4 py-3 text-sm font-medium outline-none transition-all focus-visible:ring-2 focus-visible:ring-primary/40 ${
             isActive
-              ? "bg-primary text-primary-foreground shadow-soft"
+              ? "bg-primary font-semibold text-primary-foreground shadow-soft"
               : "text-muted-foreground hover:bg-primary-soft hover:text-primary"
           }`
         }
@@ -37,6 +46,7 @@ const NavItems = ({ onNavigate }) => (
 
 const ClinicLayout = () => {
   const navigate = useNavigate();
+  const initials = getInitials(clinicProfile.name);
 
   return (
     <div className="flex min-h-screen bg-muted/40">
@@ -55,11 +65,22 @@ const ClinicLayout = () => {
         <div className="mt-auto space-y-3 pt-6">
           <div className="flex items-center gap-3 rounded-2xl border border-border p-3">
             <Avatar className="h-9 w-9">
-              <AvatarFallback className="bg-primary-soft text-xs font-bold text-primary">VP</AvatarFallback>
+              <AvatarFallback className="bg-primary-soft text-xs font-bold text-primary">
+                {initials || <Stethoscope className="h-4 w-4" />}
+              </AvatarFallback>
             </Avatar>
             <div className="min-w-0">
-              <p className="truncate text-sm font-semibold">{clinicProfile.name}</p>
-              <p className="truncate text-xs text-muted-foreground">{clinicProfile.crmv}</p>
+              <p className="truncate text-sm font-semibold">{clinicProfile.name || "Sua clínica"}</p>
+              {clinicProfile.crmv ? (
+                <p className="truncate text-xs text-muted-foreground">{clinicProfile.crmv}</p>
+              ) : (
+                <Link
+                  to="/clinica/perfil"
+                  className="block truncate text-xs font-medium text-primary underline-offset-4 hover:underline"
+                >
+                  Completar perfil
+                </Link>
+              )}
             </div>
           </div>
           <Button

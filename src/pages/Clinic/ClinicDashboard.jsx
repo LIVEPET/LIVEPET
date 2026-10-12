@@ -16,11 +16,29 @@ import { Progress } from "@/components/ui/progress";
 import EmptyState from "@/components/EmptyState";
 import { appointments, patients, statusStyles, clinicProfile } from "@/data/clinicDemo";
 
+const done = appointments.filter((a) => a.status === "Concluído").length;
+
 const kpis = [
-  { label: "Atendimentos hoje", value: appointments.length, icon: CalendarDays, hint: "2 concluídos" },
-  { label: "Pacientes ativos", value: patients.length * 21, icon: PawPrint, hint: "+8 esta semana" },
-  { label: "Vacinas do mês", value: 42, icon: Syringe, hint: "6 pendentes" },
-  { label: "Ocupação da agenda", value: "78%", icon: TrendingUp, hint: "Meta: 85%" },
+  {
+    label: "Atendimentos hoje",
+    value: appointments.length,
+    icon: CalendarDays,
+    hint: appointments.length ? `${done} concluído(s)` : "Nenhum agendado",
+  },
+  {
+    label: "Pacientes ativos",
+    value: patients.length,
+    icon: PawPrint,
+    hint: patients.length ? "Cadastrados na clínica" : "Nenhum paciente ainda",
+  },
+  { label: "Vacinas do mês", value: "—", icon: Syringe, hint: "Sem dados ainda" },
+  { label: "Ocupação da agenda", value: "—", icon: TrendingUp, hint: "Sem dados ainda" },
+];
+
+const goals = [
+  { label: "Consultas realizadas", value: null },
+  { label: "Vacinas aplicadas", value: null },
+  { label: "Retornos concluídos", value: null },
 ];
 
 const alerts = patients.filter((p) => p.alerts.length > 0).slice(0, 4);
@@ -34,7 +52,7 @@ const ClinicDashboard = () => {
       <div className="flex flex-wrap items-end justify-between gap-4">
         <div>
           <Badge className="mb-2 bg-primary-soft text-primary hover:bg-primary-soft">Painel da clínica</Badge>
-          <h1 className="font-display text-3xl font-bold">Olá, {clinicProfile.name}</h1>
+          <h1 className="font-display text-3xl font-bold">Olá, {clinicProfile.name || "Clínica"} 👋</h1>
           <p className="text-muted-foreground">Resumo do dia e o que precisa da sua atenção agora.</p>
         </div>
         <Button asChild className="rounded-full gradient-primary text-primary-foreground shadow-soft">
@@ -130,21 +148,22 @@ const ClinicDashboard = () => {
           </Card>
 
           <Card className="border-border/70 shadow-card">
-            <CardHeader>
+            <CardHeader className="space-y-1">
               <CardTitle className="font-display text-lg">Metas do mês</CardTitle>
+              {goals.every((g) => g.value == null) && (
+                <p className="text-xs text-muted-foreground">
+                  O progresso aparece assim que houver atendimentos registrados.
+                </p>
+              )}
             </CardHeader>
             <CardContent className="space-y-4">
-              {[
-                { label: "Consultas realizadas", value: 78 },
-                { label: "Vacinas aplicadas", value: 64 },
-                { label: "Retornos concluídos", value: 45 },
-              ].map((m) => (
+              {goals.map((m) => (
                 <div key={m.label} className="space-y-1.5">
                   <div className="flex justify-between text-sm">
                     <span className="text-muted-foreground">{m.label}</span>
-                    <span className="font-semibold">{m.value}%</span>
+                    <span className="font-semibold">{m.value == null ? "—" : `${m.value}%`}</span>
                   </div>
-                  <Progress value={m.value} className="h-2" />
+                  <Progress value={m.value ?? 0} className="h-2" />
                 </div>
               ))}
             </CardContent>
