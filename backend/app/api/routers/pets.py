@@ -1,9 +1,10 @@
 import uuid
 from typing import List
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, Request, status
 from sqlalchemy.orm import Session
 from app.api.deps import get_current_user
 from app.core.database import get_db
+from app.core.security import get_client_ip, public_qr_rate_limiter
 from app.models.pet import Pet
 from app.models.user import User
 from app.models.vaccine import Vaccine
@@ -242,6 +243,7 @@ def delete_pet(
     tags=["Emergência / QR Code"],
 )
 def get_public_pet_emergency(
+    request: Request,
     token_publico: str,
     db: Session = Depends(get_db),
 ):
@@ -249,7 +251,15 @@ def get_public_pet_emergency(
     Rota pública aberta (sem necessidade de login) para leitura do QR Code.
     Retorna apenas os dados de emergência do animal:
     nome, foto, espécie, raça, porte, cor, telefone do tutor para contato e avisos médicos.
+    Protegido por rate limiting para mitigar abusos e web scraping automatizado.
     """
+    client_ip = get_client_ip(request)
+    if not public_qr_rate_limiter.is_allowed(client_ip):
+        raise HTTPException(
+            status_code=status.HTTP_429_TOO_MANY_REQUESTS,
+            detail="Muitas consultas ao QR Code em curto período. Por favor, aguarde alguns instantes.",
+        )
+
     pet = db.query(Pet).filter(Pet.token_publico == token_publico).first()
     if not pet:
         raise HTTPException(

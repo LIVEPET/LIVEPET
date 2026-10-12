@@ -31,6 +31,14 @@ class Settings(BaseSettings):
         "https://livepet.onrender.com",
     ]
 
+    @property
+    def DOCS_URL(self) -> Union[str, None]:
+        return "/docs" if self.ENVIRONMENT.lower() != "production" else None
+
+    @property
+    def REDOC_URL(self) -> Union[str, None]:
+        return "/redoc" if self.ENVIRONMENT.lower() != "production" else None
+
     @field_validator("SECRET_KEY")
     def validate_secret_key(cls, v: str, info: ValidationInfo) -> str:
         env = (info.data.get("ENVIRONMENT") or "development").lower()
