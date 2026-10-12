@@ -1,5 +1,5 @@
 import { useMemo, useState } from "react";
-import { Clock, Phone, Plus, Search, User } from "lucide-react";
+import { CalendarDays, Clock, Phone, Plus, Search, User } from "lucide-react";
 import { toast } from "sonner";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -15,6 +15,7 @@ import {
   DialogTrigger,
 } from "@/components/ui/dialog";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import EmptyState from "@/components/EmptyState";
 import { appointments as seed, statusStyles } from "@/data/clinicDemo";
 
 const filters = ["Todos", "Confirmado", "Aguardando", "Em atendimento", "Concluído", "Cancelado"];
@@ -178,13 +179,27 @@ const ClinicSchedule = () => {
             </CardContent>
           </Card>
         ))}
-        {visible.length === 0 && (
-          <Card className="border-dashed">
-            <CardContent className="p-10 text-center text-muted-foreground">
-              Nenhum atendimento encontrado com esses filtros.
-            </CardContent>
-          </Card>
-        )}
+        {visible.length === 0 &&
+          (list.length === 0 ? (
+            <EmptyState
+              icon={<CalendarDays className="h-8 w-8" />}
+              title="Nenhum atendimento hoje"
+              description="Sua agenda está livre. Agende o primeiro atendimento para começar."
+              actionLabel="Novo atendimento"
+              onAction={() => setOpen(true)}
+            />
+          ) : (
+            <EmptyState
+              icon={<Search className="h-8 w-8" />}
+              title="Nenhum atendimento encontrado"
+              description="Nenhum resultado para esses filtros. Tente outra busca ou limpe os filtros."
+              actionLabel="Limpar filtros"
+              onAction={() => {
+                setFilter("Todos");
+                setQuery("");
+              }}
+            />
+          ))}
       </div>
     </div>
   );

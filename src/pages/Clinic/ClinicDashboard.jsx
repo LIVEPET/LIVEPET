@@ -1,4 +1,4 @@
-import { Link } from "react-router-dom";
+import { Link, useNavigate } from "react-router-dom";
 import {
   CalendarDays,
   PawPrint,
@@ -6,12 +6,14 @@ import {
   TrendingUp,
   ArrowRight,
   AlertTriangle,
+  CheckCircle2,
   Clock,
 } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Progress } from "@/components/ui/progress";
+import EmptyState from "@/components/EmptyState";
 import { appointments, patients, statusStyles, clinicProfile } from "@/data/clinicDemo";
 
 const kpis = [
@@ -24,6 +26,7 @@ const kpis = [
 const alerts = patients.filter((p) => p.alerts.length > 0).slice(0, 4);
 
 const ClinicDashboard = () => {
+  const navigate = useNavigate();
   const next = appointments.filter((a) => a.status === "Confirmado" || a.status === "Aguardando");
 
   return (
@@ -86,6 +89,15 @@ const ClinicDashboard = () => {
                 <Badge className={`${statusStyles[a.status]} hover:opacity-90`}>{a.status}</Badge>
               </div>
             ))}
+            {next.length === 0 && (
+              <EmptyState
+                icon={<CalendarDays className="h-8 w-8" />}
+                title="Nenhum atendimento hoje"
+                description="Sua agenda está livre por enquanto. Agende um atendimento para ele aparecer aqui."
+                actionLabel="Agendar atendimento"
+                onAction={() => navigate("/clinica/agenda")}
+              />
+            )}
           </CardContent>
         </Card>
 
@@ -103,6 +115,14 @@ const ClinicDashboard = () => {
                   <p className="text-xs text-muted-foreground">{p.alerts[0]}</p>
                 </div>
               ))}
+              {alerts.length === 0 && (
+                <EmptyState
+                  compact
+                  icon={<CheckCircle2 className="h-5 w-5" />}
+                  title="Tudo em dia por aqui"
+                  description="Nenhum paciente com alerta no momento."
+                />
+              )}
               <Button asChild variant="outline" className="w-full rounded-full">
                 <Link to="/clinica/pacientes">Ver pacientes</Link>
               </Button>

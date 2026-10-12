@@ -1,5 +1,6 @@
 import { useMemo, useState } from "react";
-import { AlertTriangle, CheckCircle2, Phone, Search, Syringe, FileText } from "lucide-react";
+import { useNavigate } from "react-router-dom";
+import { AlertTriangle, CheckCircle2, PawPrint, Phone, Search, Syringe, FileText } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -12,9 +13,11 @@ import {
   SheetHeader,
   SheetTitle,
 } from "@/components/ui/sheet";
+import EmptyState from "@/components/EmptyState";
 import { patients } from "@/data/clinicDemo";
 
 const ClinicPatients = () => {
+  const navigate = useNavigate();
   const [query, setQuery] = useState("");
   const [species, setSpecies] = useState("Todos");
   const [selected, setSelected] = useState(null);
@@ -52,6 +55,28 @@ const ClinicPatients = () => {
           <Input className="pl-9" placeholder="Buscar pet, raça ou tutor" value={query} onChange={(e) => setQuery(e.target.value)} />
         </div>
       </div>
+
+      {visible.length === 0 &&
+        (patients.length === 0 ? (
+          <EmptyState
+            icon={<PawPrint className="h-8 w-8" />}
+            title="Nenhum paciente cadastrado ainda"
+            description="Os pets aparecem aqui depois do primeiro atendimento na clínica."
+            actionLabel="Ir para a agenda"
+            onAction={() => navigate("/clinica/agenda")}
+          />
+        ) : (
+          <EmptyState
+            icon={<Search className="h-8 w-8" />}
+            title="Nenhum paciente encontrado"
+            description="Nenhum resultado para essa busca. Tente outro nome, raça ou tutor."
+            actionLabel="Limpar filtros"
+            onAction={() => {
+              setSpecies("Todos");
+              setQuery("");
+            }}
+          />
+        ))}
 
       <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
         {visible.map((p) => (
