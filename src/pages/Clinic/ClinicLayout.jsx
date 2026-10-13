@@ -3,7 +3,7 @@ import { CalendarDays, LayoutDashboard, LogOut, Menu, PawPrint, Stethoscope, Bui
 import { Button } from "@/components/ui/button";
 import { Sheet, SheetContent, SheetTrigger, SheetClose } from "@/components/ui/sheet";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
-import { clinicProfile } from "@/data/clinicDemo";
+import { ClinicProvider, useClinic } from "@/contexts/ClinicContext";
 
 const links = [
   { to: "/clinica", label: "Painel", icon: LayoutDashboard, end: true },
@@ -44,9 +44,10 @@ const NavItems = ({ onNavigate }) => (
   </nav>
 );
 
-const ClinicLayout = () => {
+const ClinicShell = () => {
   const navigate = useNavigate();
-  const initials = getInitials(clinicProfile.name);
+  const { profile } = useClinic();
+  const initials = getInitials(profile.name);
 
   return (
     <div className="flex min-h-screen bg-muted/40">
@@ -70,9 +71,9 @@ const ClinicLayout = () => {
               </AvatarFallback>
             </Avatar>
             <div className="min-w-0">
-              <p className="truncate text-sm font-semibold">{clinicProfile.name || "Sua clínica"}</p>
-              {clinicProfile.crmv ? (
-                <p className="truncate text-xs text-muted-foreground">{clinicProfile.crmv}</p>
+              <p className="truncate text-sm font-semibold">{profile.name || "Sua clínica"}</p>
+              {profile.crmv ? (
+                <p className="truncate text-xs text-muted-foreground">{profile.crmv}</p>
               ) : (
                 <Link
                   to="/clinica/perfil"
@@ -137,5 +138,11 @@ const ClinicLayout = () => {
     </div>
   );
 };
+
+const ClinicLayout = () => (
+  <ClinicProvider>
+    <ClinicShell />
+  </ClinicProvider>
+);
 
 export default ClinicLayout;

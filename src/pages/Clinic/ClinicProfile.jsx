@@ -8,24 +8,26 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import EmptyState from "@/components/EmptyState";
-import { clinicProfile } from "@/data/clinicDemo";
+import { useClinic } from "@/contexts/ClinicContext";
 
 const comingSoon = (what) => () =>
   toast("Em breve", { description: `${what} estará disponível em breve.` });
 
 const ClinicProfile = () => {
+  const { profile, saveProfile } = useClinic();
   const [form, setForm] = useState({
-    name: clinicProfile.name,
-    crmv: clinicProfile.crmv,
-    email: clinicProfile.email,
-    phone: clinicProfile.phone,
-    whatsapp: clinicProfile.whatsapp,
-    address: clinicProfile.address,
-    about: clinicProfile.about,
+    name: profile.name,
+    crmv: profile.crmv,
+    email: profile.email,
+    phone: profile.phone,
+    whatsapp: profile.whatsapp,
+    address: profile.address,
+    about: profile.about,
   });
 
   const save = (e) => {
     e.preventDefault();
+    saveProfile(form);
     toast.success("Perfil da clínica atualizado!");
   };
 
@@ -96,7 +98,7 @@ const ClinicProfile = () => {
               </CardTitle>
             </CardHeader>
             <CardContent className="space-y-2 text-sm">
-              {clinicProfile.hours.length === 0 ? (
+              {profile.hours.length === 0 ? (
                 <EmptyState
                   compact
                   className="w-full"
@@ -106,7 +108,7 @@ const ClinicProfile = () => {
                   actionLabel="Adicionar horários"
                   onAction={comingSoon("O cadastro de horários")}
                 />
-              ) : clinicProfile.hours.map((h) => (
+              ) : profile.hours.map((h) => (
                 <div key={h.day} className="flex items-center justify-between rounded-xl bg-muted px-3 py-2">
                   <span className="text-muted-foreground">{h.day}</span>
                   <span className="font-medium">{h.time}</span>
@@ -122,7 +124,7 @@ const ClinicProfile = () => {
               </CardTitle>
             </CardHeader>
             <CardContent className="flex flex-wrap gap-2">
-              {clinicProfile.services.length === 0 ? (
+              {profile.services.length === 0 ? (
                 <EmptyState
                   compact
                   className="w-full"
@@ -132,7 +134,7 @@ const ClinicProfile = () => {
                   actionLabel="Adicionar serviço"
                   onAction={comingSoon("O cadastro de serviços")}
                 />
-              ) : clinicProfile.services.map((s) => (
+              ) : profile.services.map((s) => (
                 <Badge key={s} variant="secondary" className="rounded-full">
                   {s}
                 </Badge>
@@ -147,7 +149,7 @@ const ClinicProfile = () => {
               </CardTitle>
             </CardHeader>
             <CardContent className="space-y-3 text-sm">
-              {clinicProfile.team.length === 0 ? (
+              {profile.team.length === 0 ? (
                 <EmptyState
                   compact
                   icon={<Users className="h-5 w-5" />}
@@ -156,7 +158,7 @@ const ClinicProfile = () => {
                   actionLabel="Adicionar profissional"
                   onAction={comingSoon("O cadastro da equipe")}
                 />
-              ) : clinicProfile.team.map((t) => (
+              ) : profile.team.map((t) => (
                 <div key={t.name} className="rounded-xl border border-border p-3">
                   <p className="font-semibold">{t.name}</p>
                   <p className="text-xs text-muted-foreground">{t.role} · {t.crmv}</p>
