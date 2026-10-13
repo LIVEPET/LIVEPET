@@ -16,12 +16,13 @@ import {
 } from "@/components/ui/dialog";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import EmptyState from "@/components/EmptyState";
-import { appointments as seed, statusStyles } from "@/data/clinicDemo";
+import { statusStyles } from "@/data/clinicDemo";
+import { useClinic } from "@/contexts/ClinicContext";
 
 const filters = ["Todos", "Confirmado", "Aguardando", "Em atendimento", "Concluído", "Cancelado"];
 
 const ClinicSchedule = () => {
-  const [list, setList] = useState(seed);
+  const { appointments: list, addAppointment, updateAppointmentStatus } = useClinic();
   const [filter, setFilter] = useState("Todos");
   const [query, setQuery] = useState("");
   const [open, setOpen] = useState(false);
@@ -40,34 +41,27 @@ const ClinicSchedule = () => {
   const advance = (a) => {
     const nextStatus =
       a.status === "Aguardando" || a.status === "Confirmado" ? "Em atendimento" : "Concluído";
-    setList((prev) => prev.map((i) => (i.id === a.id ? { ...i, status: nextStatus } : i)));
+    updateAppointmentStatus(a.id, nextStatus);
     toast.success(`${a.petName}: ${nextStatus.toLowerCase()}`);
   };
 
   const cancel = (a) => {
-    setList((prev) => prev.map((i) => (i.id === a.id ? { ...i, status: "Cancelado" } : i)));
+    updateAppointmentStatus(a.id, "Cancelado");
     toast("Atendimento cancelado", { description: `${a.petName} — ${a.time}` });
   };
 
   const create = (e) => {
     e.preventDefault();
-    setList((prev) =>
-      [
-        ...prev,
-        {
-          id: crypto.randomUUID(),
-          time: form.time,
-          petName: form.petName,
-          species: "Cão",
-          breed: "—",
-          tutor: form.tutor,
-          phone: "(11) 90000-0000",
-          service: form.service,
-          vet: form.vet || "Equipe da clínica",
-          status: "Confirmado",
-        },
-      ].sort((a, b) => a.time.localeCompare(b.time)),
-    );
+    addAppointment({
+      time: form.time,
+      petName: form.petName,
+      species: "Cão",
+      breed: "—",
+      tutor: form.tutor,
+      phone: "(11) 90000-0000",
+      service: form.service,
+      vet: form.vet || "Equipe da clínica",
+    });
     setForm({ time: "", petName: "", tutor: "", service: "", vet: "" });
     setOpen(false);
     toast.success("Atendimento agendado!");

@@ -14,26 +14,28 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Progress } from "@/components/ui/progress";
 import EmptyState from "@/components/EmptyState";
-import { appointments, patients, statusStyles, clinicProfile } from "@/data/clinicDemo";
+import { statusStyles } from "@/data/clinicDemo";
+import { useClinic } from "@/contexts/ClinicContext";
 
-const done = appointments.filter((a) => a.status === "Concluído").length;
-
-const kpis = [
-  {
-    label: "Atendimentos hoje",
-    value: appointments.length,
-    icon: CalendarDays,
-    hint: appointments.length ? `${done} concluído(s)` : "Nenhum agendado",
-  },
-  {
-    label: "Pacientes ativos",
-    value: patients.length,
-    icon: PawPrint,
-    hint: patients.length ? "Cadastrados na clínica" : "Nenhum paciente ainda",
-  },
-  { label: "Vacinas do mês", value: "—", icon: Syringe, hint: "Sem dados ainda" },
-  { label: "Ocupação da agenda", value: "—", icon: TrendingUp, hint: "Sem dados ainda" },
-];
+const buildKpis = (appointments, patients) => {
+  const done = appointments.filter((a) => a.status === "Concluído").length;
+  return [
+    {
+      label: "Atendimentos hoje",
+      value: appointments.length,
+      icon: CalendarDays,
+      hint: appointments.length ? `${done} concluído(s)` : "Nenhum agendado",
+    },
+    {
+      label: "Pacientes ativos",
+      value: patients.length,
+      icon: PawPrint,
+      hint: patients.length ? "Cadastrados na clínica" : "Nenhum paciente ainda",
+    },
+    { label: "Vacinas do mês", value: "—", icon: Syringe, hint: "Sem dados ainda" },
+    { label: "Ocupação da agenda", value: "—", icon: TrendingUp, hint: "Sem dados ainda" },
+  ];
+};
 
 const goals = [
   { label: "Consultas realizadas", value: null },
@@ -41,10 +43,11 @@ const goals = [
   { label: "Retornos concluídos", value: null },
 ];
 
-const alerts = patients.filter((p) => p.alerts.length > 0).slice(0, 4);
-
 const ClinicDashboard = () => {
   const navigate = useNavigate();
+  const { profile, appointments, patients } = useClinic();
+  const kpis = buildKpis(appointments, patients);
+  const alerts = patients.filter((p) => p.alerts.length > 0).slice(0, 4);
   const next = appointments.filter((a) => a.status === "Confirmado" || a.status === "Aguardando");
 
   return (
@@ -52,7 +55,7 @@ const ClinicDashboard = () => {
       <div className="flex flex-wrap items-end justify-between gap-4">
         <div>
           <Badge className="mb-2 bg-primary-soft text-primary hover:bg-primary-soft">Painel da clínica</Badge>
-          <h1 className="font-display text-3xl font-bold">Olá, {clinicProfile.name || "Clínica"} 👋</h1>
+          <h1 className="font-display text-3xl font-bold">Olá, {profile.name || "Clínica"} 👋</h1>
           <p className="text-muted-foreground">Resumo do dia e o que precisa da sua atenção agora.</p>
         </div>
         <Button asChild className="rounded-full gradient-primary text-primary-foreground shadow-soft">
