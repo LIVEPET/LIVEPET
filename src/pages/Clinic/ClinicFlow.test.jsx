@@ -1,7 +1,8 @@
-import { fireEvent, render, screen, within } from "@testing-library/react";
+import { render, screen, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { MemoryRouter, Route, Routes } from "react-router-dom";
-import { beforeEach, describe, expect, it } from "vitest";
+import { beforeAll, beforeEach, describe, expect, it } from "vitest";
+import { fillAppointmentForm, openNewAppointment, stubRadixForJsdom } from "@/test/clinicTestUtils";
 import ClinicLayout from "./ClinicLayout";
 import ClinicDashboard from "./ClinicDashboard";
 import ClinicSchedule from "./ClinicSchedule";
@@ -23,6 +24,7 @@ const app = (initial = "/clinica") => (
 
 const goTo = (label) => userEvent.click(within(document.querySelector("aside")).getByText(label));
 
+beforeAll(stubRadixForJsdom);
 beforeEach(() => localStorage.clear());
 
 describe("fluxo da clínica com estado compartilhado", () => {
@@ -30,11 +32,8 @@ describe("fluxo da clínica com estado compartilhado", () => {
     render(app());
     await goTo("Agenda");
 
-    await userEvent.click(screen.getAllByRole("button", { name: /Novo atendimento/ })[0]);
-    fireEvent.change(await screen.findByLabelText("Horário"), { target: { value: "09:00" } });
-    await userEvent.type(screen.getByLabelText("Pet"), "Thor");
-    await userEvent.type(screen.getByLabelText("Tutor"), "Ana");
-    await userEvent.type(screen.getByLabelText("Serviço"), "Consulta");
+    await openNewAppointment();
+    await fillAppointmentForm();
     await userEvent.click(screen.getByRole("button", { name: "Confirmar agendamento" }));
     expect(await screen.findByText("Thor")).toBeTruthy();
 
@@ -50,11 +49,8 @@ describe("fluxo da clínica com estado compartilhado", () => {
 
   it("mudar o status na Agenda atualiza o Painel", async () => {
     render(app("/clinica/agenda"));
-    await userEvent.click(screen.getAllByRole("button", { name: /Novo atendimento/ })[0]);
-    fireEvent.change(await screen.findByLabelText("Horário"), { target: { value: "09:00" } });
-    await userEvent.type(screen.getByLabelText("Pet"), "Thor");
-    await userEvent.type(screen.getByLabelText("Tutor"), "Ana");
-    await userEvent.type(screen.getByLabelText("Serviço"), "Consulta");
+    await openNewAppointment();
+    await fillAppointmentForm();
     await userEvent.click(screen.getByRole("button", { name: "Confirmar agendamento" }));
 
     await userEvent.click(await screen.findByRole("button", { name: "Iniciar" }));
@@ -82,11 +78,8 @@ describe("fluxo da clínica com estado compartilhado", () => {
 
   it("os dados continuam depois de recarregar a página", async () => {
     const first = render(app("/clinica/agenda"));
-    await userEvent.click(screen.getAllByRole("button", { name: /Novo atendimento/ })[0]);
-    fireEvent.change(await screen.findByLabelText("Horário"), { target: { value: "09:00" } });
-    await userEvent.type(screen.getByLabelText("Pet"), "Thor");
-    await userEvent.type(screen.getByLabelText("Tutor"), "Ana");
-    await userEvent.type(screen.getByLabelText("Serviço"), "Consulta");
+    await openNewAppointment();
+    await fillAppointmentForm();
     await userEvent.click(screen.getByRole("button", { name: "Confirmar agendamento" }));
     await screen.findByText("Thor");
     first.unmount();
