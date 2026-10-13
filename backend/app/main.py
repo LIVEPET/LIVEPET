@@ -3,7 +3,7 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from app.core.config import settings
 from app.core.database import Base, engine
-from app.api.routers import health, auth, pets, lineages, marketplace
+from app.api.routers import health, auth, pets, lineages, marketplace, clinicas
 import app.models  # noqa: F401
 
 
@@ -51,12 +51,18 @@ app.include_router(auth.router, prefix=settings.API_V1_STR)
 app.include_router(pets.router, prefix=settings.API_V1_STR)
 app.include_router(lineages.router, prefix=settings.API_V1_STR)
 app.include_router(marketplace.router, prefix=settings.API_V1_STR)
+app.include_router(clinicas.router, prefix=f"{settings.API_V1_STR}/clinicas")
 
 # Disponibiliza também sem o prefixo /api/v1 para flexibilidade
 app.include_router(auth.router)
 app.include_router(pets.router)
 app.include_router(lineages.router)
 app.include_router(marketplace.router)
+
+# Rotas específicas de clínicas (Issue #59)
+app.include_router(clinicas.router, prefix="/api/clinicas")
+app.include_router(clinicas.router, prefix="/clinicas")
+
 
 
 @app.get("/", tags=["Root"])

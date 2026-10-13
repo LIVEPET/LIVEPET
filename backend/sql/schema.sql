@@ -119,6 +119,26 @@ CREATE TABLE public.lineages (
 
 CREATE INDEX idx_lineages_pet_id ON public.lineages(pet_id);
 
+-- 7. Tabela de Clínicas Veterinárias (Issue #59)
+CREATE TABLE public.clinics (
+    id SERIAL PRIMARY KEY,
+    nome VARCHAR(150) NOT NULL,
+    email VARCHAR(255) NOT NULL UNIQUE,
+    senha_hash VARCHAR(255) NOT NULL,
+    crmv VARCHAR(50),
+    cnpj VARCHAR(30),
+    telefone VARCHAR(30),
+    whatsapp VARCHAR(30),
+    endereco VARCHAR(255),
+    sobre TEXT,
+    foto_url VARCHAR(500),
+    criado_em TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    atualizado_em TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE INDEX idx_clinics_email ON public.clinics(email);
+CREATE INDEX idx_clinics_crmv ON public.clinics(crmv);
+
 -- Comentários de documentação
 COMMENT ON TABLE public.users IS 'Tabela de tutores e usuários do sistema LivePet';
 COMMENT ON TABLE public.pets IS 'Tabela de animais vinculados aos tutores';
@@ -126,4 +146,6 @@ COMMENT ON TABLE public.vaccines IS 'Histórico de vacinas aplicadas';
 COMMENT ON TABLE public.medical_records IS 'Prontuário clínico e histórico médico dos animais';
 COMMENT ON TABLE public.care_contacts IS 'Rede de contatos de emergência e cuidadores dos pets';
 COMMENT ON TABLE public.lineages IS 'Registro de pedigree e linhagem ancestral dos pets';
+COMMENT ON TABLE public.clinics IS 'Tabela de clínicas veterinárias cadastradas no LivePet';
+
 
