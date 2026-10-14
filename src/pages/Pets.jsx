@@ -27,6 +27,7 @@ import {
   Loader2,
   ClipboardList,
   Camera,
+  Trash2,
 } from "lucide-react";
 import { toast } from "sonner";
 import PetsCategoryHub from "@/components/PetsCategoryHub";
@@ -44,6 +45,7 @@ import {
   Dialog,
   DialogContent,
   DialogDescription,
+  DialogFooter,
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
@@ -189,6 +191,10 @@ const Pets = () => {
   const [vaxDialog, setVaxDialog] = useState(null);
   const [alertsOpen, setAlertsOpen] = useState(false);
   const [clinicRequests, setClinicRequests] = useState([]);
+
+  // Estados de Exclusão de Pet
+  const [deleteTarget, setDeleteTarget] = useState(null);
+  const [isDeleting, setIsDeleting] = useState(false);
 
   // Opções dinâmicas de filtro extraídas exclusivamente dos pets que o usuário realmente possui
   const availableSpecies = useMemo(() => {
@@ -365,6 +371,21 @@ const Pets = () => {
       console.error("Erro ao atualizar foto:", err);
       toast.dismiss(toastId);
       toast.error("Não foi possível atualizar a foto.");
+    }
+  };
+
+  const handleConfirmDelete = async () => {
+    if (!deleteTarget) return;
+    try {
+      setIsDeleting(true);
+      await petsService.delete(deleteTarget.id);
+      setPets((prev) => prev.filter((p) => p.id !== deleteTarget.id));
+      toast.success(`${deleteTarget.name} foi excluído com sucesso.`);
+      setDeleteTarget(null);
+    } catch (err) {
+      toast.error(err.message || "Erro ao excluir o pet.");
+    } finally {
+      setIsDeleting(false);
     }
   };
 
@@ -740,6 +761,7 @@ const Pets = () => {
               onOpenNext={() => setVaxDialog({ petId: p.id, mode: "next" })}
               onOpenCard={() => setVaxDialog({ petId: p.id, mode: "card" })}
               onUpdatePhoto={handleUpdatePhoto}
+              onDelete={() => setDeleteTarget(p)}
             />
           ))}
         </div>
@@ -817,6 +839,39 @@ const Pets = () => {
           setVaxDialog({ petId: p.id, mode: "next" });
         }}
       />
+
+      {/* Modal de Confirmação de Exclusão de Pet */}
+      <Dialog open={Boolean(deleteTarget)} onOpenChange={(open) => !open && setDeleteTarget(null)}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2 text-destructive font-display">
+              <Trash2 className="h-5 w-5" /> Excluir {deleteTarget?.name}?
+            </DialogTitle>
+            <DialogDescription>
+              Tem certeza de que deseja remover permanentemente o pet <strong>{deleteTarget?.name}</strong>?
+              O histórico de vacinas e prontuários vinculados serão excluídos. Essa operação não pode ser desfeita.
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter className="gap-2 sm:gap-0">
+            <Button
+              type="button"
+              variant="outline"
+              disabled={isDeleting}
+              onClick={() => setDeleteTarget(null)}
+            >
+              Cancelar
+            </Button>
+            <Button
+              type="button"
+              variant="destructive"
+              disabled={isDeleting}
+              onClick={handleConfirmDelete}
+            >
+              {isDeleting ? "Excluindo..." : "Excluir pet"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 };
@@ -830,6 +885,7 @@ const PetCard = ({
   onOpenNext,
   onOpenCard,
   onUpdatePhoto,
+  onDelete,
 }) => {
   const [hearts, setHearts] = useState([]);
   const lastBurst = useRef(0);
@@ -951,6 +1007,17 @@ const PetCard = ({
               />
             ))}
           </div>
+
+          {/* Delete pet button */}
+          <button
+            type="button"
+            onClick={onDelete}
+            title={`Excluir ${pet.name}`}
+            aria-label={`Excluir ${pet.name}`}
+            className="flex h-10 w-10 items-center justify-center rounded-full bg-card/95 text-muted-foreground shadow-soft backdrop-blur transition-all duration-300 hover:scale-110 hover:bg-destructive hover:text-destructive-foreground"
+          >
+            <Trash2 className="h-4 w-4" />
+          </button>
         </div>
       </div>
 

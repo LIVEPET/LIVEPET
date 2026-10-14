@@ -127,7 +127,25 @@ const PuppiesMarketplace = () => {
 
     const convs = getStoredConversations();
     setChatCount(convs.length);
+
+    petsService
+      .getSpecies()
+      .then((data) => {
+        if (Array.isArray(data) && data.length > 0) {
+          setAvailableSpeciesList(data);
+        }
+      })
+      .catch(() => {});
   }, []);
+
+  const [availableSpeciesList, setAvailableSpeciesList] = useState([
+    "Cachorro",
+    "Gato",
+    "Ave",
+    "Roedor",
+    "Réptil",
+    "Outro",
+  ]);
 
   // Carrega pets cadastrados do tutor (para permitir importar dados no formulário)
   useEffect(() => {
@@ -1015,10 +1033,11 @@ const PuppiesMarketplace = () => {
                     <SelectValue />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="Cachorro">Cachorro</SelectItem>
-                    <SelectItem value="Gato">Gato</SelectItem>
-                    <SelectItem value="Ave">Ave</SelectItem>
-                    <SelectItem value="Outro">Outro</SelectItem>
+                    {availableSpeciesList.map((s) => (
+                      <SelectItem key={s} value={s}>
+                        {s}
+                      </SelectItem>
+                    ))}
                   </SelectContent>
                 </Select>
               </div>

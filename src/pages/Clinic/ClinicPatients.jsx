@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import {
   AlertTriangle,
@@ -11,6 +11,7 @@ import {
   Search,
   ShieldCheck,
   Syringe,
+  Trash2,
 } from "lucide-react";
 import { toast } from "sonner";
 import { Card, CardContent } from "@/components/ui/card";
@@ -44,6 +45,7 @@ import {
 } from "@/components/ui/sheet";
 import EmptyState from "@/components/EmptyState";
 import { useClinic } from "@/contexts/ClinicContext";
+import { clinicService } from "@/services/api";
 
 const vaccineLabel = (upToDate) => {
   if (upToDate === true) return "Vacinas em dia";
@@ -62,11 +64,18 @@ const PatientPhoto = ({ patient, className, iconClassName }) =>
 
 const ClinicPatients = () => {
   const navigate = useNavigate();
-  const { patients, updatePatient, linkPatientWithLivePet } = useClinic();
+  const { patients, updatePatient, deletePatient, linkPatientWithLivePet } = useClinic();
   const [query, setQuery] = useState("");
   const [species, setSpecies] = useState("Todos");
   const [breed, setBreed] = useState("Todas");
   const [selected, setSelected] = useState(null);
+
+  // Espécies sincronizadas do banco de dados
+  const [dbSpecies, setDbSpecies] = useState(["Cão", "Gato", "Ave", "Roedor", "Réptil", "Outro"]);
+
+  // Estados de Exclusão de Paciente
+  const [deletePatientModalOpen, setDeletePatientModalOpen] = useState(false);
+  const [patientToDelete, setPatientToDelete] = useState(null);
 
   // Estados de Edição do Paciente e Tutor
   const [editOpen, setEditOpen] = useState(false);
@@ -86,6 +95,29 @@ const ClinicPatients = () => {
   const [linkPetId, setLinkPetId] = useState("");
   const [linkMessage, setLinkMessage] = useState("");
   const [isLinking, setIsLinking] = useState(false);
+
+  // Busca espécies do banco de dados na inicialização
+  useEffect(() => {
+    let isMounted = true;
+    clinicService
+      .getSpecies()
+      .then((data) => {
+        if (isMounted && Array.isArray(data) && data.length > 0) {
+          setDbSpecies(data);
+        }
+      })
+      .catch(() => {});
+    return () => {
+      isMounted = false;
+    };
+  }, []);
+
+  // Opções completas de espécies para o modal de edição (banco + atual)
+  const allEditSpeciesOptions = useMemo(() => {
+    const set = new Set(dbSpecies);
+    if (editForm.species) set.add(editForm.species);
+    return Array.from(set);
+  }, [dbSpecies, editForm.species]);
 
   // Espécies e raças dinâmicas extraídas estritamente dos pets cadastrados
   const availableSpecies = useMemo(() => {
@@ -296,11 +328,26 @@ const ClinicPatients = () => {
               </div>
               <p className="text-sm text-muted-foreground">{p.species} · {p.breed} · {p.weight}</p>
               <p className="text-sm">Tutor: <span className="text-muted-foreground">{p.tutor}</span></p>
-              <div className="flex flex-wrap items-center gap-2 pt-1">
-                <Badge variant="secondary" className="gap-1">
-                  <Syringe className="h-3 w-3" /> {vaccineLabel(p.vaccinesUpToDate)}
-                </Badge>
-                <Badge variant="outline">Última visita {p.lastVisit}</Badge>
+              <div className="flex flex-wrap items-center justify-between gap-2 pt-1">
+                <div className="flex flex-wrap items-center gap-2">
+                  <Badge variant="secondary" className="gap-1">
+                    <Syringe className="h-3 w-3" /> {vaccineLabel(p.vaccinesUpToDate)}
+                  </Badge>
+                  <Badge variant="outline">Última visita {p.lastVisit}</Badge>
+                </div>
+                <Button
+                  size="icon"
+                  variant="ghost"
+                  className="h-7 w-7 text-muted-foreground hover:bg-destructive/10 hover:text-destructive"
+                  title="Excluir paciente"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    setPatientToDelete(p);
+                    setDeletePatientModalOpen(true);
+                  }}
+                >
+                  <Trash2 className="h-3.5 w-3.5" />
+                </Button>
               </div>
             </CardContent>
           </Card>
@@ -315,14 +362,27 @@ const ClinicPatients = () => {
               <SheetHeader className="text-left">
                 <div className="flex items-center justify-between gap-2">
                   <SheetTitle className="font-display text-2xl">{selected.name}</SheetTitle>
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    className="h-8 gap-1.5 rounded-full text-xs"
-                    onClick={handleOpenEdit}
-                  >
-                    <Edit3 className="h-3.5 w-3.5" /> Editar dados
-                  </Button>
+                  <div className="flex items-center gap-2">
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      className="h-8 gap-1.5 rounded-full text-xs"
+                      onClick={handleOpenEdit}
+                    >
+                      <Edit3 className="h-3.5 w-3.5" /> Editar
+                    </Button>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      className="h-8 gap-1.5 rounded-full text-xs text-destructive hover:bg-destructive/10 hover:text-destructive border-destructive/30"
+                      onClick={() => {
+                        setPatientToDelete(selected);
+                        setDeletePatientModalOpen(true);
+                      }}
+                    >
+                      <Trash2 className="h-3.5 w-3.5" /> Excluir
+                    </Button>
+                  </div>
                 </div>
                 <SheetDescription>
                   {selected.species} · {selected.breed} · {selected.age} · {selected.weight}
@@ -452,11 +512,21 @@ const ClinicPatients = () => {
               </div>
               <div className="space-y-1.5">
                 <Label htmlFor="editSpecies">Espécie</Label>
-                <Input
-                  id="editSpecies"
+                <Select
                   value={editForm.species}
-                  onChange={(e) => setEditForm((f) => ({ ...f, species: e.target.value }))}
-                />
+                  onValueChange={(val) => setEditForm((f) => ({ ...f, species: val }))}
+                >
+                  <SelectTrigger id="editSpecies">
+                    <SelectValue placeholder="Selecione a espécie" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {allEditSpeciesOptions.map((s) => (
+                      <SelectItem key={s} value={s}>
+                        {s}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
               </div>
               <div className="space-y-1.5">
                 <Label htmlFor="editBreed">Raça</Label>
@@ -564,6 +634,42 @@ const ClinicPatients = () => {
               </Button>
             </DialogFooter>
           </form>
+      {/* Modal de Confirmação de Exclusão de Paciente */}
+      <Dialog open={deletePatientModalOpen} onOpenChange={setDeletePatientModalOpen}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2 text-destructive font-display">
+              <Trash2 className="h-5 w-5" /> Excluir paciente {patientToDelete?.name}?
+            </DialogTitle>
+            <DialogDescription>
+              Tem certeza de que deseja remover o paciente <strong>{patientToDelete?.name}</strong> (Tutor: {patientToDelete?.tutor}) dos registros da clínica?
+              Os atendimentos e histórico deste animal serão excluídos da clínica.
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter className="gap-2 sm:gap-0">
+            <Button
+              type="button"
+              variant="outline"
+              onClick={() => setDeletePatientModalOpen(false)}
+            >
+              Cancelar
+            </Button>
+            <Button
+              type="button"
+              variant="destructive"
+              onClick={() => {
+                if (!patientToDelete) return;
+                deletePatient(patientToDelete.id);
+                if (selected?.id === patientToDelete.id) {
+                  setSelected(null);
+                }
+                setDeletePatientModalOpen(false);
+                toast.success(`Paciente ${patientToDelete.name} excluído com sucesso.`);
+              }}
+            >
+              Excluir paciente
+            </Button>
+          </DialogFooter>
         </DialogContent>
       </Dialog>
     </div>

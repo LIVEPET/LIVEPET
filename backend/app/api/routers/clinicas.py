@@ -576,6 +576,40 @@ def update_clinic_patient(
     }
 
 
+@router.delete(
+    "/pacientes/{patient_id}",
+    summary="Remover paciente e histórico local dos registros da clínica",
+)
+def delete_clinic_patient(
+    patient_id: str,
+    current_clinic: Clinic = Depends(get_current_clinic),
+    db: Session = Depends(get_db),
+):
+    """
+    Remove os atendimentos locais do paciente da clínica e solicitações de vínculo pendentes.
+    Não exclui a conta oficial do tutor, apenas desvincula/remove da clínica.
+    """
+    query = db.query(ClinicAppointment).filter(ClinicAppointment.clinic_id == current_clinic.id)
+    target = query.filter(ClinicAppointment.id == int(patient_id)).first() if patient_id.isdigit() else None
+
+    if target:
+        query.filter(
+            ClinicAppointment.pet_name == target.pet_name,
+            ClinicAppointment.tutor == target.tutor,
+        ).delete(synchronize_session=False)
+    elif patient_id.isdigit():
+        query.filter(ClinicAppointment.id == int(patient_id)).delete(synchronize_session=False)
+
+    # Remove solicitações de vínculo pendentes para este paciente local se houver
+    db.query(ClinicPetLinkRequest).filter(
+        ClinicPetLinkRequest.clinic_id == current_clinic.id,
+        ClinicPetLinkRequest.local_patient_id == str(patient_id),
+    ).delete(synchronize_session=False)
+
+    db.commit()
+    return {"message": "Paciente e atendimentos excluídos com sucesso dos registros da clínica."}
+
+
 @router.post(
     "/atendimentos/{appointment_id}/concluir",
     response_model=ClinicAppointmentResponse,

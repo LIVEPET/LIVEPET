@@ -524,6 +524,38 @@ class TestClinicasAuthAndProfile(unittest.TestCase):
         self.assertEqual(approval_resp.status_code, 200)
         self.assertEqual(approval_resp.json()["status"], "aprovado")
 
+    def test_delete_clinic_patient(self):
+        login_resp = self.client.post(
+            "/api/clinicas/login",
+            json={"email": "contato@vidanimal.com.br", "senha": "senhaClinica123"},
+        )
+        token = login_resp.json()["access_token"]
+        headers = {"Authorization": f"Bearer {token}"}
+
+        create_resp = self.client.post(
+            "/api/clinicas/atendimentos",
+            headers=headers,
+            json={
+                "pet_name": "Thor Deletar",
+                "species": "Cão",
+                "breed": "Boxer",
+                "tutor": "Carlos Silva",
+                "phone": "(11) 98888-9999",
+                "service": "Exame",
+                "time": "15:00",
+            },
+        )
+        app_id = create_resp.json()["id"]
+
+        del_resp = self.client.delete(f"/api/clinicas/pacientes/{app_id}", headers=headers)
+        self.assertEqual(del_resp.status_code, 200)
+
+        # Verifica se o atendimento do paciente deletado sumiu
+        list_resp = self.client.get("/api/clinicas/pacientes", headers=headers)
+        self.assertEqual(list_resp.status_code, 200)
+        names = [p["name"] for p in list_resp.json()]
+        self.assertNotIn("Thor Deletar", names)
+
 
 if __name__ == "__main__":
     unittest.main()

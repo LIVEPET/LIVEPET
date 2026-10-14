@@ -264,6 +264,25 @@ export const ClinicProvider = ({ children }) => {
     }
   }, []);
 
+  const deletePatient = useCallback((patientId) => {
+    setData((current) => {
+      const target = current.patients.find((p) => String(p.id) === String(patientId));
+      return {
+        ...current,
+        patients: current.patients.filter((p) => String(p.id) !== String(patientId)),
+        appointments: target
+          ? current.appointments.filter((a) => !isSamePatient(target, a))
+          : current.appointments,
+      };
+    });
+
+    try {
+      clinicService.deletePatient(patientId).catch(() => {});
+    } catch {
+      // Modo offline
+    }
+  }, []);
+
   const concludeAppointment = useCallback((appointmentId, conclusion) => {
     setData((current) => {
       const app = current.appointments.find((a) => a.id === appointmentId);
@@ -336,6 +355,7 @@ export const ClinicProvider = ({ children }) => {
       addAppointment,
       updateAppointmentStatus,
       updatePatient,
+      deletePatient,
       concludeAppointment,
       linkPatientWithLivePet,
     }),
@@ -345,6 +365,7 @@ export const ClinicProvider = ({ children }) => {
       addAppointment,
       updateAppointmentStatus,
       updatePatient,
+      deletePatient,
       concludeAppointment,
       linkPatientWithLivePet,
     ],

@@ -281,6 +281,17 @@ export const petsService = {
   },
 
   /**
+   * Lista espécies de pets disponíveis sincronizadas do banco de dados
+   */
+  async getSpecies() {
+    try {
+      return await apiFetch("/api/v1/pets/especies");
+    } catch {
+      return ["Cão", "Gato", "Ave", "Roedor", "Réptil", "Outro"];
+    }
+  },
+
+  /**
    * Remove um pet do banco
    */
   async delete(id) {
@@ -581,6 +592,15 @@ export const clinicService = {
     return apiFetch(`/api/clinicas/pacientes/${id}`, {
       method: "PUT",
       body: data,
+    });
+  },
+
+  /**
+   * Remove paciente e seus registros da clínica
+   */
+  async deletePatient(id) {
+    return apiFetch(`/api/clinicas/pacientes/${id}`, {
+      method: "DELETE",
     });
   },
 

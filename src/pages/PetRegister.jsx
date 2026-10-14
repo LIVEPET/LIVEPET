@@ -110,6 +110,23 @@ const PetRegister = () => {
     allergies: "",
   });
   const [errors, setErrors] = useState({});
+  const [speciesOptions, setSpeciesOptions] = useState(SPECIES);
+
+  // Sincroniza espécies cadastradas no banco de dados
+  useEffect(() => {
+    let isMounted = true;
+    petsService
+      .getSpecies()
+      .then((data) => {
+        if (isMounted && Array.isArray(data) && data.length > 0) {
+          setSpeciesOptions(data);
+        }
+      })
+      .catch(() => {});
+    return () => {
+      isMounted = false;
+    };
+  }, []);
 
   useEffect(() => {
     const user = authService.getCurrentUser();
@@ -364,7 +381,7 @@ const PetRegister = () => {
                       <SelectValue />
                     </SelectTrigger>
                     <SelectContent>
-                      {SPECIES.map((s) => (
+                      {speciesOptions.map((s) => (
                         <SelectItem key={s} value={s}>
                           {s}
                         </SelectItem>
