@@ -363,8 +363,170 @@ class TestClinicasAuthAndProfile(unittest.TestCase):
         self.assertEqual(data[0]["species"], "Cão")
         self.assertEqual(data[0]["breed"], "Golden Retriever")
 
+    def test_update_clinic_patient(self):
+        login_resp = self.client.post(
+            "/api/clinicas/login",
+            json={"email": "contato@vidanimal.com.br", "senha": "senhaClinica123"},
+        )
+        token = login_resp.json()["access_token"]
+        headers = {"Authorization": f"Bearer {token}"}
+
+        # Cria atendimento
+        create_resp = self.client.post(
+            "/api/clinicas/atendimentos",
+            headers=headers,
+            json={
+                "pet_name": "Rex",
+                "species": "Cão",
+                "breed": "SRD",
+                "tutor": "Maria",
+                "phone": "(11) 97777-6666",
+                "service": "Vacina",
+                "time": "14:30",
+            },
+        )
+        app_id = create_resp.json()["id"]
+
+        # Atualiza dados do paciente
+        put_resp = self.client.put(
+            f"/api/clinicas/pacientes/{app_id}",
+            headers=headers,
+            json={
+                "name": "Rex Editado",
+                "species": "Cão",
+                "breed": "Pastor Alemão",
+                "tutor": "Maria Silva",
+                "phone": "(11) 91111-2222",
+                "alerts": ["Alérgico a dipirona"],
+            },
+        )
+        self.assertEqual(put_resp.status_code, 200)
+        updated = put_resp.json()
+        self.assertEqual(updated["name"], "Rex Editado")
+        self.assertEqual(updated["breed"], "Pastor Alemão")
+        self.assertEqual(updated["alerts"], ["Alérgico a dipirona"])
+
+    def test_conclude_clinic_appointment_and_anamnesis(self):
+        login_resp = self.client.post(
+            "/api/clinicas/login",
+            json={"email": "contato@vidanimal.com.br", "senha": "senhaClinica123"},
+        )
+        token = login_resp.json()["access_token"]
+        headers = {"Authorization": f"Bearer {token}"}
+
+        create_resp = self.client.post(
+            "/api/clinicas/atendimentos",
+            headers=headers,
+            json={
+                "pet_name": "Luna",
+                "species": "Gato",
+                "breed": "Siamês",
+                "tutor": "Fernanda",
+                "phone": "(11) 94444-3333",
+                "service": "Consulta de Rotina",
+                "time": "16:00",
+            },
+        )
+        app_id = create_resp.json()["id"]
+
+        # Conclui atendimento com anamnese e exame clínico completo
+        conclude_resp = self.client.post(
+            f"/api/clinicas/atendimentos/{app_id}/concluir",
+            headers=headers,
+            json={
+                "queixa_principal": "Perda de apetite há dois dias",
+                "temperatura": 38.6,
+                "peso": 4.2,
+                "frequencia_cardiaca": 150,
+                "frequencia_respiratoria": 28,
+                "mucosas": "Normocoradas",
+                "diagnostico": "Gastrite leve transitória",
+                "prescricao": "Omeprazol 10mg SID por 5 dias e sachê úmido",
+                "vacina_aplicada": "Vacina V4 Felina",
+                "vacina_lote": "LOTE-2026-X",
+                "vacina_proxima_dose": "2027-10-14",
+            },
+        )
+        self.assertEqual(conclude_resp.status_code, 200)
+        data = conclude_resp.json()
+        self.assertEqual(data["status"], "Concluído")
+        self.assertEqual(data["queixa_principal"], "Perda de apetite há dois dias")
+        self.assertEqual(data["temperatura"], 38.6)
+        self.assertEqual(data["vacina_aplicada"], "Vacina V4 Felina")
+
+    def test_clinic_pet_link_flow(self):
+        # 1. Cadastra tutor e faz login para obter o token
+        tutor_resp = self.client.post(
+            "/auth/register",
+            json={
+                "nome": "João Tutor",
+                "email": "joao.tutor@example.com",
+                "senha": "senhaTutor123",
+            },
+        )
+        self.assertEqual(tutor_resp.status_code, 201)
+
+        tutor_login = self.client.post(
+            "/auth/login",
+            json={"email": "joao.tutor@example.com", "senha": "senhaTutor123"},
+        )
+        self.assertEqual(tutor_login.status_code, 200)
+        tutor_token = tutor_login.json()["access_token"]
+        tutor_headers = {"Authorization": f"Bearer {tutor_token}"}
+
+
+        pet_resp = self.client.post(
+            "/api/v1/pets",
+            headers=tutor_headers,
+            json={
+                "nome": "Max Oficial",
+                "especie": "Cão",
+                "raca": "Beagle",
+                "peso": 14.5,
+            },
+        )
+        self.assertEqual(pet_resp.status_code, 201)
+        official_pet_id = pet_resp.json()["id"]
+
+        # 2. Clínica faz login e solicita vínculo
+        clinic_login = self.client.post(
+            "/api/clinicas/login",
+            json={"email": "contato@vidanimal.com.br", "senha": "senhaClinica123"},
+        )
+        clinic_token = clinic_login.json()["access_token"]
+        clinic_headers = {"Authorization": f"Bearer {clinic_token}"}
+
+        link_req_resp = self.client.post(
+            "/api/clinicas/solicitar-vinculo",
+            headers=clinic_headers,
+            json={
+                "pet_identifier": str(official_pet_id),
+                "local_patient_id": "123",
+                "mensagem": "Gostaríamos de vincular o prontuário do Max à nossa clínica",
+            },
+        )
+        self.assertEqual(link_req_resp.status_code, 201)
+        request_id = link_req_resp.json()["id"]
+        self.assertEqual(link_req_resp.json()["status"], "pendente")
+
+        # 3. Tutor lista solicitações recebidas
+        tutor_links = self.client.get("/api/v1/pets/solicitacoes-clinica", headers=tutor_headers)
+        self.assertEqual(tutor_links.status_code, 200)
+        self.assertTrue(len(tutor_links.json()) >= 1)
+        self.assertEqual(tutor_links.json()[0]["id"], request_id)
+
+        # 4. Tutor aprova solicitação
+        approval_resp = self.client.post(
+            f"/api/v1/pets/solicitacoes-clinica/{request_id}/responder",
+            headers=tutor_headers,
+            json={"acao": "aprovar"},
+        )
+        self.assertEqual(approval_resp.status_code, 200)
+        self.assertEqual(approval_resp.json()["status"], "aprovado")
+
 
 if __name__ == "__main__":
     unittest.main()
+
 
 

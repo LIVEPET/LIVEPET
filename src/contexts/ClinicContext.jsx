@@ -154,7 +154,25 @@ export const ClinicProvider = ({ children }) => {
       ...input,
     };
     setData((current) => {
-      const knownPatient = current.patients.some((p) => isSamePatient(p, appointment));
+      const existingById = input.patientId
+        ? current.patients.find((p) => String(p.id) === String(input.patientId))
+        : null;
+      const existingByData = !existingById
+        ? current.patients.find((p) => isSamePatient(p, appointment))
+        : null;
+      const targetPatient = existingById || existingByData;
+
+      const nextPatients = targetPatient
+        ? current.patients.map((p) =>
+            p.id === targetPatient.id
+              ? {
+                  ...p,
+                  lastVisit: `${appointment.date} · ${appointment.time}`,
+                }
+              : p,
+          )
+        : [...current.patients, patientFromAppointment(appointment)];
+
       return {
         ...current,
         appointments: [...current.appointments, appointment].sort((a, b) => {
@@ -162,9 +180,7 @@ export const ClinicProvider = ({ children }) => {
           if (dateCmp !== 0) return dateCmp;
           return String(a.time ?? "").localeCompare(String(b.time ?? ""));
         }),
-        patients: knownPatient
-          ? current.patients
-          : [...current.patients, patientFromAppointment(appointment)],
+        patients: nextPatients,
       };
     });
 
@@ -204,6 +220,113 @@ export const ClinicProvider = ({ children }) => {
     }
   }, []);
 
+  const updatePatient = useCallback((patientId, fields) => {
+    setData((current) => {
+      const target = current.patients.find((p) => String(p.id) === String(patientId));
+      if (!target) return current;
+
+      const updatedPatient = {
+        ...target,
+        ...fields,
+        alerts: asArray(fields.alerts ?? target.alerts),
+        history: asArray(fields.history ?? target.history),
+      };
+
+      const updatedPatients = current.patients.map((p) =>
+        String(p.id) === String(patientId) ? updatedPatient : p,
+      );
+
+      const updatedAppointments = current.appointments.map((a) => {
+        if (isSamePatient(target, a)) {
+          return {
+            ...a,
+            petName: fields.name !== undefined ? fields.name : a.petName,
+            species: fields.species !== undefined ? fields.species : a.species,
+            breed: fields.breed !== undefined ? fields.breed : a.breed,
+            tutor: fields.tutor !== undefined ? fields.tutor : a.tutor,
+            phone: fields.phone !== undefined ? fields.phone : a.phone,
+          };
+        }
+        return a;
+      });
+
+      return {
+        ...current,
+        patients: updatedPatients,
+        appointments: updatedAppointments,
+      };
+    });
+
+    try {
+      clinicService.updatePatient(patientId, fields).catch(() => {});
+    } catch {
+      // Modo offline
+    }
+  }, []);
+
+  const concludeAppointment = useCallback((appointmentId, conclusion) => {
+    setData((current) => {
+      const app = current.appointments.find((a) => a.id === appointmentId);
+      if (!app) return current;
+
+      const updatedApp = {
+        ...app,
+        status: "Concluído",
+        ...conclusion,
+      };
+
+      const historyItem = {
+        date: app.date,
+        type: app.service,
+        vet: app.vet,
+        summary:
+          conclusion.diagnostico ||
+          conclusion.queixa_principal ||
+          app.notes ||
+          "Atendimento concluído",
+      };
+
+      const updatedPatients = current.patients.map((p) => {
+        if (isSamePatient(p, app)) {
+          return {
+            ...p,
+            weight: conclusion.peso ? `${conclusion.peso} kg` : p.weight,
+            vaccinesUpToDate: conclusion.vacina_aplicada ? true : p.vaccinesUpToDate,
+            history: [historyItem, ...p.history.filter((h) => !(h.date === app.date && h.type === app.service))],
+          };
+        }
+        return p;
+      });
+
+      return {
+        ...current,
+        appointments: current.appointments.map((a) =>
+          a.id === appointmentId ? updatedApp : a,
+        ),
+        patients: updatedPatients,
+      };
+    });
+
+    try {
+      clinicService.concludeAppointment(appointmentId, conclusion).catch(() => {});
+    } catch {
+      // Modo offline
+    }
+  }, []);
+
+  const linkPatientWithLivePet = useCallback(async (patientId, petIdentifier, message) => {
+    try {
+      const res = await clinicService.requestPetLink({
+        pet_identifier: petIdentifier,
+        local_patient_id: String(patientId),
+        mensagem: message || "",
+      });
+      return { success: true, data: res };
+    } catch (err) {
+      return { success: false, error: err.message || "Erro ao solicitar vínculo." };
+    }
+  }, []);
+
   const value = useMemo(
     () => ({
       profile: data.profile,
@@ -212,9 +335,21 @@ export const ClinicProvider = ({ children }) => {
       saveProfile,
       addAppointment,
       updateAppointmentStatus,
+      updatePatient,
+      concludeAppointment,
+      linkPatientWithLivePet,
     }),
-    [data, saveProfile, addAppointment, updateAppointmentStatus],
+    [
+      data,
+      saveProfile,
+      addAppointment,
+      updateAppointmentStatus,
+      updatePatient,
+      concludeAppointment,
+      linkPatientWithLivePet,
+    ],
   );
+
 
   return <ClinicContext.Provider value={value}>{children}</ClinicContext.Provider>;
 };

@@ -355,6 +355,23 @@ export const petsService = {
       method: "DELETE",
     });
   },
+
+  /**
+   * Lista solicitações de vínculo de clínicas pendentes para os pets do tutor
+   */
+  async listClinicLinkRequests() {
+    return apiFetch("/api/v1/pets/solicitacoes-clinica");
+  },
+
+  /**
+   * Aprova ou recusa uma solicitação de vínculo de clínica
+   */
+  async respondClinicLinkRequest(requestId, action) {
+    return apiFetch(`/api/v1/pets/solicitacoes-clinica/${requestId}/responder`, {
+      method: "POST",
+      body: { acao: action },
+    });
+  },
 };
 
 export const lineageService = {
@@ -555,6 +572,43 @@ export const clinicService = {
    */
   async listPatients() {
     return apiFetch("/api/clinicas/pacientes");
+  },
+
+  /**
+   * Atualiza dados de identificação do paciente e tutor
+   */
+  async updatePatient(id, data) {
+    return apiFetch(`/api/clinicas/pacientes/${id}`, {
+      method: "PUT",
+      body: data,
+    });
+  },
+
+  /**
+   * Conclui atendimento registrando anamnese, sinais vitais e desfecho
+   */
+  async concludeAppointment(id, data) {
+    return apiFetch(`/api/clinicas/atendimentos/${id}/concluir`, {
+      method: "POST",
+      body: data,
+    });
+  },
+
+  /**
+   * Solicita vínculo de paciente local a um pet oficial na LivePet
+   */
+  async requestPetLink(data) {
+    return apiFetch("/api/clinicas/solicitar-vinculo", {
+      method: "POST",
+      body: data,
+    });
+  },
+
+  /**
+   * Lista o histórico de solicitações de vínculo enviadas pela clínica
+   */
+  async listLinkRequests() {
+    return apiFetch("/api/clinicas/solicitacoes-vinculo");
   },
 };
 

@@ -1,11 +1,33 @@
 import { useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { AlertTriangle, CheckCircle2, PawPrint, Phone, Search, Syringe, FileText } from "lucide-react";
+import {
+  AlertTriangle,
+  CheckCircle2,
+  Edit3,
+  FileText,
+  Link2,
+  PawPrint,
+  Phone,
+  Search,
+  ShieldCheck,
+  Syringe,
+} from "lucide-react";
+import { toast } from "sonner";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Textarea } from "@/components/ui/textarea";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
 import {
   Select,
   SelectContent,
@@ -40,11 +62,30 @@ const PatientPhoto = ({ patient, className, iconClassName }) =>
 
 const ClinicPatients = () => {
   const navigate = useNavigate();
-  const { patients } = useClinic();
+  const { patients, updatePatient, linkPatientWithLivePet } = useClinic();
   const [query, setQuery] = useState("");
   const [species, setSpecies] = useState("Todos");
   const [breed, setBreed] = useState("Todas");
   const [selected, setSelected] = useState(null);
+
+  // Estados de Edição do Paciente e Tutor
+  const [editOpen, setEditOpen] = useState(false);
+  const [editForm, setEditForm] = useState({
+    name: "",
+    species: "",
+    breed: "",
+    age: "",
+    weight: "",
+    tutor: "",
+    phone: "",
+    alertsText: "",
+  });
+
+  // Estados do Vínculo com Pet Oficial do Tutor
+  const [linkOpen, setLinkOpen] = useState(false);
+  const [linkPetId, setLinkPetId] = useState("");
+  const [linkMessage, setLinkMessage] = useState("");
+  const [isLinking, setIsLinking] = useState(false);
 
   // Espécies e raças dinâmicas extraídas estritamente dos pets cadastrados
   const availableSpecies = useMemo(() => {
@@ -73,6 +114,83 @@ const ClinicPatients = () => {
       }),
     [patients, query, species, breed],
   );
+
+  const handleOpenEdit = () => {
+    if (!selected) return;
+    setEditForm({
+      name: selected.name || "",
+      species: selected.species || "Cão",
+      breed: selected.breed && selected.breed !== "—" ? selected.breed : "",
+      age: selected.age && selected.age !== "—" ? selected.age : "",
+      weight: selected.weight && selected.weight !== "—" ? selected.weight : "",
+      tutor: selected.tutor || "",
+      phone: selected.phone && selected.phone !== "—" ? selected.phone : "",
+      alertsText: Array.isArray(selected.alerts) ? selected.alerts.join(", ") : "",
+    });
+    setEditOpen(true);
+  };
+
+  const handleSaveEdit = (e) => {
+    e.preventDefault();
+    if (!selected) return;
+    if (!editForm.name.trim()) {
+      toast.error("Informe o nome do pet.");
+      return;
+    }
+    if (!editForm.tutor.trim()) {
+      toast.error("Informe o nome do tutor.");
+      return;
+    }
+
+    const parsedAlerts = editForm.alertsText
+      .split(",")
+      .map((a) => a.trim())
+      .filter(Boolean);
+
+    const updatedData = {
+      name: editForm.name.trim(),
+      species: editForm.species.trim(),
+      breed: editForm.breed.trim() || "—",
+      age: editForm.age.trim() || "—",
+      weight: editForm.weight.trim() || "—",
+      tutor: editForm.tutor.trim(),
+      phone: editForm.phone.trim() || "—",
+      alerts: parsedAlerts,
+    };
+
+    updatePatient(selected.id, updatedData);
+    setSelected((prev) => (prev ? { ...prev, ...updatedData } : null));
+    setEditOpen(false);
+    toast.success("Dados do paciente e tutor atualizados com sucesso!");
+  };
+
+  const handleOpenLink = () => {
+    setLinkPetId("");
+    setLinkMessage(
+      `Olá! A clínica gostaria de vincular o prontuário do seu pet ${selected?.name} para acompanhamento veterinário integrado.`,
+    );
+    setLinkOpen(true);
+  };
+
+  const handleSubmitLink = async (e) => {
+    e.preventDefault();
+    if (!linkPetId.trim()) {
+      toast.error("Informe o ID do Pet ou o código/token público.");
+      return;
+    }
+    setIsLinking(true);
+    const res = await linkPatientWithLivePet(selected.id, linkPetId.trim(), linkMessage.trim());
+    setIsLinking(false);
+
+    if (res.success) {
+      toast.success(
+        "Solicitação de vínculo enviada ao tutor! Assim que aprovada, os dados oficiais e foto serão sincronizados automaticamente.",
+      );
+      setLinkOpen(false);
+    } else {
+      toast.error(res.error || "Não foi possível enviar a solicitação.");
+    }
+  };
 
   return (
     <div className="space-y-6">
@@ -160,6 +278,11 @@ const ClinicPatients = () => {
           >
             <div className="relative h-40 overflow-hidden">
               <PatientPhoto patient={p} className="h-full w-full object-cover" iconClassName="h-12 w-12" />
+              {p.linked_pet_id && (
+                <Badge className="absolute left-3 top-3 gap-1 bg-primary text-primary-foreground shadow-sm">
+                  <ShieldCheck className="h-3 w-3" /> LivePet Conectado
+                </Badge>
+              )}
               {p.alerts.length > 0 && (
                 <Badge className="absolute right-3 top-3 gap-1 bg-warm text-warm-foreground">
                   <AlertTriangle className="h-3 w-3" /> Atenção
@@ -184,12 +307,23 @@ const ClinicPatients = () => {
         ))}
       </div>
 
+      {/* Painel lateral de detalhes do Paciente selecionado */}
       <Sheet open={!!selected} onOpenChange={(o) => !o && setSelected(null)}>
         <SheetContent className="w-full overflow-y-auto sm:max-w-lg">
           {selected && (
             <>
               <SheetHeader className="text-left">
-                <SheetTitle className="font-display text-2xl">{selected.name}</SheetTitle>
+                <div className="flex items-center justify-between gap-2">
+                  <SheetTitle className="font-display text-2xl">{selected.name}</SheetTitle>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    className="h-8 gap-1.5 rounded-full text-xs"
+                    onClick={handleOpenEdit}
+                  >
+                    <Edit3 className="h-3.5 w-3.5" /> Editar dados
+                  </Button>
+                </div>
                 <SheetDescription>
                   {selected.species} · {selected.breed} · {selected.age} · {selected.weight}
                 </SheetDescription>
@@ -207,6 +341,31 @@ const ClinicPatients = () => {
                   <p className="text-sm text-muted-foreground">{selected.tutor}</p>
                   <p className="mt-1 flex items-center gap-1 text-sm text-muted-foreground">
                     <Phone className="h-3.5 w-3.5" /> {selected.phone}
+                  </p>
+                </div>
+
+                <div className="rounded-2xl border border-border p-4">
+                  <div className="mb-2 flex items-center justify-between">
+                    <p className="text-sm font-semibold">Vínculo LivePet</p>
+                    {selected.linked_pet_id ? (
+                      <Badge className="bg-primary-soft text-primary hover:bg-primary-soft gap-1">
+                        <ShieldCheck className="h-3.5 w-3.5" /> Oficial Conectado
+                      </Badge>
+                    ) : (
+                      <Button
+                        variant="secondary"
+                        size="sm"
+                        className="h-7 gap-1 rounded-full text-xs font-medium"
+                        onClick={handleOpenLink}
+                      >
+                        <Link2 className="h-3 w-3" /> Vincular ao tutor
+                      </Button>
+                    )}
+                  </div>
+                  <p className="text-xs text-muted-foreground">
+                    {selected.linked_pet_id
+                      ? "Este paciente está vinculado à conta LivePet do tutor. O prontuário e vacinas são sincronizados."
+                      : "Paciente cadastrado localmente na clínica. Vincule à conta LivePet do tutor para sincronizar o prontuário."}
                   </p>
                 </div>
 
@@ -234,16 +393,16 @@ const ClinicPatients = () => {
                   {selected.history.length === 0 ? (
                     <p className="text-sm text-muted-foreground">Nenhum atendimento registrado ainda.</p>
                   ) : (
-                  <ol className="space-y-3 border-l border-border pl-5">
-                    {selected.history.map((h) => (
-                      <li key={h.date + h.type} className="relative">
-                        <span className="absolute -left-[26px] top-1.5 h-2.5 w-2.5 rounded-full bg-primary" />
-                        <p className="text-sm font-semibold">{h.type} · {h.date}</p>
-                        <p className="text-xs text-muted-foreground">{h.vet}</p>
-                        <p className="text-sm text-muted-foreground">{h.summary}</p>
-                      </li>
-                    ))}
-                  </ol>
+                    <ol className="space-y-3 border-l border-border pl-5">
+                      {selected.history.map((h, i) => (
+                        <li key={i} className="relative">
+                          <span className="absolute -left-[26px] top-1.5 h-2.5 w-2.5 rounded-full bg-primary" />
+                          <p className="text-sm font-semibold">{h.type} · {h.date}</p>
+                          <p className="text-xs text-muted-foreground">{h.vet}</p>
+                          <p className="text-sm text-muted-foreground">{h.summary}</p>
+                        </li>
+                      ))}
+                    </ol>
                   )}
                 </div>
 
@@ -252,6 +411,7 @@ const ClinicPatients = () => {
                     navigate("/clinica/agenda", {
                       state: {
                         prefill: {
+                          patientId: selected.id,
                           petName: selected.name,
                           species: selected.species || "Cão",
                           breed: selected.breed && selected.breed !== "—" ? selected.breed : "",
@@ -270,8 +430,144 @@ const ClinicPatients = () => {
           )}
         </SheetContent>
       </Sheet>
+
+      {/* Modal de Edição de Dados do Paciente e Tutor */}
+      <Dialog open={editOpen} onOpenChange={setEditOpen}>
+        <DialogContent className="max-h-[90vh] max-w-lg overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle className="font-display">Editar dados do paciente</DialogTitle>
+            <DialogDescription>
+              Atualize as informações cadastrais do pet ou do tutor responsável.
+            </DialogDescription>
+          </DialogHeader>
+          <form onSubmit={handleSaveEdit} className="space-y-4">
+            <div className="grid gap-3 sm:grid-cols-2">
+              <div className="space-y-1.5">
+                <Label htmlFor="editName">Nome do pet</Label>
+                <Input
+                  id="editName"
+                  value={editForm.name}
+                  onChange={(e) => setEditForm((f) => ({ ...f, name: e.target.value }))}
+                />
+              </div>
+              <div className="space-y-1.5">
+                <Label htmlFor="editSpecies">Espécie</Label>
+                <Input
+                  id="editSpecies"
+                  value={editForm.species}
+                  onChange={(e) => setEditForm((f) => ({ ...f, species: e.target.value }))}
+                />
+              </div>
+              <div className="space-y-1.5">
+                <Label htmlFor="editBreed">Raça</Label>
+                <Input
+                  id="editBreed"
+                  value={editForm.breed}
+                  onChange={(e) => setEditForm((f) => ({ ...f, breed: e.target.value }))}
+                />
+              </div>
+              <div className="space-y-1.5">
+                <Label htmlFor="editAge">Idade</Label>
+                <Input
+                  id="editAge"
+                  placeholder="Ex: 2 anos"
+                  value={editForm.age}
+                  onChange={(e) => setEditForm((f) => ({ ...f, age: e.target.value }))}
+                />
+              </div>
+              <div className="space-y-1.5">
+                <Label htmlFor="editWeight">Peso</Label>
+                <Input
+                  id="editWeight"
+                  placeholder="Ex: 12.5 kg"
+                  value={editForm.weight}
+                  onChange={(e) => setEditForm((f) => ({ ...f, weight: e.target.value }))}
+                />
+              </div>
+              <div className="space-y-1.5">
+                <Label htmlFor="editPhone">Telefone do tutor</Label>
+                <Input
+                  id="editPhone"
+                  value={editForm.phone}
+                  onChange={(e) => setEditForm((f) => ({ ...f, phone: e.target.value }))}
+                />
+              </div>
+            </div>
+
+            <div className="space-y-1.5">
+              <Label htmlFor="editTutor">Nome do tutor</Label>
+              <Input
+                id="editTutor"
+                value={editForm.tutor}
+                onChange={(e) => setEditForm((f) => ({ ...f, tutor: e.target.value }))}
+              />
+            </div>
+
+            <div className="space-y-1.5">
+              <Label htmlFor="editAlerts">Alertas clínicos (separados por vírgula)</Label>
+              <Input
+                id="editAlerts"
+                placeholder="Ex: Alérgico a dipirona, Cardiopata"
+                value={editForm.alertsText}
+                onChange={(e) => setEditForm((f) => ({ ...f, alertsText: e.target.value }))}
+              />
+            </div>
+
+            <DialogFooter>
+              <Button type="button" variant="outline" onClick={() => setEditOpen(false)}>
+                Cancelar
+              </Button>
+              <Button type="submit" className="gradient-primary text-primary-foreground">
+                Salvar alterações
+              </Button>
+            </DialogFooter>
+          </form>
+        </DialogContent>
+      </Dialog>
+
+      {/* Modal de Solicitação de Vínculo com LivePet */}
+      <Dialog open={linkOpen} onOpenChange={setLinkOpen}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle className="font-display">Vincular à conta LivePet</DialogTitle>
+            <DialogDescription>
+              Informe o ID do Pet ou o código do QR Code público fornecido pelo tutor. O tutor receberá uma solicitação para aprovação.
+            </DialogDescription>
+          </DialogHeader>
+          <form onSubmit={handleSubmitLink} className="space-y-4">
+            <div className="space-y-1.5">
+              <Label htmlFor="linkPetId">ID do Pet ou Código Público</Label>
+              <Input
+                id="linkPetId"
+                placeholder="Ex: 42 ou token do QR Code"
+                value={linkPetId}
+                onChange={(e) => setLinkPetId(e.target.value)}
+              />
+            </div>
+
+            <div className="space-y-1.5">
+              <Label htmlFor="linkMessage">Mensagem para o tutor (opcional)</Label>
+              <Textarea
+                id="linkMessage"
+                rows={3}
+                value={linkMessage}
+                onChange={(e) => setLinkMessage(e.target.value)}
+              />
+            </div>
+
+            <DialogFooter>
+              <Button type="button" variant="outline" onClick={() => setLinkOpen(false)}>
+                Cancelar
+              </Button>
+              <Button type="submit" disabled={isLinking} className="gradient-primary text-primary-foreground">
+                {isLinking ? "Enviando..." : "Enviar solicitação"}
+              </Button>
+            </DialogFooter>
+          </form>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 };
 
-export default ClinicPatients;
+export default ClinicPatients;

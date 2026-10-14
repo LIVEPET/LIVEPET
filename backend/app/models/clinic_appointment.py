@@ -1,5 +1,5 @@
 from datetime import datetime, timezone
-from sqlalchemy import Column, Integer, String, Text, DateTime, ForeignKey
+from sqlalchemy import Column, Integer, String, Text, Float, DateTime, ForeignKey
 from sqlalchemy.orm import relationship
 from sqlalchemy.sql import func
 from app.core.database import Base
@@ -8,7 +8,8 @@ from app.core.database import Base
 class ClinicAppointment(Base):
     """
     Modelo de Agendamento / Atendimento Clínico (Issue #59).
-    Armazena os dados dos atendimentos agendados ou realizados pela clínica parceira.
+    Armazena os dados dos atendimentos agendados ou realizados pela clínica parceira,
+    incluindo anamnese, exame físico e desfecho clínico.
     """
     __tablename__ = "clinic_appointments"
 
@@ -17,6 +18,12 @@ class ClinicAppointment(Base):
         Integer,
         ForeignKey("clinics.id", ondelete="CASCADE"),
         nullable=False,
+        index=True,
+    )
+    pet_id = Column(
+        Integer,
+        ForeignKey("pets.id", ondelete="SET NULL"),
+        nullable=True,
         index=True,
     )
     pet_name = Column(String(100), nullable=False)
@@ -31,6 +38,21 @@ class ClinicAppointment(Base):
     status = Column(String(30), nullable=False, default="Confirmado")
     notes = Column(Text, nullable=True)
 
+    # Campos de Exame Clínico e Anamnese
+    queixa_principal = Column(Text, nullable=True)
+    temperatura = Column(Float, nullable=True)  # Em °C
+    peso = Column(Float, nullable=True)  # Em kg
+    frequencia_cardiaca = Column(Integer, nullable=True)  # Em bpm
+    frequencia_respiratoria = Column(Integer, nullable=True)  # Em mpm
+    mucosas = Column(String(50), nullable=True)
+    diagnostico = Column(Text, nullable=True)
+    prescricao = Column(Text, nullable=True)
+
+    # Registro rápido de vacina aplicada durante o atendimento
+    vacina_aplicada = Column(String(100), nullable=True)
+    vacina_lote = Column(String(50), nullable=True)
+    vacina_proxima_dose = Column(String(10), nullable=True)
+
     criado_em = Column(DateTime(timezone=True), server_default=func.now(), nullable=False)
     atualizado_em = Column(
         DateTime(timezone=True),
@@ -41,6 +63,9 @@ class ClinicAppointment(Base):
 
     # Relacionamento N:1 com Clinic
     clinic = relationship("Clinic", back_populates="appointments")
+    # Relacionamento N:1 opcional com Pet oficial
+    pet = relationship("Pet", backref="clinic_appointments")
 
     def __repr__(self) -> str:
         return f"<ClinicAppointment id={self.id} pet='{self.pet_name}' date='{self.date}' time='{self.time}' status='{self.status}'>"
+

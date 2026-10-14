@@ -138,4 +138,73 @@ describe("ClinicContext", () => {
     vi.spyOn(console, "error").mockImplementation(() => {});
     expect(() => renderHook(() => useClinic())).toThrow(/ClinicProvider/);
   });
-});
+
+  it("não duplica o paciente quando patientId é informado explicitamente ao agendar", () => {
+    const { result } = renderHook(() => useClinic(), { wrapper });
+    act(() => {
+      result.current.addAppointment(thor);
+    });
+    const patientId = result.current.patients[0].id;
+    act(() => {
+      result.current.addAppointment({
+        ...thor,
+        patientId,
+        time: "15:00",
+        service: "Retorno",
+      });
+    });
+    expect(result.current.appointments).toHaveLength(2);
+    expect(result.current.patients).toHaveLength(1);
+    expect(result.current.patients[0].id).toBe(patientId);
+  });
+
+  it("updatePatient atualiza dados cadastrais do paciente e reflete nos atendimentos", () => {
+    const { result } = renderHook(() => useClinic(), { wrapper });
+    act(() => {
+      result.current.addAppointment(thor);
+    });
+    const patientId = result.current.patients[0].id;
+
+    act(() => {
+      result.current.updatePatient(patientId, {
+        name: "Thor Guerreiro",
+        breed: "Golden",
+        tutor: "Ana Maria",
+        phone: "(11) 98888-1111",
+        alerts: ["Cardiopata"],
+      });
+    });
+
+    expect(result.current.patients[0].name).toBe("Thor Guerreiro");
+    expect(result.current.patients[0].breed).toBe("Golden");
+    expect(result.current.patients[0].alerts).toEqual(["Cardiopata"]);
+    expect(result.current.appointments[0].petName).toBe("Thor Guerreiro");
+    expect(result.current.appointments[0].tutor).toBe("Ana Maria");
+  });
+
+  it("concludeAppointment conclui atendimento, adiciona exame ao histórico e atualiza peso e vacinas", () => {
+    const { result } = renderHook(() => useClinic(), { wrapper });
+    let appId;
+    act(() => {
+      appId = result.current.addAppointment(thor).id;
+    });
+
+    act(() => {
+      result.current.concludeAppointment(appId, {
+        queixa_principal: "Check-up",
+        temperatura: 38.5,
+        peso: 32.4,
+        diagnostico: "Saudável",
+        prescricao: "Vermífugo",
+        vacina_aplicada: "V10",
+      });
+    });
+
+    expect(result.current.appointments[0].status).toBe("Concluído");
+    expect(result.current.appointments[0].diagnostico).toBe("Saudável");
+    expect(result.current.patients[0].weight).toBe("32.4 kg");
+    expect(result.current.patients[0].vaccinesUpToDate).toBe(true);
+    expect(result.current.patients[0].history).toHaveLength(1);
+    expect(result.current.patients[0].history[0].summary).toBe("Saudável");
+  });
+});

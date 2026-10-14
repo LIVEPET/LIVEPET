@@ -10,6 +10,8 @@ from app.models.user import User
 from app.models.vaccine import Vaccine
 from app.models.medical_record import MedicalRecord
 from app.models.care_contact import CareContact
+from app.models.clinic_link_request import ClinicPetLinkRequest
+from app.models.clinic_appointment import ClinicAppointment
 from app.schemas.pet import (
     PetCreate,
     PetExploreResponse,
@@ -20,8 +22,10 @@ from app.schemas.pet import (
 from app.schemas.vaccine import VaccineCreate, VaccineResponse
 from app.schemas.medical_record import MedicalRecordCreate, MedicalRecordResponse
 from app.schemas.care_contact import CareContactCreate, CareContactResponse
+from app.schemas.clinic_link import ClinicPetLinkAction, ClinicPetLinkResponse
 
 router = APIRouter(tags=["Pets"])
+
 
 
 @router.get(
@@ -158,6 +162,120 @@ def list_explore_pets(
             )
         )
     return res
+
+
+@router.get(
+    "/pets/solicitacoes-clinica",
+    response_model=List[ClinicPetLinkResponse],
+    summary="Listar solicitações de vínculo de clínicas pendentes para os pets do tutor",
+)
+def list_tutor_clinic_link_requests(
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    """
+    Retorna as solicitações de clínicas para acessar/vincular os pets do tutor logado.
+    """
+    user_pet_ids = [p.id for p in db.query(Pet.id).filter(Pet.user_id == current_user.id).all()]
+    if not user_pet_ids:
+        return []
+
+    requests = (
+        db.query(ClinicPetLinkRequest)
+        .filter(ClinicPetLinkRequest.pet_id.in_(user_pet_ids))
+        .order_by(ClinicPetLinkRequest.criado_em.desc())
+        .all()
+    )
+    out = []
+    for r in requests:
+        pet = r.pet
+        clinic = r.clinic
+        out.append(
+            ClinicPetLinkResponse(
+                id=r.id,
+                clinic_id=r.clinic_id,
+                clinic_name=clinic.nome if clinic else "Clínica",
+                pet_id=pet.id if pet else 0,
+                pet_name=pet.nome if pet else "Pet",
+                pet_species=pet.especie if pet else None,
+                pet_breed=pet.raca if pet else None,
+                pet_photo=pet.foto_url if pet else None,
+                tutor_name=current_user.nome,
+                local_patient_id=r.local_patient_id,
+                status=r.status,
+                mensagem=r.mensagem,
+                criado_em=r.criado_em,
+                atualizado_em=r.atualizado_em,
+            )
+        )
+    return out
+
+
+@router.post(
+    "/pets/solicitacoes-clinica/{request_id}/responder",
+    response_model=ClinicPetLinkResponse,
+    summary="Aprovar ou recusar solicitação de vínculo enviada pela clínica",
+)
+def respond_clinic_link_request(
+    request_id: int,
+    action: ClinicPetLinkAction,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    """
+    Tutor aprova ou recusa o vínculo do seu pet com a clínica solicitante.
+    """
+    link_req = db.query(ClinicPetLinkRequest).filter(ClinicPetLinkRequest.id == request_id).first()
+    if not link_req:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Solicitação não encontrada.",
+        )
+
+    pet = link_req.pet
+    if not pet or pet.user_id != current_user.id:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Acesso não autorizado a esta solicitação.",
+        )
+
+    novo_status = "aprovado" if action.acao == "aprovar" else "recusado"
+    link_req.status = novo_status
+
+    if novo_status == "aprovado":
+        appointments = (
+            db.query(ClinicAppointment)
+            .filter(
+                ClinicAppointment.clinic_id == link_req.clinic_id,
+                (
+                    (ClinicAppointment.pet_name.ilike(pet.nome))
+                    | (ClinicAppointment.id == (int(link_req.local_patient_id) if link_req.local_patient_id and link_req.local_patient_id.isdigit() else -1))
+                ),
+            )
+            .all()
+        )
+        for app in appointments:
+            app.pet_id = pet.id
+
+    db.commit()
+    db.refresh(link_req)
+
+    return ClinicPetLinkResponse(
+        id=link_req.id,
+        clinic_id=link_req.clinic_id,
+        clinic_name=link_req.clinic.nome if link_req.clinic else "Clínica",
+        pet_id=pet.id,
+        pet_name=pet.nome,
+        pet_species=pet.especie,
+        pet_breed=pet.raca,
+        pet_photo=pet.foto_url,
+        tutor_name=current_user.nome,
+        local_patient_id=link_req.local_patient_id,
+        status=link_req.status,
+        mensagem=link_req.mensagem,
+        criado_em=link_req.criado_em,
+        atualizado_em=link_req.atualizado_em,
+    )
 
 
 @router.get(
@@ -700,4 +818,6 @@ def delete_pet_care_contact(
     db.delete(contact)
     db.commit()
     return None
+
+
 

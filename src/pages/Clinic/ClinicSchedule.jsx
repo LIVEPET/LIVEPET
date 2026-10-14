@@ -1,6 +1,21 @@
 import { useEffect, useMemo, useState } from "react";
 import { Link, useLocation, useNavigate } from "react-router-dom";
-import { Calendar, CalendarDays, Clock, Phone, Plus, Search, User } from "lucide-react";
+import {
+  Activity,
+  Calendar,
+  CalendarDays,
+  CheckCircle2,
+  Clock,
+  Heart,
+  Phone,
+  Plus,
+  Search,
+  Stethoscope,
+  Syringe,
+  Thermometer,
+  User,
+} from "lucide-react";
+
 import { toast } from "sonner";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -37,6 +52,7 @@ const DEFAULT_VET = "Equipe da clínica";
 const getToday = () => new Date().toISOString().split("T")[0];
 
 const emptyForm = {
+  patientId: null,
   petName: "",
   species: "",
   breed: "",
@@ -85,7 +101,13 @@ const ProfileLink = ({ children }) => (
 );
 
 const ClinicSchedule = () => {
-  const { appointments: list, profile, addAppointment, updateAppointmentStatus } = useClinic();
+  const {
+    appointments: list,
+    profile,
+    addAppointment,
+    updateAppointmentStatus,
+    concludeAppointment,
+  } = useClinic();
   const location = useLocation();
   const navigate = useNavigate();
 
@@ -96,6 +118,24 @@ const ClinicSchedule = () => {
   const [form, setForm] = useState(emptyForm);
   const [errors, setErrors] = useState({});
   const [speciesOptions, setSpeciesOptions] = useState(DEFAULT_SPECIES);
+
+  // Estados do Modal de Anamnese & Exame Clínico
+  const [examOpen, setExamOpen] = useState(false);
+  const [activeExamApp, setActiveExamApp] = useState(null);
+  const [examForm, setExamForm] = useState({
+    queixa_principal: "",
+    temperatura: "",
+    peso: "",
+    frequencia_cardiaca: "",
+    frequencia_respiratoria: "",
+    mucosas: "Normocoradas",
+    diagnostico: "",
+    prescricao: "",
+    applyVaccine: false,
+    vacina_aplicada: "",
+    vacina_lote: "",
+    vacina_proxima_dose: "",
+  });
 
   const services = useMemo(() => uniqueNames(profile.services), [profile.services]);
   const team = useMemo(() => uniqueNames(profile.team), [profile.team]);
@@ -122,6 +162,7 @@ const ClinicSchedule = () => {
       const p = location.state.prefill;
       setForm((current) => ({
         ...current,
+        patientId: p.patientId || null,
         petName: p.petName || current.petName,
         species: p.species || current.species,
         breed: p.breed || current.breed,
@@ -148,11 +189,56 @@ const ClinicSchedule = () => {
     [list, filter, dateFilter, query],
   );
 
-  const advance = (a) => {
-    const nextStatus =
-      a.status === "Aguardando" || a.status === "Confirmado" ? "Em atendimento" : "Concluído";
-    updateAppointmentStatus(a.id, nextStatus);
-    toast.success(`${a.petName}: ${nextStatus.toLowerCase()}`);
+  const handleOpenExam = (a) => {
+    setActiveExamApp(a);
+    setExamForm({
+      queixa_principal: a.queixa_principal || a.notes || "",
+      temperatura: a.temperatura != null ? String(a.temperatura) : "",
+      peso: a.peso != null ? String(a.peso) : "",
+      frequencia_cardiaca: a.frequencia_cardiaca != null ? String(a.frequencia_cardiaca) : "",
+      frequencia_respiratoria: a.frequencia_respiratoria != null ? String(a.frequencia_respiratoria) : "",
+      mucosas: a.mucosas || "Normocoradas",
+      diagnostico: a.diagnostico || "",
+      prescricao: a.prescricao || "",
+      applyVaccine: !!a.vacina_aplicada,
+      vacina_aplicada: a.vacina_aplicada || "",
+      vacina_lote: a.vacina_lote || "",
+      vacina_proxima_dose: a.vacina_proxima_dose || "",
+    });
+
+    if (a.status === "Confirmado" || a.status === "Aguardando") {
+      updateAppointmentStatus(a.id, "Em atendimento");
+      toast.success(`${a.petName}: atendimento iniciado`);
+    }
+    setExamOpen(true);
+  };
+
+  const handleSaveExam = (e) => {
+    e.preventDefault();
+    if (!activeExamApp) return;
+
+    if (examForm.applyVaccine && !examForm.vacina_aplicada.trim()) {
+      toast.error("Informe o nome da vacina aplicada ou desmarque a opção.");
+      return;
+    }
+
+    const payload = {
+      queixa_principal: examForm.queixa_principal.trim() || null,
+      temperatura: examForm.temperatura ? parseFloat(examForm.temperatura) : null,
+      peso: examForm.peso ? parseFloat(examForm.peso) : null,
+      frequencia_cardiaca: examForm.frequencia_cardiaca ? parseInt(examForm.frequencia_cardiaca, 10) : null,
+      frequencia_respiratoria: examForm.frequencia_respiratoria ? parseInt(examForm.frequencia_respiratoria, 10) : null,
+      mucosas: examForm.mucosas || "Normocoradas",
+      diagnostico: examForm.diagnostico.trim() || null,
+      prescricao: examForm.prescricao.trim() || null,
+      vacina_aplicada: examForm.applyVaccine && examForm.vacina_aplicada.trim() ? examForm.vacina_aplicada.trim() : null,
+      vacina_lote: examForm.applyVaccine && examForm.vacina_lote.trim() ? examForm.vacina_lote.trim() : null,
+      vacina_proxima_dose: examForm.applyVaccine && examForm.vacina_proxima_dose ? examForm.vacina_proxima_dose : null,
+    };
+
+    concludeAppointment(activeExamApp.id, payload);
+    setExamOpen(false);
+    toast.success(`Atendimento de ${activeExamApp.petName} concluído com sucesso! Prontuário registrado.`);
   };
 
   const cancel = (a) => {
@@ -190,6 +276,7 @@ const ClinicSchedule = () => {
       return;
     }
     addAppointment({
+      patientId: form.patientId || null,
       date: form.date,
       time: form.time,
       petName: form.petName.trim(),
@@ -205,6 +292,7 @@ const ClinicSchedule = () => {
     setOpen(false);
     toast.success("Atendimento agendado!");
   };
+
 
   return (
     <div className="space-y-6">
@@ -451,13 +539,19 @@ const ClinicSchedule = () => {
                 <Badge className={`${statusStyles[a.status]} hover:opacity-90`}>{a.status}</Badge>
                 {a.status !== "Concluído" && a.status !== "Cancelado" && (
                   <>
-                    <Button size="sm" className="rounded-full" onClick={() => advance(a)}>
-                      {a.status === "Em atendimento" ? "Concluir" : "Iniciar"}
+                    <Button size="sm" className="rounded-full gap-1.5" onClick={() => handleOpenExam(a)}>
+                      <Stethoscope className="h-3.5 w-3.5" />
+                      {a.status === "Em atendimento" ? "Atender / Concluir" : "Iniciar"}
                     </Button>
                     <Button size="sm" variant="ghost" className="rounded-full text-destructive" onClick={() => cancel(a)}>
                       Cancelar
                     </Button>
                   </>
+                )}
+                {a.status === "Concluído" && (
+                  <Button size="sm" variant="outline" className="rounded-full gap-1.5 text-xs font-medium" onClick={() => handleOpenExam(a)}>
+                    <Stethoscope className="h-3.5 w-3.5" /> Prontuário
+                  </Button>
                 )}
               </div>
               {a.notes && <p className="w-full rounded-xl bg-muted px-3 py-2 text-xs text-muted-foreground">{a.notes}</p>}
@@ -486,8 +580,238 @@ const ClinicSchedule = () => {
             />
           ))}
       </div>
+
+      {/* Modal de Anamnese e Exame Clínico Completo */}
+      <Dialog open={examOpen} onOpenChange={setExamOpen}>
+        <DialogContent className="max-h-[92vh] max-w-2xl overflow-y-auto">
+          {activeExamApp && (
+            <>
+              <DialogHeader>
+                <div className="flex flex-wrap items-center justify-between gap-2">
+                  <div className="flex items-center gap-2">
+                    <div className="grid h-10 w-10 place-items-center rounded-2xl bg-primary-soft text-primary">
+                      <Stethoscope className="h-5 w-5" />
+                    </div>
+                    <div>
+                      <DialogTitle className="font-display text-2xl">
+                        Atendimento Clínico & Anamnese
+                      </DialogTitle>
+                      <DialogDescription>
+                        {activeExamApp.petName} ({activeExamApp.species} · {activeExamApp.breed}) · Tutor: {activeExamApp.tutor}
+                      </DialogDescription>
+                    </div>
+                  </div>
+                  <Badge className={`${statusStyles[activeExamApp.status]} text-xs`}>
+                    {activeExamApp.status}
+                  </Badge>
+                </div>
+              </DialogHeader>
+
+              <form onSubmit={handleSaveExam} className="space-y-5 pt-2">
+                {/* 1. Anamnese / Queixa Principal */}
+                <div className="space-y-2 rounded-2xl border border-border/80 bg-muted/20 p-4">
+                  <Label htmlFor="queixa" className="flex items-center gap-1.5 text-sm font-semibold">
+                    <Activity className="h-4 w-4 text-primary" /> Anamnese & Queixa Principal
+                  </Label>
+                  <Textarea
+                    id="queixa"
+                    rows={3}
+                    placeholder="Relato do tutor: motivo da consulta, sintomas, duração, alterações de comportamento ou alimentação..."
+                    value={examForm.queixa_principal}
+                    onChange={(e) => setExamForm((f) => ({ ...f, queixa_principal: e.target.value }))}
+                  />
+                </div>
+
+                {/* 2. Sinais Vitais & Exame Físico */}
+                <div className="space-y-3 rounded-2xl border border-border/80 bg-muted/20 p-4">
+                  <p className="flex items-center gap-1.5 text-sm font-semibold">
+                    <Thermometer className="h-4 w-4 text-primary" /> Sinais Vitais e Avaliação Física
+                  </p>
+
+                  <div className="grid gap-3 sm:grid-cols-2">
+                    {/* Peso */}
+                    <div className="space-y-1">
+                      <Label htmlFor="peso" className="text-xs font-semibold">
+                        Peso Atual (kg)
+                      </Label>
+                      <Input
+                        id="peso"
+                        type="number"
+                        step="0.1"
+                        placeholder="Ex: 12.5"
+                        value={examForm.peso}
+                        onChange={(e) => setExamForm((f) => ({ ...f, peso: e.target.value }))}
+                      />
+                    </div>
+
+                    {/* Temperatura */}
+                    <div className="space-y-1">
+                      <Label htmlFor="temp" className="text-xs font-semibold">
+                        Temperatura Retal (°C)
+                      </Label>
+                      <Input
+                        id="temp"
+                        type="number"
+                        step="0.1"
+                        placeholder="Ex: 38.5"
+                        value={examForm.temperatura}
+                        onChange={(e) => setExamForm((f) => ({ ...f, temperatura: e.target.value }))}
+                      />
+                      <p className="text-[11px] text-muted-foreground">
+                        Ref: Cães 37.5–39.2 °C | Gatos 38.0–39.2 °C
+                      </p>
+                    </div>
+
+                    {/* Frequência Cardíaca */}
+                    <div className="space-y-1">
+                      <Label htmlFor="fc" className="text-xs font-medium">
+                        Frequência Cardíaca (bpm) <span className="text-muted-foreground text-[10px]">(opcional)</span>
+                      </Label>
+                      <Input
+                        id="fc"
+                        type="number"
+                        placeholder="Ex: 110"
+                        value={examForm.frequencia_cardiaca}
+                        onChange={(e) => setExamForm((f) => ({ ...f, frequencia_cardiaca: e.target.value }))}
+                      />
+                      <p className="text-[11px] text-muted-foreground">
+                        Ref: Cães 70–160 | Gatos 140–220 bpm
+                      </p>
+                    </div>
+
+                    {/* Frequência Respiratória */}
+                    <div className="space-y-1">
+                      <Label htmlFor="fr" className="text-xs font-medium">
+                        Frequência Respiratória (mpm) <span className="text-muted-foreground text-[10px]">(opcional)</span>
+                      </Label>
+                      <Input
+                        id="fr"
+                        type="number"
+                        placeholder="Ex: 24"
+                        value={examForm.frequencia_respiratoria}
+                        onChange={(e) => setExamForm((f) => ({ ...f, frequencia_respiratoria: e.target.value }))}
+                      />
+                      <p className="text-[11px] text-muted-foreground">
+                        Ref: 15–35 mpm
+                      </p>
+                    </div>
+                  </div>
+
+                  {/* Mucosas */}
+                  <div className="space-y-1 pt-1">
+                    <Label htmlFor="mucosas" className="text-xs font-medium">Coloração das Mucosas</Label>
+                    <Select
+                      value={examForm.mucosas}
+                      onValueChange={(v) => setExamForm((f) => ({ ...f, mucosas: v }))}
+                    >
+                      <SelectTrigger id="mucosas">
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="Normocoradas">Normocoradas (róseas saudáveis)</SelectItem>
+                        <SelectItem value="Pálidas">Pálidas (suspeita de anemia/choque)</SelectItem>
+                        <SelectItem value="Congestas / Hiperêmicas">Congestas / Hiperêmicas (avermelhadas/febre)</SelectItem>
+                        <SelectItem value="Ictéricas">Ictéricas (amareladas/hepático)</SelectItem>
+                        <SelectItem value="Cianóticas">Cianóticas (azuladas/hipóxia)</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+                </div>
+
+                {/* 3. Diagnóstico e Prescrição */}
+                <div className="space-y-3 rounded-2xl border border-border/80 bg-muted/20 p-4">
+                  <p className="flex items-center gap-1.5 text-sm font-semibold">
+                    <Heart className="h-4 w-4 text-primary" /> Diagnóstico & Conduta Clínica
+                  </p>
+                  <div className="space-y-2">
+                    <Label htmlFor="diagnostico" className="text-xs font-semibold">Diagnóstico Clínico / Avaliação</Label>
+                    <Textarea
+                      id="diagnostico"
+                      rows={2}
+                      placeholder="Diagnóstico provisório ou definitivo e achados do exame clínico..."
+                      value={examForm.diagnostico}
+                      onChange={(e) => setExamForm((f) => ({ ...f, diagnostico: e.target.value }))}
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="prescricao" className="text-xs font-semibold">Prescrição & Orientações ao Tutor</Label>
+                    <Textarea
+                      id="prescricao"
+                      rows={3}
+                      placeholder="Receita médica, dosagens, horários, dieta recomendada e orientações de retorno..."
+                      value={examForm.prescricao}
+                      onChange={(e) => setExamForm((f) => ({ ...f, prescricao: e.target.value }))}
+                    />
+                  </div>
+                </div>
+
+                {/* 4. Vacinação Rápida (Opcional) */}
+                <div className="space-y-3 rounded-2xl border border-border/80 bg-muted/20 p-4">
+                  <div className="flex items-center justify-between">
+                    <Label
+                      htmlFor="applyVaccineToggle"
+                      className="flex cursor-pointer items-center gap-2 text-sm font-semibold"
+                    >
+                      <Syringe className="h-4 w-4 text-primary" />
+                      Aplicar Vacina neste atendimento
+                    </Label>
+                    <input
+                      id="applyVaccineToggle"
+                      type="checkbox"
+                      className="h-4 w-4 rounded border-gray-300 text-primary accent-primary"
+                      checked={examForm.applyVaccine}
+                      onChange={(e) => setExamForm((f) => ({ ...f, applyVaccine: e.target.checked }))}
+                    />
+                  </div>
+
+                  {examForm.applyVaccine && (
+                    <div className="grid gap-3 pt-2 sm:grid-cols-3">
+                      <div className="space-y-1">
+                        <Label htmlFor="vacNome" className="text-xs">Nome da Vacina</Label>
+                        <Input
+                          id="vacNome"
+                          placeholder="Ex: V10 Polivalente"
+                          value={examForm.vacina_aplicada}
+                          onChange={(e) => setExamForm((f) => ({ ...f, vacina_aplicada: e.target.value }))}
+                        />
+                      </div>
+                      <div className="space-y-1">
+                        <Label htmlFor="vacLote" className="text-xs">Lote</Label>
+                        <Input
+                          id="vacLote"
+                          placeholder="Ex: LT-2026-X"
+                          value={examForm.vacina_lote}
+                          onChange={(e) => setExamForm((f) => ({ ...f, vacina_lote: e.target.value }))}
+                        />
+                      </div>
+                      <div className="space-y-1">
+                        <Label htmlFor="vacProx" className="text-xs">Próxima Dose / Reforço</Label>
+                        <Input
+                          id="vacProx"
+                          type="date"
+                          value={examForm.vacina_proxima_dose}
+                          onChange={(e) => setExamForm((f) => ({ ...f, vacina_proxima_dose: e.target.value }))}
+                        />
+                      </div>
+                    </div>
+                  )}
+                </div>
+
+                <div className="flex flex-col-reverse justify-end gap-2 pt-2 sm:flex-row">
+                  <Button type="button" variant="outline" onClick={() => setExamOpen(false)}>
+                    Fechar
+                  </Button>
+                  <Button type="submit" className="gradient-primary text-primary-foreground shadow-soft">
+                    <CheckCircle2 className="mr-1.5 h-4 w-4" /> Concluir e registrar no prontuário
+                  </Button>
+                </div>
+              </form>
+            </>
+          )}
+        </DialogContent>
+      </Dialog>
     </div>
   );
 };
 
-export default ClinicSchedule;
+export default ClinicSchedule;

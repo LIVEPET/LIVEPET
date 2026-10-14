@@ -14,7 +14,10 @@ from app.core.security import (
 )
 from app.models.clinic import Clinic
 from app.models.clinic_appointment import ClinicAppointment
+from app.models.clinic_link_request import ClinicPetLinkRequest
+from app.models.medical_record import MedicalRecord
 from app.models.pet import Pet
+from app.models.vaccine import Vaccine
 from app.schemas.clinic import (
     ClinicCreate,
     ClinicLogin,
@@ -23,13 +26,20 @@ from app.schemas.clinic import (
     ClinicUpdate,
 )
 from app.schemas.clinic_appointment import (
+    ClinicAppointmentConclusion,
     ClinicAppointmentCreate,
     ClinicAppointmentResponse,
     ClinicAppointmentStatusUpdate,
     ClinicAppointmentUpdate,
+    ClinicPatientUpdate,
+)
+from app.schemas.clinic_link import (
+    ClinicPetLinkCreate,
+    ClinicPetLinkResponse,
 )
 
 router = APIRouter(tags=["Clínicas"])
+
 
 
 @router.post(
@@ -443,7 +453,8 @@ def list_clinic_patients(
     db: Session = Depends(get_db),
 ):
     """
-    Retorna a lista de pacientes únicos atendidos pela clínica com base nos atendimentos registrados.
+    Retorna a lista de pacientes únicos atendidos pela clínica com base nos atendimentos registrados,
+    sincronizando dados e fotos de pets oficiais quando vinculados.
     """
     appointments = (
         db.query(ClinicAppointment)
@@ -457,28 +468,353 @@ def list_clinic_patients(
         key = (a.pet_name.strip().lower(), a.tutor.strip().lower())
         if key not in seen:
             seen.add(key)
+
+            # Verifica se há pet oficial vinculado
+            official_pet = None
+            if a.pet_id:
+                official_pet = db.query(Pet).filter(Pet.id == a.pet_id).first()
+            if not official_pet:
+                approved_link = (
+                    db.query(ClinicPetLinkRequest)
+                    .filter(
+                        ClinicPetLinkRequest.clinic_id == current_clinic.id,
+                        ClinicPetLinkRequest.local_patient_id == str(a.id),
+                        ClinicPetLinkRequest.status == "aprovado",
+                    )
+                    .first()
+                )
+                if approved_link:
+                    official_pet = approved_link.pet
+
+            pet_photo = official_pet.foto_url if official_pet else None
+            pet_weight = f"{official_pet.peso} kg" if (official_pet and official_pet.peso) else (f"{a.peso} kg" if a.peso else "—")
+            vaccines_ok = len(official_pet.vaccines) > 0 if official_pet else (True if a.vacina_aplicada else None)
+
             patients.append({
                 "id": str(a.id),
-                "name": a.pet_name,
-                "species": a.species,
-                "breed": a.breed or "—",
+                "linked_pet_id": official_pet.id if official_pet else None,
+                "name": official_pet.nome if official_pet else a.pet_name,
+                "species": official_pet.especie if official_pet else a.species,
+                "breed": (official_pet.raca if official_pet else None) or a.breed or "—",
                 "age": "—",
-                "weight": "—",
-                "tutor": a.tutor,
+                "weight": pet_weight,
+                "tutor": official_pet.tutor.nome if (official_pet and official_pet.tutor) else a.tutor,
                 "phone": a.phone or "—",
-                "photo": None,
+                "photo": pet_photo,
                 "alerts": [],
-                "vaccinesUpToDate": None,
+                "vaccinesUpToDate": vaccines_ok,
                 "lastVisit": f"{a.date} · {a.time}",
                 "history": [
                     {
                         "date": a.date,
                         "type": a.service,
                         "vet": a.vet,
-                        "summary": a.notes or f"Atendimento {a.status.lower()}",
+                        "summary": a.notes or (f"Diagnóstico: {a.diagnostico}" if a.diagnostico else f"Atendimento {a.status.lower()}"),
                     }
                 ],
             })
     return patients
+
+
+@router.put(
+    "/pacientes/{patient_id}",
+    summary="Atualizar dados cadastrais do paciente e tutor",
+)
+def update_clinic_patient(
+    patient_id: str,
+    patient_update: ClinicPatientUpdate,
+    current_clinic: Clinic = Depends(get_current_clinic),
+    db: Session = Depends(get_db),
+):
+    """
+    Atualiza os dados de identificação do paciente e do tutor nos registros da clínica.
+    """
+    query = db.query(ClinicAppointment).filter(ClinicAppointment.clinic_id == current_clinic.id)
+    target = query.filter(ClinicAppointment.id == int(patient_id)).first() if patient_id.isdigit() else None
+
+    if target:
+        pet_name_match = target.pet_name
+        tutor_match = target.tutor
+    else:
+        target = query.first()
+        pet_name_match = None
+        tutor_match = None
+
+    appointments_to_update = []
+    if pet_name_match and tutor_match:
+        appointments_to_update = query.filter(
+            ClinicAppointment.pet_name == pet_name_match,
+            ClinicAppointment.tutor == tutor_match,
+        ).all()
+    elif target:
+        appointments_to_update = [target]
+
+    for a in appointments_to_update:
+        if patient_update.name:
+            a.pet_name = patient_update.name
+        if patient_update.species:
+            a.species = patient_update.species
+        if patient_update.breed is not None:
+            a.breed = patient_update.breed
+        if patient_update.tutor:
+            a.tutor = patient_update.tutor
+        if patient_update.phone:
+            a.phone = patient_update.phone
+
+    db.commit()
+
+    return {
+        "id": patient_id,
+        "name": patient_update.name or (target.pet_name if target else ""),
+        "species": patient_update.species or (target.species if target else ""),
+        "breed": patient_update.breed or (target.breed if target else "—"),
+        "age": patient_update.age or "—",
+        "weight": patient_update.weight or "—",
+        "tutor": patient_update.tutor or (target.tutor if target else ""),
+        "phone": patient_update.phone or (target.phone if target else "—"),
+        "alerts": patient_update.alerts or [],
+    }
+
+
+@router.post(
+    "/atendimentos/{appointment_id}/concluir",
+    response_model=ClinicAppointmentResponse,
+    summary="Concluir atendimento registrando anamnese, exame físico e desfecho",
+)
+def conclude_clinic_appointment(
+    appointment_id: int,
+    conclusion: ClinicAppointmentConclusion,
+    current_clinic: Clinic = Depends(get_current_clinic),
+    db: Session = Depends(get_db),
+):
+    """
+    Conclui o atendimento clínico registrando queixa/anamnese, sinais vitais (peso, temperatura, FC, FR, mucosas),
+    diagnóstico, prescrição e aplicação opcional de vacina.
+    Caso o paciente esteja vinculado a um Pet oficial, gera automaticamente o histórico em MedicalRecord e Vaccine.
+    """
+    appointment = (
+        db.query(ClinicAppointment)
+        .filter(
+            ClinicAppointment.id == appointment_id,
+            ClinicAppointment.clinic_id == current_clinic.id,
+        )
+        .first()
+    )
+    if not appointment:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Atendimento não encontrado.",
+        )
+
+    appointment.status = "Concluído"
+    if conclusion.queixa_principal is not None:
+        appointment.queixa_principal = conclusion.queixa_principal
+    if conclusion.temperatura is not None:
+        appointment.temperatura = conclusion.temperatura
+    if conclusion.peso is not None:
+        appointment.peso = conclusion.peso
+    if conclusion.frequencia_cardiaca is not None:
+        appointment.frequencia_cardiaca = conclusion.frequencia_cardiaca
+    if conclusion.frequencia_respiratoria is not None:
+        appointment.frequencia_respiratoria = conclusion.frequencia_respiratoria
+    if conclusion.mucosas is not None:
+        appointment.mucosas = conclusion.mucosas
+    if conclusion.diagnostico is not None:
+        appointment.diagnostico = conclusion.diagnostico
+    if conclusion.prescricao is not None:
+        appointment.prescricao = conclusion.prescricao
+    if conclusion.vacina_aplicada is not None:
+        appointment.vacina_aplicada = conclusion.vacina_aplicada
+    if conclusion.vacina_lote is not None:
+        appointment.vacina_lote = conclusion.vacina_lote
+    if conclusion.vacina_proxima_dose is not None:
+        appointment.vacina_proxima_dose = conclusion.vacina_proxima_dose
+
+    # Sincronização com prontuário do tutor se vinculado
+    if appointment.pet_id:
+        pet = db.query(Pet).filter(Pet.id == appointment.pet_id).first()
+        if pet:
+            med_desc = []
+            if conclusion.queixa_principal:
+                med_desc.append(f"Queixa/Anamnese: {conclusion.queixa_principal}")
+            if conclusion.diagnostico:
+                med_desc.append(f"Diagnóstico: {conclusion.diagnostico}")
+            if conclusion.prescricao:
+                med_desc.append(f"Prescrição: {conclusion.prescricao}")
+            vitals = []
+            if conclusion.peso:
+                vitals.append(f"Peso: {conclusion.peso} kg")
+                pet.peso = conclusion.peso
+            if conclusion.temperatura:
+                vitals.append(f"Temp: {conclusion.temperatura} °C")
+            if conclusion.frequencia_cardiaca:
+                vitals.append(f"FC: {conclusion.frequencia_cardiaca} bpm")
+            if conclusion.frequencia_respiratoria:
+                vitals.append(f"FR: {conclusion.frequencia_respiratoria} mpm")
+            if conclusion.mucosas:
+                vitals.append(f"Mucosas: {conclusion.mucosas}")
+            if vitals:
+                med_desc.append("Sinais Vitais: " + " | ".join(vitals))
+
+            med_record = MedicalRecord(
+                pet_id=pet.id,
+                tipo=f"Consulta - {current_clinic.nome}",
+                descricao="\n".join(med_desc) if med_desc else "Atendimento clínico concluído",
+                peso_registrado=conclusion.peso,
+            )
+            db.add(med_record)
+
+            if conclusion.vacina_aplicada and conclusion.vacina_aplicada.strip():
+                try:
+                    app_date = date_type.fromisoformat(appointment.date)
+                except Exception:
+                    app_date = date_type.today()
+
+                prox_date = None
+                if conclusion.vacina_proxima_dose:
+                    try:
+                        prox_date = date_type.fromisoformat(conclusion.vacina_proxima_dose)
+                    except Exception:
+                        prox_date = None
+
+                vaccine = Vaccine(
+                    pet_id=pet.id,
+                    nome=conclusion.vacina_aplicada.strip(),
+                    data_aplicacao=app_date,
+                    proxima_dose=prox_date,
+                    lote=conclusion.vacina_lote.strip() if conclusion.vacina_lote else None,
+                    veterinario=appointment.vet,
+                )
+                db.add(vaccine)
+
+    db.commit()
+    db.refresh(appointment)
+    return appointment
+
+
+@router.post(
+    "/solicitar-vinculo",
+    response_model=ClinicPetLinkResponse,
+    status_code=status.HTTP_201_CREATED,
+    summary="Solicitar vínculo de paciente a um Pet cadastrado na LivePet",
+)
+def request_pet_link(
+    link_in: ClinicPetLinkCreate,
+    current_clinic: Clinic = Depends(get_current_clinic),
+    db: Session = Depends(get_db),
+):
+    """
+    Inicia uma solicitação de vínculo com o Pet oficial do tutor pelo ID ou Token do Pet.
+    """
+    identifier = link_in.pet_identifier.strip()
+    pet = None
+    if identifier.isdigit():
+        pet = db.query(Pet).filter(Pet.id == int(identifier)).first()
+    if not pet:
+        pet = db.query(Pet).filter(Pet.token_publico == identifier).first()
+
+    if not pet:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Pet não encontrado no LivePet. Verifique o ID ou token do pet.",
+        )
+
+    existing = (
+        db.query(ClinicPetLinkRequest)
+        .filter(
+            ClinicPetLinkRequest.clinic_id == current_clinic.id,
+            ClinicPetLinkRequest.pet_id == pet.id,
+            ClinicPetLinkRequest.status == "pendente",
+        )
+        .first()
+    )
+    if existing:
+        return ClinicPetLinkResponse(
+            id=existing.id,
+            clinic_id=current_clinic.id,
+            clinic_name=current_clinic.nome,
+            pet_id=pet.id,
+            pet_name=pet.nome,
+            pet_species=pet.especie,
+            pet_breed=pet.raca,
+            pet_photo=pet.foto_url,
+            tutor_name=pet.tutor.nome if pet.tutor else "Tutor",
+            local_patient_id=existing.local_patient_id,
+            status=existing.status,
+            mensagem=existing.mensagem,
+            criado_em=existing.criado_em,
+            atualizado_em=existing.atualizado_em,
+        )
+
+    req = ClinicPetLinkRequest(
+        clinic_id=current_clinic.id,
+        pet_id=pet.id,
+        local_patient_id=link_in.local_patient_id,
+        mensagem=link_in.mensagem,
+        status="pendente",
+    )
+    db.add(req)
+    db.commit()
+    db.refresh(req)
+
+    return ClinicPetLinkResponse(
+        id=req.id,
+        clinic_id=current_clinic.id,
+        clinic_name=current_clinic.nome,
+        pet_id=pet.id,
+        pet_name=pet.nome,
+        pet_species=pet.especie,
+        pet_breed=pet.raca,
+        pet_photo=pet.foto_url,
+        tutor_name=pet.tutor.nome if pet.tutor else "Tutor",
+        local_patient_id=req.local_patient_id,
+        status=req.status,
+        mensagem=req.mensagem,
+        criado_em=req.criado_em,
+        atualizado_em=req.atualizado_em,
+    )
+
+
+@router.get(
+    "/solicitacoes-vinculo",
+    response_model=List[ClinicPetLinkResponse],
+    summary="Listar solicitações de vínculo feitas pela clínica",
+)
+def list_clinic_link_requests(
+    current_clinic: Clinic = Depends(get_current_clinic),
+    db: Session = Depends(get_db),
+):
+    """
+    Retorna o histórico de solicitações de vínculo enviadas pela clínica parceira aos tutores.
+    """
+    requests = (
+        db.query(ClinicPetLinkRequest)
+        .filter(ClinicPetLinkRequest.clinic_id == current_clinic.id)
+        .order_by(ClinicPetLinkRequest.criado_em.desc())
+        .all()
+    )
+    out = []
+    for r in requests:
+        pet = r.pet
+        out.append(
+            ClinicPetLinkResponse(
+                id=r.id,
+                clinic_id=current_clinic.id,
+                clinic_name=current_clinic.nome,
+                pet_id=pet.id if pet else 0,
+                pet_name=pet.nome if pet else "Pet",
+                pet_species=pet.especie if pet else None,
+                pet_breed=pet.raca if pet else None,
+                pet_photo=pet.foto_url if pet else None,
+                tutor_name=pet.tutor.nome if pet and pet.tutor else "Tutor",
+                local_patient_id=r.local_patient_id,
+                status=r.status,
+                mensagem=r.mensagem,
+                criado_em=r.criado_em,
+                atualizado_em=r.atualizado_em,
+            )
+        )
+    return out
+
 
 

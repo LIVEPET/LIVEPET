@@ -188,6 +188,7 @@ const Pets = () => {
   const [bursts, setBursts] = useState({});
   const [vaxDialog, setVaxDialog] = useState(null);
   const [alertsOpen, setAlertsOpen] = useState(false);
+  const [clinicRequests, setClinicRequests] = useState([]);
 
   // Opções dinâmicas de filtro extraídas exclusivamente dos pets que o usuário realmente possui
   const availableSpecies = useMemo(() => {
@@ -253,10 +254,36 @@ const Pets = () => {
     };
 
     fetchPets();
+
+    petsService
+      .listClinicLinkRequests()
+      .then((data) => {
+        if (isMounted && Array.isArray(data)) {
+          setClinicRequests(data.filter((r) => r.status === "pendente"));
+        }
+      })
+      .catch(() => {});
+
     return () => {
       isMounted = false;
     };
   }, []);
+
+  const handleRespondClinicRequest = async (requestId, action) => {
+    try {
+      await petsService.respondClinicLinkRequest(requestId, action);
+      setClinicRequests((prev) => prev.filter((r) => r.id !== requestId));
+      if (action === "aprovar") {
+        toast.success(
+          "Vínculo aprovado com sucesso! A clínica parceira agora pode registrar atendimentos e sincronizar o prontuário do pet.",
+        );
+      } else {
+        toast("Solicitação de vínculo com a clínica recusada.");
+      }
+    } catch (err) {
+      toast.error(err.message || "Erro ao responder solicitação.");
+    }
+  };
 
   // Always derive the dialog pet from current state so updates reflect live
   const dialogPet = useMemo(
@@ -433,6 +460,59 @@ const Pets = () => {
       <main className="container relative z-10 py-12">
         {/* Hub Navigation Padronizado: Pets / Pedigree / Tarefas / Cartão */}
         <PetsCategoryHub petsCount={totalCount} />
+
+        {/* Notificações de Vínculo Clínico Pendente para o Tutor */}
+        {clinicRequests.length > 0 && (
+          <div className="mx-auto my-6 max-w-4xl space-y-3">
+            {clinicRequests.map((req) => (
+              <div
+                key={req.id}
+                className="flex flex-col gap-4 rounded-3xl border border-primary/30 bg-primary-soft/50 p-5 shadow-soft backdrop-blur-sm sm:flex-row sm:items-center sm:justify-between animate-pop-in"
+              >
+                <div className="flex items-start gap-3.5">
+                  <div className="grid h-11 w-11 shrink-0 place-items-center rounded-2xl bg-primary text-primary-foreground shadow-sm">
+                    <Stethoscope className="h-6 w-6" />
+                  </div>
+                  <div className="space-y-1">
+                    <div className="flex items-center gap-2">
+                      <p className="font-semibold text-foreground">
+                        Solicitação de Vínculo Clínico
+                      </p>
+                      <Badge className="bg-primary/20 text-primary hover:bg-primary/20 text-[11px]">
+                        Pendente
+                      </Badge>
+                    </div>
+                    <p className="text-sm text-muted-foreground">
+                      A clínica <strong className="text-foreground">{req.clinic_name}</strong> solicitou permissão para vincular e sincronizar o prontuário de <strong className="text-foreground">{req.pet_name}</strong>.
+                    </p>
+                    {req.mensagem && (
+                      <p className="rounded-xl bg-background/80 px-3 py-1.5 text-xs italic text-muted-foreground">
+                        "{req.mensagem}"
+                      </p>
+                    )}
+                  </div>
+                </div>
+                <div className="flex items-center gap-2 self-end sm:self-center shrink-0">
+                  <Button
+                    size="sm"
+                    variant="ghost"
+                    className="rounded-full text-xs text-muted-foreground hover:text-destructive"
+                    onClick={() => handleRespondClinicRequest(req.id, "recusar")}
+                  >
+                    <X className="mr-1 h-3.5 w-3.5" /> Recusar
+                  </Button>
+                  <Button
+                    size="sm"
+                    className="rounded-full gradient-primary text-primary-foreground shadow-soft text-xs"
+                    onClick={() => handleRespondClinicRequest(req.id, "aprovar")}
+                  >
+                    <CheckCircle2 className="mr-1.5 h-3.5 w-3.5" /> Aprovar Vínculo
+                  </Button>
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
 
         {/* Hero */}
         <div className="mx-auto max-w-3xl text-center animate-pop-in">

@@ -132,9 +132,11 @@ A API do LivePet segue a arquitetura RESTful com autenticação Bearer JWT, vali
 | `GET` | `/api/v1/pets/{pet_id}/care-contacts` | Sim | Lista contatos de emergência e cuidadores autorizados |
 | `POST` | `/api/v1/pets/{pet_id}/care-contacts` | Sim | Cadastra contato de confiança para o pet |
 | `DELETE` | `/api/v1/pets/{pet_id}/care-contacts/{id}` | Sim | Remove contato de confiança |
+| `GET` | `/api/v1/pets/solicitacoes-clinica` | Sim (Tutor) | Lista solicitações de clínicas pendentes para os pets do tutor |
+| `POST` | `/api/v1/pets/solicitacoes-clinica/{id}/responder` | Sim (Tutor) | Aprova ou recusa solicitação de vínculo clínico |
 | `GET` | `/api/v1/public/pet/{token_publico}` | Não | **Coleira QR Code**: Rota pública de emergência médica e contato |
 
-### 3. Portal & Atendimentos da Clínica Veterinária (`/api/clinicas`)
+### 3. Portal, Atendimentos & Anamnese da Clínica Veterinária (`/api/clinicas`)
 
 | Método | Endpoint | Protegido | Descrição |
 | :--- | :--- | :---: | :--- |
@@ -146,8 +148,12 @@ A API do LivePet segue a arquitetura RESTful com autenticação Bearer JWT, vali
 | `GET` | `/api/clinicas/atendimentos` | Sim (Clínica) | Lista atendimentos com filtros por data (`YYYY-MM-DD`) e status |
 | `POST` | `/api/clinicas/atendimentos` | Sim (Clínica) | Agenda novo atendimento com pet, tutor, serviço, data, hora e queixa |
 | `PATCH` | `/api/clinicas/atendimentos/{id}/status` | Sim (Clínica) | Atualiza status (`Aguardando`, `Em atendimento`, `Concluído`, `Cancelado`) |
+| `POST` | `/api/clinicas/atendimentos/{id}/concluir` | Sim (Clínica) | **Exame Clínico & Anamnese**: Conclui consulta gravando queixa, sinais vitais (peso, temp, FC, FR, mucosas), diagnóstico, prescrição e vacinas sincronizadas |
 | `DELETE` | `/api/clinicas/atendimentos/{id}` | Sim (Clínica) | Exclui/cancela atendimento agendado |
-| `GET` | `/api/clinicas/pacientes` | Sim (Clínica) | Lista pacientes únicos atendidos com base no histórico clínico |
+| `GET` | `/api/clinicas/pacientes` | Sim (Clínica) | Lista pacientes únicos atendidos com base no histórico clínico e vínculo oficial |
+| `PUT` | `/api/clinicas/pacientes/{id}` | Sim (Clínica) | Atualiza dados cadastrais do paciente (pet) e do tutor responsável |
+| `POST` | `/api/clinicas/solicitar-vinculo` | Sim (Clínica) | Envia solicitação de vínculo do paciente local ao Pet oficial do tutor |
+| `GET` | `/api/clinicas/solicitacoes-vinculo` | Sim (Clínica) | Lista histórico de solicitações de vínculo enviadas pela clínica |
 
 ### 4. Genealogia & Linhagens de Pedigree (`/api/v1/lineages`)
 
