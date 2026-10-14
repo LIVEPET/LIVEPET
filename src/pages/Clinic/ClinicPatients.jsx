@@ -14,10 +14,26 @@ import {
   SheetTitle,
 } from "@/components/ui/sheet";
 import EmptyState from "@/components/EmptyState";
-import { patients } from "@/data/clinicDemo";
+import { useClinic } from "@/contexts/ClinicContext";
+
+const vaccineLabel = (upToDate) => {
+  if (upToDate === true) return "Vacinas em dia";
+  if (upToDate === false) return "Vacina pendente";
+  return "Sem registro de vacinas";
+};
+
+const PatientPhoto = ({ patient, className, iconClassName }) =>
+  patient.photo ? (
+    <img src={patient.photo} alt={`Foto de ${patient.name}`} loading="lazy" className={className} />
+  ) : (
+    <div className={`grid place-items-center bg-primary-soft text-primary ${className}`}>
+      <PawPrint className={iconClassName} />
+    </div>
+  );
 
 const ClinicPatients = () => {
   const navigate = useNavigate();
+  const { patients } = useClinic();
   const [query, setQuery] = useState("");
   const [species, setSpecies] = useState("Todos");
   const [selected, setSelected] = useState(null);
@@ -29,7 +45,7 @@ const ClinicPatients = () => {
           (species === "Todos" || p.species === species) &&
           `${p.name} ${p.tutor} ${p.breed}`.toLowerCase().includes(query.toLowerCase()),
       ),
-    [query, species],
+    [patients, query, species],
   );
 
   return (
@@ -86,7 +102,7 @@ const ClinicPatients = () => {
             onClick={() => setSelected(p)}
           >
             <div className="relative h-40 overflow-hidden">
-              <img src={p.photo} alt={`Foto de ${p.name}`} loading="lazy" className="h-full w-full object-cover" />
+              <PatientPhoto patient={p} className="h-full w-full object-cover" iconClassName="h-12 w-12" />
               {p.alerts.length > 0 && (
                 <Badge className="absolute right-3 top-3 gap-1 bg-warm text-warm-foreground">
                   <AlertTriangle className="h-3 w-3" /> Atenção
@@ -102,7 +118,7 @@ const ClinicPatients = () => {
               <p className="text-sm">Tutor: <span className="text-muted-foreground">{p.tutor}</span></p>
               <div className="flex flex-wrap items-center gap-2 pt-1">
                 <Badge variant="secondary" className="gap-1">
-                  <Syringe className="h-3 w-3" /> {p.vaccinesUpToDate ? "Vacinas em dia" : "Vacina pendente"}
+                  <Syringe className="h-3 w-3" /> {vaccineLabel(p.vaccinesUpToDate)}
                 </Badge>
                 <Badge variant="outline">Última visita {p.lastVisit}</Badge>
               </div>
@@ -122,10 +138,10 @@ const ClinicPatients = () => {
                 </SheetDescription>
               </SheetHeader>
 
-              <img
-                src={selected.photo}
-                alt={`Foto de ${selected.name}`}
+              <PatientPhoto
+                patient={selected}
                 className="mt-5 h-48 w-full rounded-2xl object-cover"
+                iconClassName="h-14 w-14"
               />
 
               <div className="mt-5 space-y-4">
@@ -140,12 +156,14 @@ const ClinicPatients = () => {
                 <div className="rounded-2xl border border-border p-4">
                   <p className="mb-2 text-sm font-semibold">Situação clínica</p>
                   <p className="flex items-center gap-2 text-sm">
-                    {selected.vaccinesUpToDate ? (
-                      <CheckCircle2 className="h-4 w-4 text-primary" />
-                    ) : (
-                      <AlertTriangle className="h-4 w-4 text-warm" />
-                    )}
-                    {selected.vaccinesUpToDate ? "Carteira de vacinas em dia" : "Vacinação pendente"}
+                    {selected.vaccinesUpToDate === true && <CheckCircle2 className="h-4 w-4 text-primary" />}
+                    {selected.vaccinesUpToDate === false && <AlertTriangle className="h-4 w-4 text-warm" />}
+                    {selected.vaccinesUpToDate == null && <Syringe className="h-4 w-4 text-muted-foreground" />}
+                    {selected.vaccinesUpToDate === true
+                      ? "Carteira de vacinas em dia"
+                      : selected.vaccinesUpToDate === false
+                        ? "Vacinação pendente"
+                        : "Sem registro de vacinas"}
                   </p>
                   {selected.alerts.map((a) => (
                     <p key={a} className="mt-2 rounded-xl bg-warm-soft/70 px-3 py-2 text-xs">{a}</p>
@@ -156,6 +174,9 @@ const ClinicPatients = () => {
                   <p className="mb-3 flex items-center gap-2 text-sm font-semibold">
                     <FileText className="h-4 w-4" /> Histórico veterinário
                   </p>
+                  {selected.history.length === 0 ? (
+                    <p className="text-sm text-muted-foreground">Nenhum atendimento registrado ainda.</p>
+                  ) : (
                   <ol className="space-y-3 border-l border-border pl-5">
                     {selected.history.map((h) => (
                       <li key={h.date + h.type} className="relative">
@@ -166,6 +187,7 @@ const ClinicPatients = () => {
                       </li>
                     ))}
                   </ol>
+                  )}
                 </div>
 
                 <Button className="w-full rounded-full gradient-primary text-primary-foreground">
