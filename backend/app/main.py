@@ -14,13 +14,41 @@ async def lifespan(app: FastAPI):
     yield
 
 
+openapi_tags = [
+    {
+        "name": "Clínicas",
+        "description": "Endpoints de autenticação, cadastro e gerenciamento cadastral de clínicas veterinárias parceiras (Issue #59).",
+    },
+    {
+        "name": "Autenticação",
+        "description": "Endpoints de registro e login de tutores com emissão de Bearer Token JWT (Issue #17).",
+    },
+    {
+        "name": "Pets",
+        "description": "CRUD de animais, vacinas, prontuário médico e rota pública de emergência para leitura de coleira QR Code (Issues #18 e #19).",
+    },
+    {
+        "name": "Lineages",
+        "description": "Genealogia, árvores de linhagem e solicitações de validação de pedigree.",
+    },
+    {
+        "name": "Marketplace",
+        "description": "Vitrine e anúncios de filhotes para adoção responsável e conexões entre tutores.",
+    },
+    {
+        "name": "Health",
+        "description": "Verificação de disponibilidade da API e conectividade com o banco de dados PostgreSQL Neon.",
+    },
+]
+
 app = FastAPI(
     title=settings.PROJECT_NAME,
     version=settings.VERSION,
-    description="API RESTful do Projeto Integrador LivePet para gestão de saúde, vacinas, pedigree e QR Code.",
+    description="API RESTful do Projeto Integrador LivePet para gestão de saúde, vacinas, pedigree, clínicas e QR Code.",
     lifespan=lifespan,
     docs_url=settings.DOCS_URL,
     redoc_url=settings.REDOC_URL,
+    openapi_tags=openapi_tags,
 )
 
 # Configuração de CORS (Cross-Origin Resource Sharing)
@@ -76,6 +104,9 @@ def root():
         "endpoints": {
             "pets": f"{settings.API_V1_STR}/pets",
             "auth": f"{settings.API_V1_STR}/auth",
+            "clinicas": f"{settings.API_V1_STR}/clinicas",
+            "clinicas_register": f"{settings.API_V1_STR}/clinicas/register",
+            "clinicas_login": f"{settings.API_V1_STR}/clinicas/login",
             "public_qr": f"{settings.API_V1_STR}/public/pet/{{token_publico}}",
         },
     }

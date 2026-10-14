@@ -23,8 +23,8 @@ class ClinicBase(BaseModel):
 
 
 class ClinicCreate(ClinicBase):
-    """Schema para cadastro de uma nova clínica."""
-    senha: str = Field(..., min_length=6, max_length=100, description="Senha de acesso da clínica")
+    """Schema para cadastro de uma nova clínica veterinária parceira."""
+    senha: str = Field(..., min_length=6, max_length=100, description="Senha de acesso da clínica (mínimo 6 caracteres, letras e números)")
 
     @field_validator("senha")
     def validate_password_strength(cls, v: str) -> str:
@@ -32,25 +32,51 @@ class ClinicCreate(ClinicBase):
             raise ValueError("A senha deve conter ao menos uma letra e um número para segurança.")
         return v
 
+    model_config = ConfigDict(
+        json_schema_extra={
+            "example": {
+                "nome": "Clínica Veterinária Vida Animal",
+                "email": "contato@vidanimal.com.br",
+                "senha": "senhaClinica123",
+                "crmv": "CRMV-GO 12345",
+                "cnpj": "12.345.678/0001-90",
+                "telefone": "(62) 3200-1122",
+                "whatsapp": "(62) 98888-2233",
+                "endereco": "Av. T-63, 1200 - St. Nova Suíça, Goiânia - GO",
+                "sobre": "Clínica veterinária 24 horas especializada em cuidados preventivos, cirurgias e emergências.",
+                "foto_url": "https://images.unsplash.com/photo-1584820927498-cfe5211fd8bf?w=400",
+            }
+        }
+    )
+
 
 class ClinicLogin(BaseModel):
-    """Schema para autenticação da clínica."""
+    """Schema para autenticação da clínica veterinária."""
     email: EmailStr = Field(..., description="E-mail cadastrado da clínica")
-    senha: str = Field(..., min_length=1, max_length=100, description="Senha em texto puro")
+    senha: str = Field(..., min_length=1, max_length=100, description="Senha de acesso da clínica")
+
+    model_config = ConfigDict(
+        json_schema_extra={
+            "example": {
+                "email": "contato@vidanimal.com.br",
+                "senha": "senhaClinica123",
+            }
+        }
+    )
 
 
 class ClinicUpdate(BaseModel):
-    """Schema para atualização do perfil da clínica."""
-    nome: Optional[str] = Field(None, min_length=2, max_length=150)
-    email: Optional[EmailStr] = None
-    crmv: Optional[str] = Field(None, max_length=50)
-    cnpj: Optional[str] = Field(None, max_length=30)
-    telefone: Optional[str] = Field(None, max_length=30)
-    whatsapp: Optional[str] = Field(None, max_length=30)
-    endereco: Optional[str] = Field(None, max_length=255)
-    sobre: Optional[str] = Field(None, max_length=2000)
-    foto_url: Optional[str] = None
-    senha: Optional[str] = Field(None, min_length=6, max_length=100)
+    """Schema para atualização do perfil da clínica veterinária."""
+    nome: Optional[str] = Field(None, min_length=2, max_length=150, description="Nome atualizado da clínica")
+    email: Optional[EmailStr] = Field(None, description="Novo e-mail de acesso da clínica")
+    crmv: Optional[str] = Field(None, max_length=50, description="Registro atualizado no CRMV")
+    cnpj: Optional[str] = Field(None, max_length=30, description="CNPJ atualizado")
+    telefone: Optional[str] = Field(None, max_length=30, description="Telefone de atendimento")
+    whatsapp: Optional[str] = Field(None, max_length=30, description="WhatsApp da clínica")
+    endereco: Optional[str] = Field(None, max_length=255, description="Endereço físico completo")
+    sobre: Optional[str] = Field(None, max_length=2000, description="Texto de apresentação e especialidades")
+    foto_url: Optional[str] = Field(None, description="URL do logotipo ou foto da clínica")
+    senha: Optional[str] = Field(None, min_length=6, max_length=100, description="Nova senha (se desejar alterar)")
 
     @field_validator("foto_url")
     def check_foto_url(cls, v: Optional[str]) -> Optional[str]:
@@ -63,18 +89,71 @@ class ClinicUpdate(BaseModel):
                 raise ValueError("A senha deve conter ao menos uma letra e um número para segurança.")
         return v
 
+    model_config = ConfigDict(
+        json_schema_extra={
+            "example": {
+                "nome": "Clínica Veterinária Vida Animal 24h",
+                "telefone": "(62) 3200-9988",
+                "whatsapp": "(62) 99999-5544",
+                "endereco": "Av. T-63, 1250 - St. Nova Suíça, Goiânia - GO",
+                "sobre": "Atendimento 24h, internação com monitoramento contínuo e exames laboratoriais.",
+            }
+        }
+    )
+
 
 class ClinicResponse(ClinicBase):
-    """Schema de resposta com dados públicos/cadastrais da clínica."""
-    id: int
-    criado_em: datetime
-    atualizado_em: Optional[datetime] = None
+    """Schema de resposta com dados públicos e cadastrais da clínica veterinária."""
+    id: int = Field(..., description="Identificador único da clínica")
+    criado_em: datetime = Field(..., description="Data e hora de criação do cadastro")
+    atualizado_em: Optional[datetime] = Field(None, description="Data e hora da última atualização cadastral")
 
-    model_config = ConfigDict(from_attributes=True)
+    model_config = ConfigDict(
+        from_attributes=True,
+        json_schema_extra={
+            "example": {
+                "id": 1,
+                "nome": "Clínica Veterinária Vida Animal",
+                "email": "contato@vidanimal.com.br",
+                "crmv": "CRMV-GO 12345",
+                "cnpj": "12.345.678/0001-90",
+                "telefone": "(62) 3200-1122",
+                "whatsapp": "(62) 98888-2233",
+                "endereco": "Av. T-63, 1200 - St. Nova Suíça, Goiânia - GO",
+                "sobre": "Clínica veterinária 24 horas especializada em cuidados preventivos.",
+                "foto_url": "https://images.unsplash.com/photo-1584820927498-cfe5211fd8bf?w=400",
+                "criado_em": "2026-10-14T00:00:00Z",
+                "atualizado_em": None,
+            }
+        }
+    )
 
 
 class ClinicToken(BaseModel):
-    """Schema de resposta do token de acesso da clínica."""
-    access_token: str
-    token_type: str = "bearer"
-    clinica: ClinicResponse
+    """Schema de resposta com o Bearer token JWT e dados da clínica autenticada."""
+    access_token: str = Field(..., description="Token JWT de acesso (Bearer)")
+    token_type: str = Field("bearer", description="Tipo de autenticação (Bearer)")
+    clinica: ClinicResponse = Field(..., description="Dados cadastrais da clínica autenticada")
+
+    model_config = ConfigDict(
+        json_schema_extra={
+            "example": {
+                "access_token": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...",
+                "token_type": "bearer",
+                "clinica": {
+                    "id": 1,
+                    "nome": "Clínica Veterinária Vida Animal",
+                    "email": "contato@vidanimal.com.br",
+                    "crmv": "CRMV-GO 12345",
+                    "cnpj": "12.345.678/0001-90",
+                    "telefone": "(62) 3200-1122",
+                    "whatsapp": "(62) 98888-2233",
+                    "endereco": "Av. T-63, 1200 - St. Nova Suíça, Goiânia - GO",
+                    "sobre": "Clínica veterinária 24 horas especializada em cuidados preventivos.",
+                    "foto_url": "https://images.unsplash.com/photo-1584820927498-cfe5211fd8bf?w=400",
+                    "criado_em": "2026-10-14T00:00:00Z",
+                    "atualizado_em": None,
+                },
+            }
+        }
+    )

@@ -27,6 +27,31 @@ router = APIRouter(tags=["Clínicas"])
     response_model=ClinicResponse,
     status_code=status.HTTP_201_CREATED,
     summary="Cadastrar nova clínica veterinária",
+    response_description="Clínica veterinária cadastrada com sucesso",
+    responses={
+        201: {
+            "description": "Clínica criada e registrada com sucesso no banco de dados.",
+        },
+        400: {
+            "description": "E-mail já cadastrado no sistema ou inconsistência nos dados.",
+            "content": {
+                "application/json": {
+                    "example": {"detail": "Já existe uma clínica cadastrada com este e-mail."}
+                }
+            },
+        },
+        422: {
+            "description": "Erro de validação nos campos informados (ex: senha sem caracteres alfanuméricos ou e-mail inválido).",
+        },
+        429: {
+            "description": "Limite de tentativas de cadastro excedido por IP (Rate Limiting).",
+            "content": {
+                "application/json": {
+                    "example": {"detail": "Muitas tentativas de cadastro. Por favor, aguarde alguns minutos."}
+                }
+            },
+        },
+    },
 )
 def register_clinic(
     request: Request,
@@ -34,8 +59,15 @@ def register_clinic(
     db: Session = Depends(get_db),
 ):
     """
-    Cadastra uma nova clínica veterinária no sistema com validação de unicidade de e-mail
-    e hash seguro de senha (Issue #59).
+    **Cadastra uma nova clínica veterinária ou consultório parceiro no sistema (Issue #59).**
+
+    ### Regras de Negócio e Validações:
+    * **Nome da Clínica:** Obrigatório, com no mínimo 2 e no máximo 150 caracteres.
+    * **E-mail:** Obrigatório, único em todo o sistema e em formato válido.
+    * **Senha:** Mínimo de 6 caracteres, devendo conter obrigatoriamente letras e números. É criptografada com hash seguro `bcrypt` antes de ser persistida.
+    * **CRMV e CNPJ:** Opcionais, permitindo identificação profissional do responsável técnico.
+    * **Telefone e WhatsApp:** Contatos oficiais para agendamentos e suporte aos tutores.
+    * **Segurança:** Protegido por rate limiting por endereço IP contra abusos automatizados.
     """
     client_ip = get_client_ip(request)
     if not register_rate_limiter.is_allowed(client_ip):
@@ -80,6 +112,28 @@ def register_clinic(
     "/login",
     response_model=ClinicToken,
     summary="Autenticar clínica veterinária e obter token JWT",
+    response_description="Autenticação bem-sucedida com emissão do token JWT Bearer",
+    responses={
+        200: {
+            "description": "Login realizado com sucesso. Retorna o token JWT e dados cadastrais da clínica.",
+        },
+        401: {
+            "description": "Credenciais incorretas (e-mail não encontrado ou senha divergente).",
+            "content": {
+                "application/json": {
+                    "example": {"detail": "E-mail ou senha incorretos."}
+                }
+            },
+        },
+        429: {
+            "description": "Muitas tentativas de login consecutivas (Proteção contra força bruta).",
+            "content": {
+                "application/json": {
+                    "example": {"detail": "Muitas tentativas de login consecutivas. Por favor, aguarde um minuto."}
+                }
+            },
+        },
+    },
 )
 def login_clinic(
     request: Request,
@@ -87,8 +141,10 @@ def login_clinic(
     db: Session = Depends(get_db),
 ):
     """
-    Autentica a clínica veterinária com e-mail e senha, retornando um Bearer token JWT (Issue #59).
-    Protegido contra ataques de força bruta por rate limiting por IP.
+    **Autentica a clínica veterinária parceira e gera o Bearer token JWT (Issue #59).**
+
+    O token emitido possui a claim `role: "clinic"` e deve ser incluído no cabeçalho
+    `Authorization: Bearer <access_token>` para acessar as rotas protegidas da clínica.
     """
     client_ip = get_client_ip(request)
     if not login_rate_limiter.is_allowed(client_ip):
@@ -117,12 +173,20 @@ def login_clinic(
     "/me",
     response_model=ClinicResponse,
     summary="Consultar dados da clínica autenticada",
+    response_description="Dados cadastrais completos da clínica logada",
+    responses={
+        200: {"description": "Dados da clínica retornados com sucesso."},
+        401: {"description": "Token JWT ausente, expirado ou inválido."},
+        403: {"description": "Acesso negado (ex: token de tutor utilizado em rota restrita de clínica)."},
+    },
 )
 def get_current_clinic_profile(
     current_clinic: Clinic = Depends(get_current_clinic),
 ):
     """
-    Retorna os dados cadastrais da clínica autenticada na sessão atual (Issue #59).
+    **Consulta os dados cadastrais da clínica veterinária autenticada na sessão atual (Issue #59).**
+
+    Requer envio do Bearer token da clínica no cabeçalho `Authorization`.
     """
     return current_clinic
 
@@ -131,12 +195,17 @@ def get_current_clinic_profile(
     "/perfil",
     response_model=ClinicResponse,
     summary="Consultar perfil da clínica autenticada",
+    response_description="Alias para consulta do perfil cadastral",
+    responses={
+        200: {"description": "Perfil da clínica retornado com sucesso."},
+        401: {"description": "Token JWT ausente ou inválido."},
+    },
 )
 def get_clinic_profile_alias(
     current_clinic: Clinic = Depends(get_current_clinic),
 ):
     """
-    Alias para consulta do perfil da clínica autenticada.
+    Alias conveniente para consulta do perfil da clínica autenticada.
     """
     return current_clinic
 
@@ -145,6 +214,13 @@ def get_clinic_profile_alias(
     "/perfil",
     response_model=ClinicResponse,
     summary="Atualizar dados cadastrais e perfil da clínica autenticada",
+    response_description="Perfil da clínica atualizado com sucesso",
+    responses={
+        200: {"description": "Informações cadastrais atualizadas com sucesso."},
+        400: {"description": "Novo e-mail já em uso por outra clínica ou dados inválidos."},
+        401: {"description": "Token JWT ausente ou inválido."},
+        422: {"description": "Erro de validação dos campos submetidos."},
+    },
 )
 def update_clinic_profile(
     update_data: ClinicUpdate,
@@ -152,7 +228,10 @@ def update_clinic_profile(
     db: Session = Depends(get_db),
 ):
     """
-    Atualiza as informações de perfil e contato da clínica autenticada (Issue #59).
+    **Atualiza as informações cadastrais e de perfil da clínica autenticada (Issue #59).**
+
+    Permite alteração de nome, telefone, WhatsApp, CRMV, CNPJ, endereço, texto sobre,
+    logotipo/foto e senha de acesso. Apenas os campos enviados serão atualizados.
     """
     if update_data.email and update_data.email.lower() != current_clinic.email.lower():
         existing = db.query(Clinic).filter(Clinic.email == update_data.email.lower()).first()
