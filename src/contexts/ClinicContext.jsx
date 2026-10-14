@@ -1,5 +1,9 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useState } from "react";
 
+import { clinicService } from "@/services/api";
+
+const getToday = () => new Date().toISOString().split("T")[0];
+
 export const STORAGE_KEY = "livepet_clinic_data";
 const STORAGE_VERSION = 1;
 
@@ -117,19 +121,49 @@ export const ClinicProvider = ({ children }) => {
   }, []);
 
   const addAppointment = useCallback((input) => {
-    const appointment = { id: newId(), status: "Confirmado", ...input };
+    const appointment = {
+      id: newId(),
+      status: "Confirmado",
+      date: input.date || getToday(),
+      notes: input.notes || "",
+      ...input,
+    };
     setData((current) => {
       const knownPatient = current.patients.some((p) => isSamePatient(p, appointment));
       return {
         ...current,
-        appointments: [...current.appointments, appointment].sort((a, b) =>
-          String(a.time ?? "").localeCompare(String(b.time ?? "")),
-        ),
+        appointments: [...current.appointments, appointment].sort((a, b) => {
+          const dateCmp = String(a.date ?? "").localeCompare(String(b.date ?? ""));
+          if (dateCmp !== 0) return dateCmp;
+          return String(a.time ?? "").localeCompare(String(b.time ?? ""));
+        }),
         patients: knownPatient
           ? current.patients
           : [...current.patients, patientFromAppointment(appointment)],
       };
     });
+
+    // Tenta sincronizar em segundo plano com o backend se disponível
+    try {
+      clinicService
+        .createAppointment({
+          pet_name: appointment.petName,
+          species: appointment.species,
+          breed: appointment.breed,
+          tutor: appointment.tutor,
+          phone: appointment.phone,
+          service: appointment.service,
+          vet: appointment.vet,
+          date: appointment.date,
+          time: appointment.time,
+          status: appointment.status,
+          notes: appointment.notes,
+        })
+        .catch(() => {});
+    } catch {
+      // Ignora falhas de rede / offline
+    }
+
     return appointment;
   }, []);
 
@@ -138,6 +172,11 @@ export const ClinicProvider = ({ children }) => {
       ...current,
       appointments: current.appointments.map((a) => (a.id === id ? { ...a, status } : a)),
     }));
+    try {
+      clinicService.updateAppointmentStatus(id, status).catch(() => {});
+    } catch {
+      // Modo offline
+    }
   }, []);
 
   const value = useMemo(

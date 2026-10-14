@@ -498,9 +498,63 @@ export const marketplaceService = {
   },
 };
 
+export const clinicService = {
+  /**
+   * Obtém as espécies sincronizadas com o banco de dados
+   */
+  async getSpecies() {
+    try {
+      return await apiFetch("/api/clinicas/especies");
+    } catch {
+      return ["Cão", "Gato", "Ave", "Roedor", "Réptil", "Outro"];
+    }
+  },
+
+  /**
+   * Lista atendimentos da clínica com filtros opcionais
+   */
+  async listAppointments(params = {}) {
+    const query = new URLSearchParams();
+    if (params.data) query.set("data", params.data);
+    if (params.status && params.status !== "Todos") query.set("status", params.status);
+    const qs = query.toString() ? `?${query.toString()}` : "";
+    return apiFetch(`/api/clinicas/atendimentos${qs}`);
+  },
+
+  /**
+   * Cria um novo agendamento / atendimento clínico no banco de dados
+   */
+  async createAppointment(data) {
+    return apiFetch("/api/clinicas/atendimentos", {
+      method: "POST",
+      body: data,
+    });
+  },
+
+  /**
+   * Atualiza o status do atendimento
+   */
+  async updateAppointmentStatus(id, status) {
+    return apiFetch(`/api/clinicas/atendimentos/${id}/status`, {
+      method: "PATCH",
+      body: { status },
+    });
+  },
+
+  /**
+   * Exclui um agendamento do banco de dados
+   */
+  async deleteAppointment(id) {
+    return apiFetch(`/api/clinicas/atendimentos/${id}`, {
+      method: "DELETE",
+    });
+  },
+};
+
 export default {
   auth: authService,
   pets: petsService,
   lineages: lineageService,
   marketplace: marketplaceService,
+  clinic: clinicService,
 };

@@ -165,4 +165,29 @@ describe("modal Novo atendimento", () => {
     expect(saved.patients[0]).toMatchObject({ name: "Thor", species: "Cão", phone: "(11) 99999-0000" });
     expect(within(document.querySelector("aside")).getByText("Agenda")).toBeTruthy();
   });
+
+  it("salva observações e exibe no card do atendimento", async () => {
+    render(app());
+    await openNewAppointment();
+    await fillAppointmentForm();
+    await userEvent.type(
+      screen.getByLabelText(/Observações/),
+      "Tosse seca e perda de apetite",
+    );
+    await submit();
+
+    expect(await screen.findByText("Tosse seca e perda de apetite")).toBeTruthy();
+    const saved = JSON.parse(localStorage.getItem(STORAGE_KEY));
+    expect(saved.appointments[0].notes).toBe("Tosse seca e perda de apetite");
+    expect(saved.appointments[0].date).toBeTruthy();
+  });
+
+  it("exige data válida quando o campo é limpo", async () => {
+    render(app());
+    await openNewAppointment();
+    await userEvent.clear(screen.getByLabelText("Data"));
+    await submit();
+
+    expect(await screen.findByText("Informe a data.")).toBeTruthy();
+  });
 });

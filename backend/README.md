@@ -54,7 +54,26 @@ Acesse no navegador:
 ---
 
 ## 🧪 Como Executar os Testes
-Para rodar a suíte de testes unitários dos modelos ORM e schemas Pydantic:
+Para rodar a suíte completa de testes automatizados (63 testes):
 ```bash
 pytest -v
 ```
+
+---
+
+## 📡 Visão Geral das Rotas REST
+
+| Módulo | Prefixo | Principais Endpoints | Autenticação |
+| :--- | :--- | :--- | :---: |
+| **Auth Tutores** | `/api/v1/auth` | `POST /register`, `POST /login`, `GET /me`, `PUT /me` | JWT (Bearer) |
+| **Pets & Espécies** | `/api/v1/pets` | `GET /especies`, `GET /`, `POST /`, `GET /{id}`, `PUT /{id}`, `DELETE /{id}` | JWT / Pública |
+| **Vacinas** | `/api/v1/pets` | `GET /{id}/vaccines`, `POST /{id}/vaccines`, `DELETE /{id}/vaccines/{v_id}` | JWT |
+| **Prontuário Médico** | `/api/v1/pets` | `GET /{id}/medical-records`, `POST /{id}/medical-records`, `DELETE ...` | JWT |
+| **Contatos de Cuidado** | `/api/v1/pets` | `GET /{id}/care-contacts`, `POST /{id}/care-contacts`, `DELETE ...` | JWT |
+| **Coleira QR Code** | `/api/v1/public`| `GET /pet/{token_publico}` | Pública |
+| **Clínicas** | `/api/clinicas` | `POST /register`, `POST /login`, `GET /me`, `PUT /perfil`, `GET /especies` | Role `clinic` |
+| **Atendimentos** | `/api/clinicas` | `GET /atendimentos`, `POST /atendimentos`, `PATCH /atendimentos/{id}/status` | Role `clinic` |
+| **Linhagens / Pedigree** | `/api/v1/lineages` | `GET /tree/{id}`, `POST /requests`, `GET /requests/pending`, `POST .../approve` | JWT |
+| **Marketplace** | `/api/v1/marketplace` | `GET /listings`, `GET /my-listings`, `POST /listings`, `POST .../confirm` | JWT / Pública |
+| **Health** | `/health` | `GET /health` (status e conectividade com Neon) | Pública |
+

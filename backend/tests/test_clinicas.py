@@ -243,13 +243,90 @@ class TestClinicasAuthAndProfile(unittest.TestCase):
         )
         self.assertEqual(resp_clean.status_code, 200)
 
-        # Testa endpoint com /api/clinicas/login
-        resp_api = self.client.post(
+    def test_get_species(self):
+        resp = self.client.get("/api/clinicas/especies")
+        self.assertEqual(resp.status_code, 200)
+        species = resp.json()
+        self.assertIsInstance(species, list)
+        self.assertIn("Cão", species)
+        self.assertIn("Gato", species)
+
+    def test_clinic_appointments_crud(self):
+        # 1. Login para obter token da clínica
+        login_resp = self.client.post(
             "/api/clinicas/login",
             json={"email": "contato@vidanimal.com.br", "senha": "senhaClinica123"},
         )
-        self.assertEqual(resp_api.status_code, 200)
+        token = login_resp.json()["access_token"]
+        headers = {"Authorization": f"Bearer {token}"}
+
+        # 2. Criar agendamento com data, horário e observações (notes)
+        payload = {
+            "pet_name": "Thor",
+            "species": "Cão",
+            "breed": "Golden Retriever",
+            "tutor": "Carlos Silva",
+            "phone": "(11) 98888-7777",
+            "service": "Consulta de Rotina",
+            "vet": "Dra. Marina Alves",
+            "date": "2026-10-15",
+            "time": "14:30",
+            "notes": "Animal com tosse seca persistente há 2 dias.",
+        }
+        create_resp = self.client.post(
+            "/api/clinicas/atendimentos",
+            headers=headers,
+            json=payload,
+        )
+        self.assertEqual(create_resp.status_code, 201)
+        created = create_resp.json()
+        self.assertEqual(created["pet_name"], "Thor")
+        self.assertEqual(created["date"], "2026-10-15")
+        self.assertEqual(created["time"], "14:30")
+        self.assertEqual(created["notes"], "Animal com tosse seca persistente há 2 dias.")
+        self.assertEqual(created["status"], "Confirmado")
+        appointment_id = created["id"]
+
+        # 3. Listar agendamentos da clínica
+        list_resp = self.client.get("/api/clinicas/atendimentos", headers=headers)
+        self.assertEqual(list_resp.status_code, 200)
+        appointments = list_resp.json()
+        self.assertEqual(len(appointments), 1)
+        self.assertEqual(appointments[0]["id"], appointment_id)
+
+        # 4. Filtrar por data
+        filter_resp = self.client.get(
+            "/api/clinicas/atendimentos?data=2026-10-15", headers=headers
+        )
+        self.assertEqual(filter_resp.status_code, 200)
+        self.assertEqual(len(filter_resp.json()), 1)
+
+        empty_filter = self.client.get(
+            "/api/clinicas/atendimentos?data=2026-10-20", headers=headers
+        )
+        self.assertEqual(empty_filter.status_code, 200)
+        self.assertEqual(len(empty_filter.json()), 0)
+
+        # 5. Atualizar status para 'Em atendimento'
+        status_resp = self.client.patch(
+            f"/api/clinicas/atendimentos/{appointment_id}/status",
+            headers=headers,
+            json={"status": "Em atendimento"},
+        )
+        self.assertEqual(status_resp.status_code, 200)
+        self.assertEqual(status_resp.json()["status"], "Em atendimento")
+
+        # 6. Excluir atendimento
+        del_resp = self.client.delete(
+            f"/api/clinicas/atendimentos/{appointment_id}", headers=headers
+        )
+        self.assertEqual(del_resp.status_code, 204)
+
+        # Verificar se lista ficou vazia
+        list_after = self.client.get("/api/clinicas/atendimentos", headers=headers)
+        self.assertEqual(len(list_after.json()), 0)
 
 
 if __name__ == "__main__":
     unittest.main()
+

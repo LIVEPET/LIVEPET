@@ -190,7 +190,22 @@ const ClinicPatients = () => {
                   )}
                 </div>
 
-                <Button className="w-full rounded-full gradient-primary text-primary-foreground">
+                <Button
+                  onClick={() => {
+                    navigate("/clinica/agenda", {
+                      state: {
+                        prefill: {
+                          petName: selected.name,
+                          species: selected.species || "Cão",
+                          breed: selected.breed && selected.breed !== "—" ? selected.breed : "",
+                          tutor: selected.tutor,
+                          phone: selected.phone && selected.phone !== "—" ? selected.phone : "",
+                        },
+                      },
+                    });
+                  }}
+                  className="w-full rounded-full gradient-primary text-primary-foreground shadow-soft"
+                >
                   Registrar novo atendimento
                 </Button>
               </div>

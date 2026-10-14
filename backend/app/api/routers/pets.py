@@ -24,6 +24,29 @@ from app.schemas.care_contact import CareContactCreate, CareContactResponse
 router = APIRouter(tags=["Pets"])
 
 
+@router.get(
+    "/pets/especies",
+    response_model=List[str],
+    summary="Listar espécies cadastradas no sistema",
+)
+def list_species(db: Session = Depends(get_db)):
+    """Retorna as espécies de animais disponíveis no sistema LivePet."""
+    default_species = ["Cão", "Gato", "Ave", "Roedor", "Réptil", "Outro"]
+    db_species = [
+        s[0].strip()
+        for s in db.query(Pet.especie).distinct().filter(Pet.especie.isnot(None)).all()
+        if s[0] and s[0].strip()
+    ]
+    species_set = set(default_species)
+    for sp in db_species:
+        species_set.add(sp)
+
+    priority = ["Cão", "Cachorro", "Gato"]
+    top = [sp for sp in priority if sp in species_set]
+    remaining = sorted(list(species_set - set(top)))
+    return top + remaining
+
+
 @router.post(
     "/pets",
     response_model=PetResponse,

@@ -1,4 +1,6 @@
-from fastapi import APIRouter, Depends, HTTPException, Request, status
+from datetime import date as date_type
+from typing import List, Optional
+from fastapi import APIRouter, Depends, HTTPException, Query, Request, status
 from sqlalchemy.orm import Session
 from app.api.deps import get_current_clinic
 from app.core.database import get_db
@@ -11,12 +13,20 @@ from app.core.security import (
     verify_password,
 )
 from app.models.clinic import Clinic
+from app.models.clinic_appointment import ClinicAppointment
+from app.models.pet import Pet
 from app.schemas.clinic import (
     ClinicCreate,
     ClinicLogin,
     ClinicResponse,
     ClinicToken,
     ClinicUpdate,
+)
+from app.schemas.clinic_appointment import (
+    ClinicAppointmentCreate,
+    ClinicAppointmentResponse,
+    ClinicAppointmentStatusUpdate,
+    ClinicAppointmentUpdate,
 )
 
 router = APIRouter(tags=["Clínicas"])
@@ -264,3 +274,161 @@ def update_clinic_profile(
     db.commit()
     db.refresh(current_clinic)
     return current_clinic
+
+
+@router.get(
+    "/especies",
+    response_model=List[str],
+    summary="Listar espécies de pets sincronizadas com o banco de dados",
+    response_description="Lista ordenada e deduplicada de espécies cadastradas",
+)
+def get_clinic_species(db: Session = Depends(get_db)):
+    """
+    Retorna as espécies de pets disponíveis, mesclando as espécies já cadastradas
+    na tabela de Pets com a base padrão recomendada pelo LivePet (Cão, Gato, Ave, etc.).
+    """
+    default_species = ["Cão", "Gato", "Ave", "Roedor", "Réptil", "Outro"]
+    db_species_raw = [
+        s[0].strip()
+        for s in db.query(Pet.especie).distinct().filter(Pet.especie.isnot(None)).all()
+        if s[0] and s[0].strip()
+    ]
+    # Mapeia/unifica "Cachorro" para "Cão" se desejado, preservando ambos se existirem
+    species_set = set(default_species)
+    for sp in db_species_raw:
+        species_set.add(sp)
+
+    # Ordena mantendo "Cão" e "Gato" no topo
+    priority = ["Cão", "Cachorro", "Gato"]
+    top = [sp for sp in priority if sp in species_set]
+    remaining = sorted(list(species_set - set(top)))
+    return top + remaining
+
+
+@router.get(
+    "/atendimentos",
+    response_model=List[ClinicAppointmentResponse],
+    summary="Listar atendimentos da clínica autenticada",
+    response_description="Lista de atendimentos ordenados por data e horário",
+)
+def list_clinic_appointments(
+    data: Optional[str] = Query(None, description="Filtrar por data no formato YYYY-MM-DD"),
+    status: Optional[str] = Query(None, description="Filtrar por status do atendimento"),
+    current_clinic: Clinic = Depends(get_current_clinic),
+    db: Session = Depends(get_db),
+):
+    """
+    Consulta os agendamentos cadastrados para a clínica autenticada.
+    Permite filtrar por data e status.
+    """
+    query = db.query(ClinicAppointment).filter(ClinicAppointment.clinic_id == current_clinic.id)
+    if data:
+        query = query.filter(ClinicAppointment.date == data)
+    if status and status != "Todos":
+        query = query.filter(ClinicAppointment.status == status)
+
+    return query.order_by(ClinicAppointment.date.asc(), ClinicAppointment.time.asc()).all()
+
+
+@router.post(
+    "/atendimentos",
+    response_model=ClinicAppointmentResponse,
+    status_code=status.HTTP_201_CREATED,
+    summary="Cadastrar novo atendimento / agendamento",
+    response_description="Atendimento cadastrado com sucesso",
+)
+def create_clinic_appointment(
+    appointment_in: ClinicAppointmentCreate,
+    current_clinic: Clinic = Depends(get_current_clinic),
+    db: Session = Depends(get_db),
+):
+    """
+    Registra um novo atendimento para a clínica autenticada.
+    Se a data não for informada, utiliza a data corrente (hoje).
+    """
+    appointment_date = appointment_in.date or date_type.today().isoformat()
+    appointment = ClinicAppointment(
+        clinic_id=current_clinic.id,
+        pet_name=appointment_in.pet_name.strip(),
+        species=appointment_in.species.strip(),
+        breed=appointment_in.breed.strip() if appointment_in.breed else "—",
+        tutor=appointment_in.tutor.strip(),
+        phone=appointment_in.phone.strip(),
+        service=appointment_in.service.strip(),
+        vet=appointment_in.vet.strip() if appointment_in.vet else "Equipe da clínica",
+        date=appointment_date,
+        time=appointment_in.time.strip(),
+        status=appointment_in.status.strip() if appointment_in.status else "Confirmado",
+        notes=appointment_in.notes.strip() if appointment_in.notes else None,
+    )
+    db.add(appointment)
+    db.commit()
+    db.refresh(appointment)
+    return appointment
+
+
+@router.patch(
+    "/atendimentos/{appointment_id}/status",
+    response_model=ClinicAppointmentResponse,
+    summary="Atualizar status do atendimento",
+)
+def update_appointment_status(
+    appointment_id: int,
+    status_update: ClinicAppointmentStatusUpdate,
+    current_clinic: Clinic = Depends(get_current_clinic),
+    db: Session = Depends(get_db),
+):
+    """
+    Atualiza o status de um atendimento da clínica (ex.: 'Em atendimento', 'Concluído', 'Cancelado').
+    """
+    appointment = (
+        db.query(ClinicAppointment)
+        .filter(
+            ClinicAppointment.id == appointment_id,
+            ClinicAppointment.clinic_id == current_clinic.id,
+        )
+        .first()
+    )
+    if not appointment:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Atendimento não encontrado.",
+        )
+
+    appointment.status = status_update.status
+    db.commit()
+    db.refresh(appointment)
+    return appointment
+
+
+@router.delete(
+    "/atendimentos/{appointment_id}",
+    status_code=status.HTTP_204_NO_CONTENT,
+    summary="Remover atendimento da clínica",
+)
+def delete_clinic_appointment(
+    appointment_id: int,
+    current_clinic: Clinic = Depends(get_current_clinic),
+    db: Session = Depends(get_db),
+):
+    """
+    Exclui um atendimento da clínica autenticada.
+    """
+    appointment = (
+        db.query(ClinicAppointment)
+        .filter(
+            ClinicAppointment.id == appointment_id,
+            ClinicAppointment.clinic_id == current_clinic.id,
+        )
+        .first()
+    )
+    if not appointment:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Atendimento não encontrado.",
+        )
+
+    db.delete(appointment)
+    db.commit()
+    return None
+

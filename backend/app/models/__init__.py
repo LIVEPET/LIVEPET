@@ -7,6 +7,7 @@ from app.models.lineage import Lineage
 from app.models.lineage_request import LineageRequest
 from app.models.marketplace_listing import MarketplaceListing
 from app.models.clinic import Clinic
+from app.models.clinic_appointment import ClinicAppointment
 
 __all__ = [
     "User",
@@ -18,5 +19,6 @@ __all__ = [
     "LineageRequest",
     "MarketplaceListing",
     "Clinic",
+    "ClinicAppointment",
 ]
 

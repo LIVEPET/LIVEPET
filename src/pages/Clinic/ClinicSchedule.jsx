@@ -1,12 +1,13 @@
-import { useMemo, useState } from "react";
-import { Link } from "react-router-dom";
-import { CalendarDays, Clock, Phone, Plus, Search, User } from "lucide-react";
+import { useEffect, useMemo, useState } from "react";
+import { Link, useLocation, useNavigate } from "react-router-dom";
+import { Calendar, CalendarDays, Clock, Phone, Plus, Search, User } from "lucide-react";
 import { toast } from "sonner";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { Textarea } from "@/components/ui/textarea";
 import {
   Dialog,
   DialogContent,
@@ -26,21 +27,26 @@ import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import EmptyState from "@/components/EmptyState";
 import { statusStyles } from "@/data/clinicDemo";
 import { useClinic } from "@/contexts/ClinicContext";
+import { clinicService } from "@/services/api";
 import { formatPhone, isValidPhone } from "@/lib/phone";
 
 const filters = ["Todos", "Confirmado", "Aguardando", "Em atendimento", "Concluído", "Cancelado"];
-const speciesOptions = ["Cão", "Gato"];
+const DEFAULT_SPECIES = ["Cão", "Gato", "Ave", "Roedor", "Réptil", "Outro"];
 const DEFAULT_VET = "Equipe da clínica";
+
+const getToday = () => new Date().toISOString().split("T")[0];
 
 const emptyForm = {
   petName: "",
   species: "",
   breed: "",
+  date: getToday(),
   time: "",
   tutor: "",
   phone: "",
   service: "",
   vet: "",
+  notes: "",
 };
 
 // Serviços e equipe vêm do Perfil; aceita texto puro ou objeto com "name".
@@ -52,6 +58,7 @@ const validate = (form, hasServices) => {
   const errors = {};
   if (!form.petName.trim()) errors.petName = "Informe o nome do pet.";
   if (!form.species) errors.species = "Selecione a espécie.";
+  if (!form.date) errors.date = "Informe a data.";
   if (!form.time) errors.time = "Informe o horário.";
   if (!form.tutor.trim()) errors.tutor = "Informe o nome do tutor.";
   if (!form.phone.trim()) errors.phone = "Informe o telefone do tutor.";
@@ -79,23 +86,66 @@ const ProfileLink = ({ children }) => (
 
 const ClinicSchedule = () => {
   const { appointments: list, profile, addAppointment, updateAppointmentStatus } = useClinic();
+  const location = useLocation();
+  const navigate = useNavigate();
+
   const [filter, setFilter] = useState("Todos");
+  const [dateFilter, setDateFilter] = useState("Hoje");
   const [query, setQuery] = useState("");
   const [open, setOpen] = useState(false);
   const [form, setForm] = useState(emptyForm);
   const [errors, setErrors] = useState({});
+  const [speciesOptions, setSpeciesOptions] = useState(DEFAULT_SPECIES);
 
   const services = useMemo(() => uniqueNames(profile.services), [profile.services]);
   const team = useMemo(() => uniqueNames(profile.team), [profile.team]);
 
+  // Sincroniza espécies cadastradas no banco de dados
+  useEffect(() => {
+    let active = true;
+    clinicService
+      .getSpecies()
+      .then((data) => {
+        if (active && Array.isArray(data) && data.length > 0) {
+          setSpeciesOptions(data);
+        }
+      })
+      .catch(() => {});
+    return () => {
+      active = false;
+    };
+  }, []);
+
+  // Pré-preenchimento ao vir da aba de Pacientes
+  useEffect(() => {
+    if (location.state?.prefill) {
+      const p = location.state.prefill;
+      setForm((current) => ({
+        ...current,
+        petName: p.petName || current.petName,
+        species: p.species || current.species,
+        breed: p.breed || current.breed,
+        tutor: p.tutor || current.tutor,
+        phone: p.phone || current.phone,
+      }));
+      setOpen(true);
+      navigate(location.pathname, { replace: true, state: {} });
+    }
+  }, [location.state, location.pathname, navigate]);
+
   const visible = useMemo(
     () =>
-      list.filter(
-        (a) =>
-          (filter === "Todos" || a.status === filter) &&
-          `${a.petName} ${a.tutor} ${a.service}`.toLowerCase().includes(query.toLowerCase()),
-      ),
-    [list, filter, query],
+      list.filter((a) => {
+        const matchesStatus = filter === "Todos" || a.status === filter;
+        const matchesDate =
+          dateFilter === "Todas as datas" ||
+          (dateFilter === "Hoje" && (a.date === getToday() || !a.date));
+        const matchesQuery = `${a.petName} ${a.tutor} ${a.service} ${a.notes || ""}`
+          .toLowerCase()
+          .includes(query.toLowerCase());
+        return matchesStatus && matchesDate && matchesQuery;
+      }),
+    [list, filter, dateFilter, query],
   );
 
   const advance = (a) => {
@@ -140,6 +190,7 @@ const ClinicSchedule = () => {
       return;
     }
     addAppointment({
+      date: form.date,
       time: form.time,
       petName: form.petName.trim(),
       species: form.species,
@@ -148,6 +199,7 @@ const ClinicSchedule = () => {
       phone: formatPhone(form.phone),
       service: form.service.trim(),
       vet: form.vet || DEFAULT_VET,
+      notes: form.notes.trim() || "",
     });
     resetForm();
     setOpen(false);
@@ -158,8 +210,30 @@ const ClinicSchedule = () => {
     <div className="space-y-6">
       <div className="flex flex-wrap items-end justify-between gap-4">
         <div>
-          <Badge className="mb-2 bg-primary-soft text-primary hover:bg-primary-soft">Agenda</Badge>
-          <h1 className="font-display text-3xl font-bold">Atendimentos de hoje</h1>
+          <div className="mb-2 flex flex-wrap items-center gap-2">
+            <Badge className="bg-primary-soft text-primary hover:bg-primary-soft">Agenda</Badge>
+            <div className="flex items-center gap-1">
+              <Button
+                variant={dateFilter === "Hoje" ? "secondary" : "ghost"}
+                size="sm"
+                className="h-6 rounded-full px-2.5 text-xs font-semibold"
+                onClick={() => setDateFilter("Hoje")}
+              >
+                Hoje
+              </Button>
+              <Button
+                variant={dateFilter === "Todas as datas" ? "secondary" : "ghost"}
+                size="sm"
+                className="h-6 rounded-full px-2.5 text-xs font-semibold"
+                onClick={() => setDateFilter("Todas as datas")}
+              >
+                Todas as datas
+              </Button>
+            </div>
+          </div>
+          <h1 className="font-display text-3xl font-bold">
+            {dateFilter === "Hoje" ? "Atendimentos de hoje" : "Todos os atendimentos"}
+          </h1>
           <p className="text-muted-foreground">{visible.length} atendimento(s) nesta visualização.</p>
         </div>
         <Dialog open={open} onOpenChange={handleOpenChange}>
@@ -207,6 +281,16 @@ const ClinicSchedule = () => {
                     value={form.breed}
                     onChange={(e) => update("breed", e.target.value)}
                   />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="date">Data</Label>
+                  <Input
+                    {...fieldProps("date")}
+                    type="date"
+                    value={form.date}
+                    onChange={(e) => update("date", e.target.value)}
+                  />
+                  <FieldError id="date" message={errors.date} />
                 </div>
                 <div className="space-y-2">
                   <Label htmlFor="time">Horário</Label>
@@ -300,6 +384,17 @@ const ClinicSchedule = () => {
                 )}
               </div>
 
+              <div className="space-y-2">
+                <Label htmlFor="notes">Observações / Queixa principal (opcional)</Label>
+                <Textarea
+                  id="notes"
+                  placeholder="Ex.: Consulta de rotina, vacinação anual, tosse seca há 2 dias..."
+                  rows={2}
+                  value={form.notes}
+                  onChange={(e) => update("notes", e.target.value)}
+                />
+              </div>
+
               <Button type="submit" className="w-full rounded-full gradient-primary text-primary-foreground">
                 Confirmar agendamento
               </Button>
@@ -333,9 +428,14 @@ const ClinicSchedule = () => {
         {visible.map((a) => (
           <Card key={a.id} className="border-border/70 shadow-card">
             <CardContent className="flex flex-wrap items-center gap-4 p-5">
-              <div className="flex w-20 flex-col items-center rounded-2xl bg-primary-soft px-3 py-2 text-primary">
+              <div className="flex min-w-[5.5rem] flex-col items-center rounded-2xl bg-primary-soft px-3 py-2 text-primary">
                 <Clock className="h-4 w-4" />
                 <span className="text-sm font-bold">{a.time}</span>
+                {a.date && (
+                  <span className="text-[10px] font-medium opacity-80">
+                    {a.date === getToday() ? "Hoje" : a.date.split("-").reverse().slice(0, 2).join("/")}
+                  </span>
+                )}
               </div>
               <div className="min-w-[200px] flex-1">
                 <p className="font-semibold">

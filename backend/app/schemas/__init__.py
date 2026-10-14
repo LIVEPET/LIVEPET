@@ -31,6 +31,14 @@ from app.schemas.marketplace_listing import (
     MarketplaceConfirmAction,
 )
 
+from app.schemas.clinic_appointment import (
+    ClinicAppointmentBase,
+    ClinicAppointmentCreate,
+    ClinicAppointmentUpdate,
+    ClinicAppointmentStatusUpdate,
+    ClinicAppointmentResponse,
+)
+
 __all__ = [
     "UserBase",
     "UserCreate",
@@ -53,4 +61,9 @@ __all__ = [
     "MarketplaceListingUpdate",
     "MarketplaceListingResponse",
     "MarketplaceConfirmAction",
+    "ClinicAppointmentBase",
+    "ClinicAppointmentCreate",
+    "ClinicAppointmentUpdate",
+    "ClinicAppointmentStatusUpdate",
+    "ClinicAppointmentResponse",
 ]
