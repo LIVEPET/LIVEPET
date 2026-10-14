@@ -549,6 +549,13 @@ export const clinicService = {
       method: "DELETE",
     });
   },
+
+  /**
+   * Lista os pacientes únicos da clínica com base no banco de dados
+   */
+  async listPatients() {
+    return apiFetch("/api/clinicas/pacientes");
+  },
 };
 
 export default {

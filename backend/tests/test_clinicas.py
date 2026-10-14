@@ -326,7 +326,45 @@ class TestClinicasAuthAndProfile(unittest.TestCase):
         list_after = self.client.get("/api/clinicas/atendimentos", headers=headers)
         self.assertEqual(len(list_after.json()), 0)
 
+    def test_list_clinic_patients(self):
+        login_resp = self.client.post(
+            "/api/clinicas/login",
+            json={"email": "contato@vidanimal.com.br", "senha": "senhaClinica123"},
+        )
+        token = login_resp.json()["access_token"]
+        headers = {"Authorization": f"Bearer {token}"}
+
+        # Inicialmente sem pacientes
+        resp_empty = self.client.get("/api/clinicas/pacientes", headers=headers)
+        self.assertEqual(resp_empty.status_code, 200)
+        self.assertEqual(len(resp_empty.json()), 0)
+
+        # Registra um atendimento
+        self.client.post(
+            "/api/clinicas/atendimentos",
+            headers=headers,
+            json={
+                "pet_name": "Thor",
+                "species": "Cão",
+                "breed": "Golden Retriever",
+                "tutor": "Carlos",
+                "phone": "(11) 98888-7777",
+                "service": "Consulta Geral",
+                "time": "10:00",
+            },
+        )
+
+        # Agora paciente deve constar na lista
+        resp_patients = self.client.get("/api/clinicas/pacientes", headers=headers)
+        self.assertEqual(resp_patients.status_code, 200)
+        data = resp_patients.json()
+        self.assertEqual(len(data), 1)
+        self.assertEqual(data[0]["name"], "Thor")
+        self.assertEqual(data[0]["species"], "Cão")
+        self.assertEqual(data[0]["breed"], "Golden Retriever")
+
 
 if __name__ == "__main__":
     unittest.main()
+
 

@@ -72,7 +72,7 @@ pytest -v
 | **Contatos de Cuidado** | `/api/v1/pets` | `GET /{id}/care-contacts`, `POST /{id}/care-contacts`, `DELETE ...` | JWT |
 | **Coleira QR Code** | `/api/v1/public`| `GET /pet/{token_publico}` | Pública |
 | **Clínicas** | `/api/clinicas` | `POST /register`, `POST /login`, `GET /me`, `PUT /perfil`, `GET /especies` | Role `clinic` |
-| **Atendimentos** | `/api/clinicas` | `GET /atendimentos`, `POST /atendimentos`, `PATCH /atendimentos/{id}/status` | Role `clinic` |
+| **Atendimentos** | `/api/clinicas` | `GET /atendimentos`, `POST /atendimentos`, `PATCH /.../status`, `GET /pacientes` | Role `clinic` |
 | **Linhagens / Pedigree** | `/api/v1/lineages` | `GET /tree/{id}`, `POST /requests`, `GET /requests/pending`, `POST .../approve` | JWT |
 | **Marketplace** | `/api/v1/marketplace` | `GET /listings`, `GET /my-listings`, `POST /listings`, `POST .../confirm` | JWT / Pública |
 | **Health** | `/health` | `GET /health` (status e conectividade com Neon) | Pública |

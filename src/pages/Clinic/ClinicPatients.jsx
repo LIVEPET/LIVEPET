@@ -7,6 +7,13 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import {
   Sheet,
   SheetContent,
   SheetDescription,
@@ -36,16 +43,35 @@ const ClinicPatients = () => {
   const { patients } = useClinic();
   const [query, setQuery] = useState("");
   const [species, setSpecies] = useState("Todos");
+  const [breed, setBreed] = useState("Todas");
   const [selected, setSelected] = useState(null);
+
+  // Espécies e raças dinâmicas extraídas estritamente dos pets cadastrados
+  const availableSpecies = useMemo(() => {
+    return Array.from(new Set(patients.map((p) => p.species).filter(Boolean))).sort();
+  }, [patients]);
+
+  const availableBreeds = useMemo(() => {
+    return Array.from(
+      new Set(
+        patients
+          .map((p) => p.breed)
+          .filter((b) => b && typeof b === "string" && b.trim() && b.trim() !== "—")
+      ),
+    ).sort();
+  }, [patients]);
 
   const visible = useMemo(
     () =>
-      patients.filter(
-        (p) =>
-          (species === "Todos" || p.species === species) &&
-          `${p.name} ${p.tutor} ${p.breed}`.toLowerCase().includes(query.toLowerCase()),
-      ),
-    [patients, query, species],
+      patients.filter((p) => {
+        const matchesSpecies = species === "Todos" || p.species === species;
+        const matchesBreed = breed === "Todas" || p.breed === breed;
+        const matchesQuery = `${p.name} ${p.tutor} ${p.breed}`
+          .toLowerCase()
+          .includes(query.toLowerCase());
+        return matchesSpecies && matchesBreed && matchesQuery;
+      }),
+    [patients, query, species, breed],
   );
 
   return (
@@ -56,21 +82,51 @@ const ClinicPatients = () => {
         <p className="text-muted-foreground">Consulte prontuários, vacinas e alertas clínicos.</p>
       </div>
 
-      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-        <Tabs value={species} onValueChange={setSpecies}>
-          <TabsList>
-            {["Todos", "Cão", "Gato"].map((s) => (
-              <TabsTrigger key={s} value={s}>
-                {s}
-              </TabsTrigger>
-            ))}
-          </TabsList>
-        </Tabs>
-        <div className="relative sm:w-72">
-          <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-          <Input className="pl-9" placeholder="Buscar pet, raça ou tutor" value={query} onChange={(e) => setQuery(e.target.value)} />
+      {/* Barra de filtros: só aparece se houver pets cadastrados, exibindo apenas as opções reais */}
+      {patients.length > 0 && (
+        <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+          <div className="flex flex-wrap items-center gap-2.5">
+            {availableSpecies.length > 0 && (
+              <Tabs value={species} onValueChange={setSpecies}>
+                <TabsList className="flex-wrap">
+                  <TabsTrigger value="Todos">Todos</TabsTrigger>
+                  {availableSpecies.map((s) => (
+                    <TabsTrigger key={s} value={s}>
+                      {s}
+                    </TabsTrigger>
+                  ))}
+                </TabsList>
+              </Tabs>
+            )}
+
+            {availableBreeds.length > 0 && (
+              <Select value={breed} onValueChange={setBreed}>
+                <SelectTrigger className="h-9 w-[170px] rounded-2xl text-xs font-medium">
+                  <SelectValue placeholder="Todas as raças" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="Todas">Todas as raças</SelectItem>
+                  {availableBreeds.map((b) => (
+                    <SelectItem key={b} value={b}>
+                      {b}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            )}
+          </div>
+
+          <div className="relative sm:w-72">
+            <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+            <Input
+              className="pl-9"
+              placeholder="Buscar pet, raça ou tutor"
+              value={query}
+              onChange={(e) => setQuery(e.target.value)}
+            />
+          </div>
         </div>
-      </div>
+      )}
 
       {visible.length === 0 &&
         (patients.length === 0 ? (
@@ -85,10 +141,11 @@ const ClinicPatients = () => {
           <EmptyState
             icon={<Search className="h-8 w-8" />}
             title="Nenhum paciente encontrado"
-            description="Nenhum resultado para essa busca. Tente outro nome, raça ou tutor."
+            description="Nenhum resultado para esses filtros. Tente outra espécie, raça ou busca."
             actionLabel="Limpar filtros"
             onAction={() => {
               setSpecies("Todos");
+              setBreed("Todas");
               setQuery("");
             }}
           />

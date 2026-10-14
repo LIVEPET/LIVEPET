@@ -432,3 +432,53 @@ def delete_clinic_appointment(
     db.commit()
     return None
 
+
+@router.get(
+    "/pacientes",
+    summary="Listar pacientes únicos atendidos pela clínica",
+    response_description="Lista de pacientes com histórico e dados cadastrais",
+)
+def list_clinic_patients(
+    current_clinic: Clinic = Depends(get_current_clinic),
+    db: Session = Depends(get_db),
+):
+    """
+    Retorna a lista de pacientes únicos atendidos pela clínica com base nos atendimentos registrados.
+    """
+    appointments = (
+        db.query(ClinicAppointment)
+        .filter(ClinicAppointment.clinic_id == current_clinic.id)
+        .order_by(ClinicAppointment.date.desc(), ClinicAppointment.time.desc())
+        .all()
+    )
+    seen = set()
+    patients = []
+    for a in appointments:
+        key = (a.pet_name.strip().lower(), a.tutor.strip().lower())
+        if key not in seen:
+            seen.add(key)
+            patients.append({
+                "id": str(a.id),
+                "name": a.pet_name,
+                "species": a.species,
+                "breed": a.breed or "—",
+                "age": "—",
+                "weight": "—",
+                "tutor": a.tutor,
+                "phone": a.phone or "—",
+                "photo": None,
+                "alerts": [],
+                "vaccinesUpToDate": None,
+                "lastVisit": f"{a.date} · {a.time}",
+                "history": [
+                    {
+                        "date": a.date,
+                        "type": a.service,
+                        "vet": a.vet,
+                        "summary": a.notes or f"Atendimento {a.status.lower()}",
+                    }
+                ],
+            })
+    return patients
+
+

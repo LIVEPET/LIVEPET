@@ -147,6 +147,7 @@ A API do LivePet segue a arquitetura RESTful com autenticação Bearer JWT, vali
 | `POST` | `/api/clinicas/atendimentos` | Sim (Clínica) | Agenda novo atendimento com pet, tutor, serviço, data, hora e queixa |
 | `PATCH` | `/api/clinicas/atendimentos/{id}/status` | Sim (Clínica) | Atualiza status (`Aguardando`, `Em atendimento`, `Concluído`, `Cancelado`) |
 | `DELETE` | `/api/clinicas/atendimentos/{id}` | Sim (Clínica) | Exclui/cancela atendimento agendado |
+| `GET` | `/api/clinicas/pacientes` | Sim (Clínica) | Lista pacientes únicos atendidos com base no histórico clínico |
 
 ### 4. Genealogia & Linhagens de Pedigree (`/api/v1/lineages`)
 

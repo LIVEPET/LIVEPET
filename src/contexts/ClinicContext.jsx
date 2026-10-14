@@ -116,6 +116,31 @@ export const ClinicProvider = ({ children }) => {
     saveData(data);
   }, [data]);
 
+  // Sincroniza pacientes do banco de dados se a clínica estiver conectada
+  useEffect(() => {
+    let active = true;
+    clinicService
+      .listPatients()
+      .then((apiPatients) => {
+        if (!active || !Array.isArray(apiPatients) || apiPatients.length === 0) return;
+        setData((current) => {
+          const merged = [...current.patients];
+          let changed = false;
+          apiPatients.forEach((ap) => {
+            if (!merged.some((p) => isSamePatient(p, { petName: ap.name, tutor: ap.tutor }))) {
+              merged.push(ap);
+              changed = true;
+            }
+          });
+          return changed ? { ...current, patients: merged } : current;
+        });
+      })
+      .catch(() => {});
+    return () => {
+      active = false;
+    };
+  }, []);
+
   const saveProfile = useCallback((fields) => {
     setData((current) => ({ ...current, profile: { ...current.profile, ...fields } }));
   }, []);
