@@ -634,6 +634,9 @@ const ClinicPatients = () => {
               </Button>
             </DialogFooter>
           </form>
+        </DialogContent>
+      </Dialog>
+
       {/* Modal de Confirmação de Exclusão de Paciente */}
       <Dialog open={deletePatientModalOpen} onOpenChange={setDeletePatientModalOpen}>
         <DialogContent className="max-w-md">
@@ -676,4 +679,4 @@ const ClinicPatients = () => {
   );
 };
 
-export default ClinicPatients;
+export default ClinicPatients;
