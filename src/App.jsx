@@ -28,6 +28,7 @@ import ClinicDashboard from "./pages/Clinic/ClinicDashboard";
 import ClinicPatients from "./pages/Clinic/ClinicPatients";
 import ClinicProfile from "./pages/Clinic/ClinicProfile";
 import ClinicSchedule from "./pages/Clinic/ClinicSchedule";
+import ProtectedClinicRoute from "./components/ProtectedClinicRoute";
 
 const queryClient = new QueryClient();
 
@@ -41,11 +42,13 @@ const App = () => (
           <Route path="/login" element={<Login />} />
 
           <Route path="/clinica/entrar" element={<ClinicLogin />} />
-          <Route path="/clinica" element={<ClinicLayout />}>
-            <Route index element={<ClinicDashboard />} />
-            <Route path="agenda" element={<ClinicSchedule />} />
-            <Route path="pacientes" element={<ClinicPatients />} />
-            <Route path="perfil" element={<ClinicProfile />} />
+          <Route element={<ProtectedClinicRoute />}>
+            <Route path="/clinica" element={<ClinicLayout />}>
+              <Route index element={<ClinicDashboard />} />
+              <Route path="agenda" element={<ClinicSchedule />} />
+              <Route path="pacientes" element={<ClinicPatients />} />
+              <Route path="perfil" element={<ClinicProfile />} />
+            </Route>
           </Route>
 
           <Route element={<Layout />}>

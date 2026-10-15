@@ -4,6 +4,7 @@ import { Button } from "@/components/ui/button";
 import { Sheet, SheetContent, SheetTrigger, SheetClose } from "@/components/ui/sheet";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { ClinicProvider, useClinic } from "@/contexts/ClinicContext";
+import { clinicService } from "@/services/api";
 
 const links = [
   { to: "/clinica", label: "Painel", icon: LayoutDashboard, end: true },
@@ -87,7 +88,10 @@ const ClinicShell = () => {
           <Button
             variant="ghost"
             className="w-full justify-start gap-2 text-muted-foreground"
-            onClick={() => navigate("/clinica/entrar")}
+            onClick={() => {
+              clinicService.logout();
+              navigate("/clinica/entrar");
+            }}
           >
             <LogOut className="h-4 w-4" /> Sair da conta
           </Button>
@@ -120,7 +124,10 @@ const ClinicShell = () => {
                 <Button
                   variant="outline"
                   className="w-full gap-2"
-                  onClick={() => navigate("/clinica/entrar")}
+                  onClick={() => {
+                    clinicService.logout();
+                    navigate("/clinica/entrar");
+                  }}
                 >
                   <LogOut className="h-4 w-4" /> Sair
                 </Button>

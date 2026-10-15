@@ -116,6 +116,55 @@ export const ClinicProvider = ({ children }) => {
     saveData(data);
   }, [data]);
 
+  // Sincroniza perfil da clínica se autenticada
+  useEffect(() => {
+    let active = true;
+    const currentClinic = clinicService.getCurrentClinic();
+    if (currentClinic) {
+      setData((current) => ({
+        ...current,
+        profile: {
+          ...current.profile,
+          name: currentClinic.nome || current.profile.name,
+          crmv: currentClinic.crmv || current.profile.crmv,
+          email: currentClinic.email || current.profile.email,
+          phone: currentClinic.telefone || current.profile.phone,
+          whatsapp: currentClinic.whatsapp || current.profile.whatsapp,
+          address: currentClinic.endereco || current.profile.address,
+          about: currentClinic.sobre || current.profile.about,
+          photo: currentClinic.foto_url || current.profile.photo,
+        },
+      }));
+    }
+
+    if (clinicService.isAuthenticated()) {
+      clinicService
+        .getProfile()
+        .then((clinic) => {
+          if (!active || !clinic) return;
+          setData((current) => ({
+            ...current,
+            profile: {
+              ...current.profile,
+              name: clinic.nome || current.profile.name,
+              crmv: clinic.crmv || current.profile.crmv,
+              email: clinic.email || current.profile.email,
+              phone: clinic.telefone || current.profile.phone,
+              whatsapp: clinic.whatsapp || current.profile.whatsapp,
+              address: clinic.endereco || current.profile.address,
+              about: clinic.sobre || current.profile.about,
+              photo: clinic.foto_url || current.profile.photo,
+            },
+          }));
+        })
+        .catch(() => {});
+    }
+
+    return () => {
+      active = false;
+    };
+  }, []);
+
   // Sincroniza pacientes do banco de dados se a clínica estiver conectada
   useEffect(() => {
     let active = true;
@@ -143,6 +192,19 @@ export const ClinicProvider = ({ children }) => {
 
   const saveProfile = useCallback((fields) => {
     setData((current) => ({ ...current, profile: { ...current.profile, ...fields } }));
+    if (clinicService.isAuthenticated()) {
+      clinicService
+        .updateProfile({
+          nome: fields.name,
+          crmv: fields.crmv,
+          email: fields.email,
+          telefone: fields.phone,
+          whatsapp: fields.whatsapp,
+          endereco: fields.address,
+          sobre: fields.about,
+        })
+        .catch(() => {});
+    }
   }, []);
 
   const addAppointment = useCallback((input) => {

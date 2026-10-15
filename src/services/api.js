@@ -13,6 +13,10 @@ const TOKEN_KEY = "livepet_access_token";
 const USER_KEY = "livepet_current_user";
 const AUTH_EVENT = "livepet-auth-change";
 
+const CLINIC_TOKEN_KEY = "livepet_clinic_access_token";
+const CLINIC_KEY = "livepet_current_clinic";
+const CLINIC_AUTH_EVENT = "livepet-clinic-auth-change";
+
 export const getAuthToken = () => {
   if (typeof window === "undefined") return null;
   return localStorage.getItem(TOKEN_KEY);
@@ -56,6 +60,49 @@ export const clearStoredAuth = () => {
   );
 };
 
+export const getClinicAuthToken = () => {
+  if (typeof window === "undefined") return null;
+  return localStorage.getItem(CLINIC_TOKEN_KEY);
+};
+
+export const getStoredClinic = () => {
+  if (typeof window === "undefined") return null;
+  try {
+    const raw = localStorage.getItem(CLINIC_KEY);
+    return raw ? JSON.parse(raw) : null;
+  } catch {
+    return null;
+  }
+};
+
+export const setStoredClinicAuth = (token, clinic) => {
+  if (typeof window === "undefined") return;
+  if (token) {
+    localStorage.setItem(CLINIC_TOKEN_KEY, token);
+  } else {
+    localStorage.removeItem(CLINIC_TOKEN_KEY);
+  }
+
+  if (clinic) {
+    localStorage.setItem(CLINIC_KEY, JSON.stringify(clinic));
+  } else {
+    localStorage.removeItem(CLINIC_KEY);
+  }
+
+  window.dispatchEvent(
+    new CustomEvent(CLINIC_AUTH_EVENT, { detail: { token, clinic } })
+  );
+};
+
+export const clearStoredClinicAuth = () => {
+  if (typeof window === "undefined") return;
+  localStorage.removeItem(CLINIC_TOKEN_KEY);
+  localStorage.removeItem(CLINIC_KEY);
+  window.dispatchEvent(
+    new CustomEvent(CLINIC_AUTH_EVENT, { detail: { token: null, clinic: null } })
+  );
+};
+
 /**
  * Função utilitária para chamadas HTTP tipadas à API
  */
@@ -67,7 +114,11 @@ async function apiFetch(endpoint, options = {}) {
     ...(options.headers || {}),
   };
 
-  const token = getAuthToken();
+  const isClinicEndpoint = endpoint.includes("/clinicas");
+  const clinicToken = getClinicAuthToken();
+  const tutorToken = getAuthToken();
+  const token = isClinicEndpoint ? (clinicToken || tutorToken) : (tutorToken || clinicToken);
+
   if (token && !headers.Authorization) {
     headers.Authorization = `Bearer ${token}`;
   }
@@ -527,6 +578,84 @@ export const marketplaceService = {
 };
 
 export const clinicService = {
+  /**
+   * Autentica a clínica veterinária parceira com e-mail e senha
+   */
+  async login({ email, senha }) {
+    const data = await apiFetch("/api/clinicas/login", {
+      method: "POST",
+      body: {
+        email: email.trim().toLowerCase(),
+        senha,
+      },
+    });
+
+    setStoredClinicAuth(data.access_token, data.clinica);
+    return data;
+  },
+
+  /**
+   * Cadastra uma nova clínica veterinária parceira
+   */
+  async register(clinicData) {
+    const data = await apiFetch("/api/clinicas/register", {
+      method: "POST",
+      body: {
+        ...clinicData,
+        email: clinicData.email ? clinicData.email.trim().toLowerCase() : "",
+      },
+    });
+    return data;
+  },
+
+  /**
+   * Encerra a sessão da clínica
+   */
+  logout() {
+    clearStoredClinicAuth();
+  },
+
+  /**
+   * Retorna os dados da clínica autenticada salvos localmente
+   */
+  getCurrentClinic() {
+    return getStoredClinic();
+  },
+
+  /**
+   * Verifica se há um token de clínica ativo
+   */
+  isAuthenticated() {
+    return Boolean(getClinicAuthToken());
+  },
+
+  /**
+   * Consulta os dados cadastrais atualizados da clínica autenticada no backend
+   */
+  async getProfile() {
+    const clinic = await apiFetch("/api/clinicas/perfil");
+    const currentToken = getClinicAuthToken();
+    if (currentToken) {
+      setStoredClinicAuth(currentToken, clinic);
+    }
+    return clinic;
+  },
+
+  /**
+   * Atualiza dados cadastrais e perfil da clínica
+   */
+  async updateProfile(fields) {
+    const clinic = await apiFetch("/api/clinicas/perfil", {
+      method: "PUT",
+      body: fields,
+    });
+    const currentToken = getClinicAuthToken();
+    if (currentToken) {
+      setStoredClinicAuth(currentToken, clinic);
+    }
+    return clinic;
+  },
+
   /**
    * Obtém as espécies sincronizadas com o banco de dados
    */
