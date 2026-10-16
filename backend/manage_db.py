@@ -126,12 +126,52 @@ def seed_test_clinic(
         db.close()
 
 
+def sync_db_schema():
+    """
+    Sincroniza o banco de dados (Neon / PostgreSQL ou SQLite) com os modelos SQLAlchemy:
+    1. Cria tabelas mapeadas que ainda não existam.
+    2. Compara colunas existentes e adiciona automaticamente colunas ausentes via ALTER TABLE.
+    """
+    print("\n⏳ Sincronizando esquema do banco com os modelos SQLAlchemy...")
+    Base.metadata.create_all(bind=engine)
+
+    inspector = inspect(engine)
+    db_tables = inspector.get_table_names()
+    dialect = engine.dialect.name
+    total_added = 0
+
+    with engine.begin() as conn:
+        for table_name, table in Base.metadata.tables.items():
+            if table_name not in db_tables:
+                continue
+            db_cols = {c["name"]: c for c in inspector.get_columns(table_name)}
+            for col in table.columns:
+                if col.name not in db_cols:
+                    col_type = col.type.compile(engine.dialect)
+                    if dialect == "postgresql":
+                        stmt = f'ALTER TABLE "{table_name}" ADD COLUMN IF NOT EXISTS "{col.name}" {col_type};'
+                    else:
+                        stmt = f'ALTER TABLE "{table_name}" ADD COLUMN "{col.name}" {col_type};'
+
+                    conn.execute(text(stmt))
+                    print(f"   ➕ Adicionada coluna: {table_name}.{col.name} ({col_type})")
+                    total_added += 1
+
+    if total_added > 0:
+        print(f"✅ Sincronização concluída! {total_added} coluna(s) adicionada(s).")
+    else:
+        print("✅ Banco de dados 100% sincronizado com todos os modelos do LivePet!")
+
+    list_tables()
+
+
 if __name__ == "__main__":
     if len(sys.argv) < 2:
         print("Uso:")
-        print("  python manage_db.py test           - Testa a conexão")
-        print("  python manage_db.py tables         - Lista tabelas e colunas")
-        print("  python manage_db.py create         - Cria tabelas via SQLAlchemy ORM")
+        print("  python manage_db.py test           - Testa a conexão com o banco (Neon/SQLite)")
+        print("  python manage_db.py tables         - Lista tabelas e colunas existentes")
+        print("  python manage_db.py sync           - Sincroniza tabelas e novas colunas com o ORM")
+        print("  python manage_db.py create         - Cria tabelas novas via SQLAlchemy ORM")
         print("  python manage_db.py seed           - Cria usuário de teste para clínica")
         print("  python manage_db.py run-sql <file> - Executa um arquivo .sql")
         sys.exit(0)
@@ -141,6 +181,8 @@ if __name__ == "__main__":
         test_connection()
     elif cmd == "tables":
         list_tables()
+    elif cmd == "sync":
+        sync_db_schema()
     elif cmd == "create":
         create_all_tables()
     elif cmd == "seed":
@@ -152,3 +194,4 @@ if __name__ == "__main__":
             execute_sql_file(sys.argv[2])
     else:
         print(f"❌ Comando desconhecido: {cmd}")
+

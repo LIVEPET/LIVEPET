@@ -114,12 +114,32 @@ CREATE TABLE public.lineages (
     avo_mat_m_registro VARCHAR(100),
     avo_mat_f_nome VARCHAR(150),
     avo_mat_f_registro VARCHAR(100),
+    pai_pet_id INTEGER REFERENCES public.pets(id) ON DELETE SET NULL,
+    mae_pet_id INTEGER REFERENCES public.pets(id) ON DELETE SET NULL,
+    status_verificacao VARCHAR(50) NOT NULL DEFAULT 'declaratorio',
     criado_em TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP
 );
 
 CREATE INDEX idx_lineages_pet_id ON public.lineages(pet_id);
 
--- 7. Tabela de Clínicas Veterinárias (Issue #59)
+-- 7. Tabela de Solicitações de Genealogia entre Tutores
+CREATE TABLE public.lineage_requests (
+    id SERIAL PRIMARY KEY,
+    filhote_pet_id INTEGER NOT NULL REFERENCES public.pets(id) ON DELETE CASCADE,
+    ascendente_pet_id INTEGER NOT NULL REFERENCES public.pets(id) ON DELETE CASCADE,
+    tipo_vinculo VARCHAR(20) NOT NULL,
+    solicitante_user_id INTEGER NOT NULL REFERENCES public.users(id) ON DELETE CASCADE,
+    solicitado_user_id INTEGER NOT NULL REFERENCES public.users(id) ON DELETE CASCADE,
+    status VARCHAR(30) NOT NULL DEFAULT 'pendente',
+    mensagem VARCHAR(255),
+    criado_em TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    respondido_em TIMESTAMPTZ
+);
+
+CREATE INDEX idx_lineage_requests_filhote ON public.lineage_requests(filhote_pet_id);
+CREATE INDEX idx_lineage_requests_ascendente ON public.lineage_requests(ascendente_pet_id);
+
+-- 8. Tabela de Clínicas Veterinárias (Issue #59)
 CREATE TABLE public.clinics (
     id SERIAL PRIMARY KEY,
     nome VARCHAR(150) NOT NULL,
@@ -139,6 +159,83 @@ CREATE TABLE public.clinics (
 CREATE INDEX idx_clinics_email ON public.clinics(email);
 CREATE INDEX idx_clinics_crmv ON public.clinics(crmv);
 
+-- 9. Tabela de Atendimentos Clínicos
+CREATE TABLE public.clinic_appointments (
+    id SERIAL PRIMARY KEY,
+    clinic_id INTEGER NOT NULL REFERENCES public.clinics(id) ON DELETE CASCADE,
+    pet_id INTEGER REFERENCES public.pets(id) ON DELETE SET NULL,
+    pet_name VARCHAR(100) NOT NULL,
+    species VARCHAR(50) NOT NULL,
+    breed VARCHAR(80),
+    tutor VARCHAR(100) NOT NULL,
+    phone VARCHAR(30) NOT NULL,
+    service VARCHAR(100) NOT NULL,
+    vet VARCHAR(100),
+    date VARCHAR(10) NOT NULL,
+    time VARCHAR(10) NOT NULL,
+    status VARCHAR(30) NOT NULL DEFAULT 'Confirmado',
+    notes TEXT,
+    queixa_principal TEXT,
+    temperatura NUMERIC(4, 1),
+    peso NUMERIC(5, 2),
+    frequencia_cardiaca INTEGER,
+    frequencia_respiratoria INTEGER,
+    mucosas VARCHAR(50),
+    diagnostico TEXT,
+    prescricao TEXT,
+    vacina_aplicada VARCHAR(100),
+    vacina_lote VARCHAR(50),
+    vacina_proxima_dose VARCHAR(10),
+    criado_em TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    atualizado_em TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE INDEX idx_clinic_appointments_clinic_id ON public.clinic_appointments(clinic_id);
+CREATE INDEX idx_clinic_appointments_pet_id ON public.clinic_appointments(pet_id);
+
+-- 10. Tabela de Solicitações de Vínculo Pet-Clínica
+CREATE TABLE public.clinic_pet_link_requests (
+    id SERIAL PRIMARY KEY,
+    clinic_id INTEGER NOT NULL REFERENCES public.clinics(id) ON DELETE CASCADE,
+    pet_id INTEGER NOT NULL REFERENCES public.pets(id) ON DELETE CASCADE,
+    local_patient_id VARCHAR(100),
+    status VARCHAR(20) NOT NULL DEFAULT 'pendente',
+    mensagem TEXT,
+    criado_em TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    atualizado_em TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE INDEX idx_clinic_pet_link_clinic ON public.clinic_pet_link_requests(clinic_id);
+CREATE INDEX idx_clinic_pet_link_pet ON public.clinic_pet_link_requests(pet_id);
+
+-- 11. Tabela do Marketplace de Filhotes
+CREATE TABLE public.marketplace_listings (
+    id SERIAL PRIMARY KEY,
+    user_id INTEGER NOT NULL REFERENCES public.users(id) ON DELETE CASCADE,
+    pet_id INTEGER REFERENCES public.pets(id) ON DELETE SET NULL,
+    titulo VARCHAR(150) NOT NULL,
+    especie VARCHAR(50) NOT NULL DEFAULT 'Cachorro',
+    raca VARCHAR(80),
+    sexo VARCHAR(20),
+    idade_meses INTEGER DEFAULT 2,
+    quantidade INTEGER NOT NULL DEFAULT 1,
+    cidade VARCHAR(100),
+    tipo VARCHAR(20) NOT NULL DEFAULT 'venda',
+    preco NUMERIC(10, 2) DEFAULT 0.0,
+    pedigree BOOLEAN DEFAULT FALSE,
+    pedigree_registro VARCHAR(100),
+    descricao TEXT,
+    foto_url TEXT,
+    telefone_contato VARCHAR(50),
+    status VARCHAR(30) NOT NULL DEFAULT 'active',
+    criado_em TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    atualizado_em TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    confirmacao_enviada_em TIMESTAMPTZ
+);
+
+CREATE INDEX idx_marketplace_user_id ON public.marketplace_listings(user_id);
+CREATE INDEX idx_marketplace_status ON public.marketplace_listings(status);
+
 -- Comentários de documentação
 COMMENT ON TABLE public.users IS 'Tabela de tutores e usuários do sistema LivePet';
 COMMENT ON TABLE public.pets IS 'Tabela de animais vinculados aos tutores';
@@ -146,6 +243,10 @@ COMMENT ON TABLE public.vaccines IS 'Histórico de vacinas aplicadas';
 COMMENT ON TABLE public.medical_records IS 'Prontuário clínico e histórico médico dos animais';
 COMMENT ON TABLE public.care_contacts IS 'Rede de contatos de emergência e cuidadores dos pets';
 COMMENT ON TABLE public.lineages IS 'Registro de pedigree e linhagem ancestral dos pets';
+COMMENT ON TABLE public.lineage_requests IS 'Solicitações de validação de ascendência entre tutores';
 COMMENT ON TABLE public.clinics IS 'Tabela de clínicas veterinárias cadastradas no LivePet';
+COMMENT ON TABLE public.clinic_appointments IS 'Prontuários e consultas realizadas por clínicas parceiras';
+COMMENT ON TABLE public.clinic_pet_link_requests IS 'Vínculos entre clínicas e pets oficiais de tutores';
+COMMENT ON TABLE public.marketplace_listings IS 'Anúncios do marketplace de filhotes e adoção responsável';
 
 
