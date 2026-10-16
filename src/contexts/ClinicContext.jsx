@@ -9,6 +9,17 @@ const STORAGE_VERSION = 1;
 
 const PROFILE_TEXT_FIELDS = ["name", "crmv", "email", "phone", "whatsapp", "address", "about"];
 
+// Nome do campo no perfil da tela -> nome do campo na API da clínica.
+const PROFILE_API_FIELDS = {
+  name: "nome",
+  crmv: "crmv",
+  email: "email",
+  phone: "telefone",
+  whatsapp: "whatsapp",
+  address: "endereco",
+  about: "sobre",
+};
+
 const createEmptyData = () => ({
   profile: {
     name: "",
@@ -193,17 +204,15 @@ export const ClinicProvider = ({ children }) => {
   const saveProfile = useCallback((fields) => {
     setData((current) => ({ ...current, profile: { ...current.profile, ...fields } }));
     if (clinicService.isAuthenticated()) {
-      clinicService
-        .updateProfile({
-          nome: fields.name,
-          crmv: fields.crmv,
-          email: fields.email,
-          telefone: fields.phone,
-          whatsapp: fields.whatsapp,
-          endereco: fields.address,
-          sobre: fields.about,
-        })
-        .catch(() => {});
+      // Só envia ao backend os campos que ele conhece; salvar apenas horários,
+      // serviços ou equipe não dispara requisição.
+      const payload = {};
+      Object.entries(PROFILE_API_FIELDS).forEach(([key, apiKey]) => {
+        if (fields[key] !== undefined) payload[apiKey] = fields[key];
+      });
+      if (Object.keys(payload).length > 0) {
+        clinicService.updateProfile(payload).catch(() => {});
+      }
     }
   }, []);
 
