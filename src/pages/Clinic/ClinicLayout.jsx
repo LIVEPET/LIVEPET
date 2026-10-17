@@ -1,5 +1,5 @@
 import { Link, NavLink, Outlet, useNavigate } from "react-router-dom";
-import { CalendarDays, LayoutDashboard, LogOut, Menu, PawPrint, Stethoscope, Building2 } from "lucide-react";
+import { BedDouble, CalendarDays, LayoutDashboard, LogOut, Menu, PawPrint, Stethoscope, Building2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Sheet, SheetContent, SheetTrigger, SheetClose } from "@/components/ui/sheet";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
@@ -9,6 +9,7 @@ import { clinicService } from "@/services/api";
 const links = [
   { to: "/clinica", label: "Painel", icon: LayoutDashboard, end: true },
   { to: "/clinica/agenda", label: "Agenda", icon: CalendarDays },
+  { to: "/clinica/internacao", label: "Internação & Leitos", icon: BedDouble },
   { to: "/clinica/pacientes", label: "Pacientes", icon: PawPrint },
   { to: "/clinica/perfil", label: "Perfil da clínica", icon: Building2 },
 ];

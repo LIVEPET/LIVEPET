@@ -1,5 +1,6 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useState } from "react";
 
+import { createDefaultBeds } from "@/data/clinicDemo";
 import { clinicService } from "@/services/api";
 
 const getToday = () => new Date().toISOString().split("T")[0];
@@ -35,6 +36,7 @@ const createEmptyData = () => ({
   },
   appointments: [],
   patients: [],
+  beds: createDefaultBeds(),
 });
 
 const isObject = (value) => value !== null && typeof value === "object" && !Array.isArray(value);
@@ -67,6 +69,18 @@ const sanitizePatient = (patient) => ({
   history: asArray(patient.history),
 });
 
+const isDemoOccupant = (occ) =>
+  occ &&
+  ((occ.petName === "Thor" && occ.tutor === "Carlos Eduardo") ||
+    (occ.petName === "Luna" && occ.tutor === "Mariana Costa"));
+
+const sanitizeBeds = (rawBeds) => {
+  if (!Array.isArray(rawBeds) || rawBeds.length === 0) return createDefaultBeds();
+  const hasLegacyDemo = rawBeds.some((b) => isDemoOccupant(b?.occupant));
+  if (hasLegacyDemo) return createDefaultBeds();
+  return rawBeds.filter((b) => isObject(b) && b.id);
+};
+
 // Lê do localStorage sem nunca quebrar: se estiver indisponível, vazio ou
 // corrompido, volta para os dados vazios.
 const loadData = () => {
@@ -81,6 +95,7 @@ const loadData = () => {
       patients: asArray(parsed.patients)
         .filter((p) => isObject(p) && p.id)
         .map(sanitizePatient),
+      beds: sanitizeBeds(parsed.beds),
     };
   } catch {
     return createEmptyData();
@@ -426,11 +441,130 @@ export const ClinicProvider = ({ children }) => {
     }
   }, []);
 
+  const admitPatientToBed = useCallback((bedId, occupantInput) => {
+    const nowTime = new Date().toLocaleTimeString("pt-BR", {
+      hour: "2-digit",
+      minute: "2-digit",
+    });
+    const occupant = {
+      petName: occupantInput.petName?.trim() || "Paciente",
+      species: occupantInput.species || "Cão",
+      breed: occupantInput.breed?.trim() || "—",
+      tutor: occupantInput.tutor?.trim() || "—",
+      vet: occupantInput.vet?.trim() || "Equipe da clínica",
+      reason: occupantInput.reason?.trim() || "Observação clínica",
+      diet: occupantInput.diet?.trim() || "Dieta hospitalar padrão",
+      prescription: occupantInput.prescription?.trim() || "Em avaliação",
+      nextMedicationTime: occupantInput.nextMedicationTime || "—",
+      admittedAt: occupantInput.admittedAt || `Hoje, ${nowTime}`,
+      evolutions: asArray(occupantInput.evolutions),
+    };
+
+    setData((current) => ({
+      ...current,
+      beds: asArray(current.beds).map((b) =>
+        b.id === bedId ? { ...b, status: "Ocupada", occupant } : b,
+      ),
+    }));
+  }, []);
+
+  const addBedEvolution = useCallback((bedId, evolutionInput) => {
+    const nowTime = new Date().toLocaleTimeString("pt-BR", {
+      hour: "2-digit",
+      minute: "2-digit",
+    });
+    const entry = {
+      id: newId(),
+      time: evolutionInput.time || nowTime,
+      vet: evolutionInput.vet || "Plantonista",
+      temperature: evolutionInput.temperature || "",
+      note: evolutionInput.note?.trim() || "Evolução clínica registrada.",
+    };
+
+    setData((current) => ({
+      ...current,
+      beds: asArray(current.beds).map((b) => {
+        if (b.id !== bedId || !b.occupant) return b;
+        return {
+          ...b,
+          occupant: {
+            ...b.occupant,
+            diet:
+              evolutionInput.diet !== undefined && evolutionInput.diet.trim()
+                ? evolutionInput.diet.trim()
+                : b.occupant.diet,
+            prescription:
+              evolutionInput.prescription !== undefined && evolutionInput.prescription.trim()
+                ? evolutionInput.prescription.trim()
+                : b.occupant.prescription,
+            nextMedicationTime:
+              evolutionInput.nextMedicationTime || b.occupant.nextMedicationTime,
+            evolutions: [entry, ...asArray(b.occupant.evolutions)],
+          },
+        };
+      }),
+    }));
+  }, []);
+
+  const dischargePatientFromBed = useCallback((bedId, dischargeNote = "") => {
+    setData((current) => {
+      const targetBed = asArray(current.beds).find((b) => b.id === bedId);
+      const occupant = targetBed?.occupant;
+
+      const nextPatients = occupant
+        ? current.patients.map((p) => {
+            if (isSamePatient(p, { petName: occupant.petName, tutor: occupant.tutor })) {
+              const historyEntry = {
+                date: getToday(),
+                type: `Alta Hospitalar (${targetBed.name})`,
+                vet: occupant.vet,
+                summary:
+                  dischargeNote.trim() ||
+                  `Alta médica após internação por: ${occupant.reason}`,
+              };
+              return {
+                ...p,
+                history: [historyEntry, ...asArray(p.history)],
+              };
+            }
+            return p;
+          })
+        : current.patients;
+
+      return {
+        ...current,
+        patients: nextPatients,
+        beds: asArray(current.beds).map((b) =>
+          b.id === bedId ? { ...b, status: "Em Higienização", occupant: null } : b,
+        ),
+      };
+    });
+  }, []);
+
+  const releaseBedFromCleaning = useCallback((bedId) => {
+    setData((current) => ({
+      ...current,
+      beds: asArray(current.beds).map((b) =>
+        b.id === bedId ? { ...b, status: "Livre", occupant: null } : b,
+      ),
+    }));
+  }, []);
+
+  const setBedCleaning = useCallback((bedId) => {
+    setData((current) => ({
+      ...current,
+      beds: asArray(current.beds).map((b) =>
+        b.id === bedId ? { ...b, status: "Em Higienização", occupant: null } : b,
+      ),
+    }));
+  }, []);
+
   const value = useMemo(
     () => ({
       profile: data.profile,
       appointments: data.appointments,
       patients: data.patients,
+      beds: data.beds,
       saveProfile,
       addAppointment,
       updateAppointmentStatus,
@@ -439,6 +573,11 @@ export const ClinicProvider = ({ children }) => {
       deletePatient,
       concludeAppointment,
       linkPatientWithLivePet,
+      admitPatientToBed,
+      addBedEvolution,
+      dischargePatientFromBed,
+      releaseBedFromCleaning,
+      setBedCleaning,
     }),
     [
       data,
@@ -450,9 +589,13 @@ export const ClinicProvider = ({ children }) => {
       deletePatient,
       concludeAppointment,
       linkPatientWithLivePet,
+      admitPatientToBed,
+      addBedEvolution,
+      dischargePatientFromBed,
+      releaseBedFromCleaning,
+      setBedCleaning,
     ],
   );
-
 
   return <ClinicContext.Provider value={value}>{children}</ClinicContext.Provider>;
 };
