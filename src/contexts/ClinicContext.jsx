@@ -220,6 +220,7 @@ export const ClinicProvider = ({ children }) => {
     const appointment = {
       id: newId(),
       status: "Confirmado",
+      priority: input.priority || "Rotina",
       date: input.date || getToday(),
       notes: input.notes || "",
       ...input,
@@ -269,6 +270,7 @@ export const ClinicProvider = ({ children }) => {
           date: appointment.date,
           time: appointment.time,
           status: appointment.status,
+          priority: appointment.priority,
           notes: appointment.notes,
         })
         .catch(() => {});
@@ -289,6 +291,13 @@ export const ClinicProvider = ({ children }) => {
     } catch {
       // Modo offline
     }
+  }, []);
+
+  const updateAppointmentPriority = useCallback((id, priority) => {
+    setData((current) => ({
+      ...current,
+      appointments: current.appointments.map((a) => (a.id === id ? { ...a, priority } : a)),
+    }));
   }, []);
 
   const updatePatient = useCallback((patientId, fields) => {
@@ -425,6 +434,7 @@ export const ClinicProvider = ({ children }) => {
       saveProfile,
       addAppointment,
       updateAppointmentStatus,
+      updateAppointmentPriority,
       updatePatient,
       deletePatient,
       concludeAppointment,
@@ -435,6 +445,7 @@ export const ClinicProvider = ({ children }) => {
       saveProfile,
       addAppointment,
       updateAppointmentStatus,
+      updateAppointmentPriority,
       updatePatient,
       deletePatient,
       concludeAppointment,

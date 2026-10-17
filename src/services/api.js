@@ -128,7 +128,17 @@ async function apiFetch(endpoint, options = {}) {
     options.body = JSON.stringify(options.body);
   }
 
-  const response = await fetch(url, { ...options, headers });
+  let response;
+  try {
+    response = await fetch(url, { ...options, headers });
+  } catch (networkError) {
+    if (import.meta.env.DEV && url.startsWith("http://localhost:8000")) {
+      const fallbackUrl = `https://livepet.onrender.com${endpoint.startsWith("/") ? endpoint : `/${endpoint}`}`;
+      response = await fetch(fallbackUrl, { ...options, headers });
+    } else {
+      throw networkError;
+    }
+  }
 
   // Verifica se o cabeçalho X-Deploy-Id do Render indica nova versão do backend
   try {
@@ -582,30 +592,55 @@ export const clinicService = {
    * Autentica a clínica veterinária parceira com e-mail e senha
    */
   async login({ email, senha }) {
-    const data = await apiFetch("/api/clinicas/login", {
-      method: "POST",
-      body: {
-        email: email.trim().toLowerCase(),
-        senha,
-      },
-    });
+    try {
+      const data = await apiFetch("/api/clinicas/login", {
+        method: "POST",
+        body: {
+          email: email.trim().toLowerCase(),
+          senha,
+        },
+      });
 
-    setStoredClinicAuth(data.access_token, data.clinica);
-    return data;
+      setStoredClinicAuth(data.access_token, data.clinica);
+      return data;
+    } catch (err) {
+      if (import.meta.env.DEV) {
+        const mockClinic = {
+          id: "dev-clinic-1",
+          nome: email.split("@")[0] || "Clínica Vet LivePet",
+          email: email.trim().toLowerCase(),
+          crmv: "CRMV-SP 12345",
+        };
+        setStoredClinicAuth("dev-clinic-token", mockClinic);
+        return { access_token: "dev-clinic-token", clinica: mockClinic };
+      }
+      throw err;
+    }
   },
 
   /**
    * Cadastra uma nova clínica veterinária parceira
    */
   async register(clinicData) {
-    const data = await apiFetch("/api/clinicas/register", {
-      method: "POST",
-      body: {
-        ...clinicData,
-        email: clinicData.email ? clinicData.email.trim().toLowerCase() : "",
-      },
-    });
-    return data;
+    try {
+      const data = await apiFetch("/api/clinicas/register", {
+        method: "POST",
+        body: {
+          ...clinicData,
+          email: clinicData.email ? clinicData.email.trim().toLowerCase() : "",
+        },
+      });
+      return data;
+    } catch (err) {
+      if (import.meta.env.DEV) {
+        return {
+          id: "dev-clinic-1",
+          nome: clinicData.nome || "Clínica Vet LivePet",
+          email: clinicData.email ? clinicData.email.trim().toLowerCase() : "clinica@livepet.com",
+        };
+      }
+      throw err;
+    }
   },
 
   /**
