@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from "react";
 import {
   BadgePercent,
   Check,
+  Clock,
   Copy,
   Gift,
   HeartPulse,
@@ -16,6 +17,7 @@ import {
   Store,
   Syringe,
   Ticket,
+  Users,
   X,
 } from "lucide-react";
 
@@ -31,6 +33,13 @@ import {
 } from "@/components/ui/dialog";
 import { toast } from "@/hooks/use-toast";
 import { clinicService } from "@/services/api";
+import {
+  formatPrice,
+  hoursForDisplay,
+  memberMeta,
+  normalizeMember,
+  normalizeService,
+} from "@/lib/clinicProfile";
 
 // Parceiros comerciais com benefícios e cupons
 const staticPartners = [
@@ -207,44 +216,79 @@ export default function Partnerships() {
 
   // Mapeia clínicas do banco de dados para a estrutura de cards sincronizados
   const mappedDbClinics = useMemo(() => {
-    return dbClinics.map((c) => ({
-      id: `clinic-db-${c.id}`,
-      realId: c.id,
-      name: c.nome,
-      city: c.endereco ? c.endereco.split("-")[1]?.trim() || c.endereco : "Brasil",
-      address: c.endereco || "Atendimento sob agendamento",
-      crmv: c.crmv || "CRMV Regular",
-      cnpj: c.cnpj,
-      phone: c.telefone || c.whatsapp || "",
-      whatsapp: c.whatsapp || c.telefone || "",
-      photoUrl: c.foto_url,
-      category: "Clínica",
-      Icon: Stethoscope,
-      contract: `VET-${String(c.id).padStart(4, "0")}`,
-      rating: 5.0,
-      accent: "from-emerald-600/25 to-teal-500/10",
-      initials: c.nome
-        .split(" ")
-        .map((w) => w[0])
-        .slice(0, 2)
-        .join("")
-        .toUpperCase() || "CV",
-      description:
-        c.sobre ||
-        "Clínica veterinária parceira credenciada na plataforma LivePet para consultas, exames e cuidados clínicos.",
-      perks: [
-        "Prontuário integrado em tempo real com seu LivePet",
-        "Atendimento com profissionais com CRMV verificado",
-        "Acesso direto para agendamento rápido via WhatsApp",
-      ],
-      isRealClinic: true,
-      services: [
-        { name: "Consulta Geral & Avaliação", price: "Sob consulta" },
-        { name: "Vacinação & Imunização Preventiva", price: "Sob consulta" },
-        { name: "Exames Laboratoriais e Imagem", price: "Sob consulta" },
-        { name: "Cirurgias & Procedimentos Especiais", price: "Sob consulta" },
-      ],
-    }));
+    return dbClinics.map((c) => {
+      let rawServices = [];
+      if (c.servicos) {
+        try {
+          const parsed = JSON.parse(c.servicos);
+          if (Array.isArray(parsed)) rawServices = parsed;
+        } catch {}
+      }
+      const services =
+        rawServices.length > 0
+          ? rawServices.map(normalizeService).filter((s) => s.name)
+          : [
+              { name: "Consulta Geral & Avaliação", price: null, duration: null },
+              { name: "Vacinação & Imunização Preventiva", price: null, duration: null },
+              { name: "Exames Laboratoriais e Imagem", price: null, duration: null },
+              { name: "Cirurgias & Procedimentos Especiais", price: null, duration: null },
+            ];
+
+      let rawHours = [];
+      if (c.horarios) {
+        try {
+          const parsed = JSON.parse(c.horarios);
+          if (Array.isArray(parsed)) rawHours = parsed;
+        } catch {}
+      }
+      const hours = hoursForDisplay(rawHours);
+
+      let rawTeam = [];
+      if (c.equipe) {
+        try {
+          const parsed = JSON.parse(c.equipe);
+          if (Array.isArray(parsed)) rawTeam = parsed;
+        } catch {}
+      }
+      const team = rawTeam.map(normalizeMember).filter((m) => m.name);
+
+      return {
+        id: `clinic-db-${c.id}`,
+        realId: c.id,
+        name: c.nome,
+        city: c.endereco ? c.endereco.split("-")[1]?.trim() || c.endereco : "Brasil",
+        address: c.endereco || "Atendimento sob agendamento",
+        crmv: c.crmv || "CRMV Regular",
+        cnpj: c.cnpj,
+        phone: c.telefone || c.whatsapp || "",
+        whatsapp: c.whatsapp || c.telefone || "",
+        photoUrl: c.foto_url,
+        category: "Clínica",
+        Icon: Stethoscope,
+        contract: `VET-${String(c.id).padStart(4, "0")}`,
+        rating: 5.0,
+        accent: "from-emerald-600/25 to-teal-500/10",
+        initials:
+          c.nome
+            .split(" ")
+            .map((w) => w[0])
+            .slice(0, 2)
+            .join("")
+            .toUpperCase() || "CV",
+        description:
+          c.sobre ||
+          "Clínica veterinária parceira credenciada na plataforma LivePet para consultas, exames e cuidados clínicos.",
+        perks: [
+          "Prontuário integrado em tempo real com seu LivePet",
+          "Atendimento com profissionais com CRMV verificado",
+          "Acesso direto para agendamento rápido via WhatsApp",
+        ],
+        isRealClinic: true,
+        services,
+        hours,
+        team,
+      };
+    });
   }, [dbClinics]);
 
   // Lista unificada
@@ -657,11 +701,59 @@ export default function Partnerships() {
                         className="flex items-center justify-between p-2.5 rounded-xl border border-border/70 bg-card text-xs"
                       >
                         <span className="font-medium text-foreground">{srv.name}</span>
-                        <span className="text-muted-foreground font-mono">{srv.price}</span>
+                        <span className="text-muted-foreground font-mono">
+                          {srv.price != null
+                            ? formatPrice(srv.price)
+                            : typeof srv.price === "string" && srv.price
+                            ? srv.price
+                            : "Sob consulta"}
+                        </span>
                       </div>
                     ))}
                   </div>
                 </div>
+
+                {/* Horários de Atendimento */}
+                {activeClinic.hours && activeClinic.hours.length > 0 && (
+                  <div>
+                    <h4 className="flex items-center gap-1.5 text-xs font-bold uppercase tracking-wider text-muted-foreground mb-2">
+                      <Clock className="h-3.5 w-3.5 text-primary" /> Horários de Atendimento
+                    </h4>
+                    <div className="grid gap-1.5 sm:grid-cols-2 text-xs">
+                      {activeClinic.hours.map((h) => (
+                        <div
+                          key={h.day}
+                          className="flex items-center justify-between rounded-xl bg-muted/40 border border-border/60 px-3 py-1.5"
+                        >
+                          <span className="text-muted-foreground font-medium">{h.day}</span>
+                          <span className="font-semibold text-foreground">{h.time}</span>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+
+                {/* Corpo Clínico & Profissionais */}
+                {activeClinic.team && activeClinic.team.length > 0 && (
+                  <div>
+                    <h4 className="flex items-center gap-1.5 text-xs font-bold uppercase tracking-wider text-muted-foreground mb-2">
+                      <Users className="h-3.5 w-3.5 text-primary" /> Corpo Clínico
+                    </h4>
+                    <div className="grid gap-2 sm:grid-cols-2 text-xs">
+                      {activeClinic.team.map((m, idx) => (
+                        <div
+                          key={idx}
+                          className="flex flex-col p-2.5 rounded-xl border border-border/70 bg-card"
+                        >
+                          <span className="font-semibold text-foreground">{m.name}</span>
+                          <span className="text-muted-foreground text-[11px]">
+                            {memberMeta(m) || "Médico Veterinário"}
+                          </span>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
 
                 {/* Informações de contato direto */}
                 <div className="rounded-2xl border border-border/70 bg-card p-4 space-y-2">

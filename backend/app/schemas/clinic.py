@@ -16,6 +16,9 @@ class ClinicBase(BaseModel):
     endereco: Optional[str] = Field(None, max_length=255, description="Endereço físico completo")
     sobre: Optional[str] = Field(None, max_length=2000, description="Apresentação e história da clínica")
     foto_url: Optional[str] = Field(None, description="Logotipo ou foto da clínica")
+    servicos: Optional[str] = Field(None, description="Lista codificada de serviços/produtos e preços")
+    horarios: Optional[str] = Field(None, description="Lista codificada de horários de funcionamento")
+    equipe: Optional[str] = Field(None, description="Lista codificada de membros da equipe e CRMVs")
 
     @field_validator("foto_url")
     def check_foto_url(cls, v: Optional[str]) -> Optional[str]:
@@ -76,6 +79,9 @@ class ClinicUpdate(BaseModel):
     endereco: Optional[str] = Field(None, max_length=255, description="Endereço físico completo")
     sobre: Optional[str] = Field(None, max_length=2000, description="Texto de apresentação e especialidades")
     foto_url: Optional[str] = Field(None, description="URL do logotipo ou foto da clínica")
+    servicos: Optional[str] = Field(None, description="Lista codificada de serviços/produtos e preços")
+    horarios: Optional[str] = Field(None, description="Lista codificada de horários de funcionamento")
+    equipe: Optional[str] = Field(None, description="Lista codificada de membros da equipe e CRMVs")
     senha: Optional[str] = Field(None, min_length=6, max_length=100, description="Nova senha (se desejar alterar)")
 
     @field_validator("foto_url")

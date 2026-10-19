@@ -278,6 +278,12 @@ def update_clinic_profile(
         current_clinic.sobre = update_data.sobre
     if update_data.foto_url is not None:
         current_clinic.foto_url = update_data.foto_url
+    if update_data.servicos is not None:
+        current_clinic.servicos = update_data.servicos
+    if update_data.horarios is not None:
+        current_clinic.horarios = update_data.horarios
+    if update_data.equipe is not None:
+        current_clinic.equipe = update_data.equipe
     if update_data.senha:
         current_clinic.senha_hash = get_password_hash(update_data.senha)
 

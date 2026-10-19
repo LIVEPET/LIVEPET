@@ -8,7 +8,7 @@ const getToday = () => new Date().toISOString().split("T")[0];
 export const STORAGE_KEY = "livepet_clinic_data";
 const STORAGE_VERSION = 1;
 
-const PROFILE_TEXT_FIELDS = ["name", "crmv", "email", "phone", "whatsapp", "address", "about"];
+const PROFILE_TEXT_FIELDS = ["name", "crmv", "email", "phone", "whatsapp", "address", "about", "photo"];
 
 // Nome do campo no perfil da tela -> nome do campo na API da clínica.
 const PROFILE_API_FIELDS = {
@@ -19,6 +19,10 @@ const PROFILE_API_FIELDS = {
   whatsapp: "whatsapp",
   address: "endereco",
   about: "sobre",
+  photo: "foto_url",
+  services: "servicos",
+  hours: "horarios",
+  team: "equipe",
 };
 
 const createEmptyData = () => ({
@@ -30,6 +34,7 @@ const createEmptyData = () => ({
     whatsapp: "",
     address: "",
     about: "",
+    photo: "",
     services: [],
     hours: [],
     team: [],
@@ -168,7 +173,30 @@ export const ClinicProvider = ({ children }) => {
         .getProfile()
         .then((clinic) => {
           if (!active || !clinic) return;
-          setData((current) => ({
+          setData((current) => {
+            let servicesList = current.profile.services;
+          if (clinic.servicos) {
+            try {
+              const parsed = JSON.parse(clinic.servicos);
+              if (Array.isArray(parsed) && parsed.length > 0) servicesList = parsed;
+            } catch {}
+          }
+          let hoursList = current.profile.hours;
+          if (clinic.horarios) {
+            try {
+              const parsed = JSON.parse(clinic.horarios);
+              if (Array.isArray(parsed) && parsed.length > 0) hoursList = parsed;
+            } catch {}
+          }
+          let teamList = current.profile.team;
+          if (clinic.equipe) {
+            try {
+              const parsed = JSON.parse(clinic.equipe);
+              if (Array.isArray(parsed) && parsed.length > 0) teamList = parsed;
+            } catch {}
+          }
+
+          return {
             ...current,
             profile: {
               ...current.profile,
@@ -180,56 +208,64 @@ export const ClinicProvider = ({ children }) => {
               address: clinic.endereco || current.profile.address,
               about: clinic.sobre || current.profile.about,
               photo: clinic.foto_url || current.profile.photo,
+              services: servicesList,
+              hours: hoursList,
+              team: teamList,
             },
-          }));
-        })
-        .catch(() => {});
-    }
-
-    return () => {
-      active = false;
-    };
-  }, []);
-
-  // Sincroniza pacientes do banco de dados se a clínica estiver conectada
-  useEffect(() => {
-    let active = true;
-    clinicService
-      .listPatients()
-      .then((apiPatients) => {
-        if (!active || !Array.isArray(apiPatients) || apiPatients.length === 0) return;
-        setData((current) => {
-          const merged = [...current.patients];
-          let changed = false;
-          apiPatients.forEach((ap) => {
-            if (!merged.some((p) => isSamePatient(p, { petName: ap.name, tutor: ap.tutor }))) {
-              merged.push(ap);
-              changed = true;
-            }
-          });
-          return changed ? { ...current, patients: merged } : current;
+          };
         });
       })
       .catch(() => {});
-    return () => {
-      active = false;
-    };
-  }, []);
+  }
 
-  const saveProfile = useCallback((fields) => {
-    setData((current) => ({ ...current, profile: { ...current.profile, ...fields } }));
-    if (clinicService.isAuthenticated()) {
-      // Só envia ao backend os campos que ele conhece; salvar apenas horários,
-      // serviços ou equipe não dispara requisição.
-      const payload = {};
-      Object.entries(PROFILE_API_FIELDS).forEach(([key, apiKey]) => {
-        if (fields[key] !== undefined) payload[apiKey] = fields[key];
+  return () => {
+    active = false;
+  };
+}, []);
+
+// Sincroniza pacientes do banco de dados se a clínica estiver conectada
+useEffect(() => {
+  let active = true;
+  clinicService
+    .listPatients()
+    .then((apiPatients) => {
+      if (!active || !Array.isArray(apiPatients) || apiPatients.length === 0) return;
+      setData((current) => {
+        const merged = [...current.patients];
+        let changed = false;
+        apiPatients.forEach((ap) => {
+          if (!merged.some((p) => isSamePatient(p, { petName: ap.name, tutor: ap.tutor }))) {
+            merged.push(ap);
+            changed = true;
+          }
+        });
+        return changed ? { ...current, patients: merged } : current;
       });
-      if (Object.keys(payload).length > 0) {
-        clinicService.updateProfile(payload).catch(() => {});
+    })
+    .catch(() => {});
+  return () => {
+    active = false;
+  };
+}, []);
+
+const saveProfile = useCallback((fields) => {
+  setData((current) => ({ ...current, profile: { ...current.profile, ...fields } }));
+  if (clinicService.isAuthenticated()) {
+    const payload = {};
+    Object.entries(PROFILE_API_FIELDS).forEach(([key, apiKey]) => {
+      if (fields[key] !== undefined) {
+        if (Array.isArray(fields[key])) {
+          payload[apiKey] = JSON.stringify(fields[key]);
+        } else {
+          payload[apiKey] = fields[key];
+        }
       }
+    });
+    if (Object.keys(payload).length > 0) {
+      clinicService.updateProfile(payload).catch(() => {});
     }
-  }, []);
+  }
+}, []);
 
   const addAppointment = useCallback((input) => {
     const appointment = {

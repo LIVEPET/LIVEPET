@@ -1,6 +1,7 @@
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import {
   Building2,
+  Camera,
   Clock,
   Mail,
   MapPin,
@@ -20,8 +21,10 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import EmptyState from "@/components/EmptyState";
 import { useClinic } from "@/contexts/ClinicContext";
+import { compressImage } from "@/lib/image";
 import {
   hoursForDisplay,
   memberMeta,
@@ -59,15 +62,32 @@ const IconButton = ({ label, onClick, children }) => (
 
 const ClinicProfile = () => {
   const { profile, saveProfile } = useClinic();
+  const fileInputRef = useRef(null);
   const [form, setForm] = useState({
-    name: profile.name,
-    crmv: profile.crmv,
-    email: profile.email,
-    phone: profile.phone,
-    whatsapp: profile.whatsapp,
-    address: profile.address,
-    about: profile.about,
+    name: profile.name || "",
+    crmv: profile.crmv || "",
+    email: profile.email || "",
+    phone: profile.phone || "",
+    whatsapp: profile.whatsapp || "",
+    address: profile.address || "",
+    about: profile.about || "",
+    photo: profile.photo || "",
   });
+
+  useEffect(() => {
+    setForm((prev) => ({
+      ...prev,
+      name: profile.name || "",
+      crmv: profile.crmv || "",
+      email: profile.email || "",
+      phone: profile.phone || "",
+      whatsapp: profile.whatsapp || "",
+      address: profile.address || "",
+      about: profile.about || "",
+      photo: profile.photo || "",
+    }));
+  }, [profile]);
+
   const [hoursOpen, setHoursOpen] = useState(false);
   const [serviceDialog, setServiceDialog] = useState({ open: false, item: null });
   const [memberDialog, setMemberDialog] = useState({ open: false, item: null });
@@ -134,6 +154,51 @@ const ClinicProfile = () => {
     setRemoval(null);
   };
 
+  const handlePhotoUpload = async (e) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    if (!file.type.startsWith("image/")) {
+      toast.error("Por favor, selecione um arquivo de imagem.");
+      return;
+    }
+
+    const toastId = toast.loading("Comprimindo e salvando foto da clínica...");
+    try {
+      let compressed = await compressImage(file, 600, 600, 0.75);
+      if (!compressed) {
+        compressed = await new Promise((resolve) => {
+          const reader = new FileReader();
+          reader.onload = (ev) => resolve(ev.target?.result);
+          reader.onerror = () => resolve(null);
+          reader.readAsDataURL(file);
+        });
+      }
+      if (!compressed) {
+        toast.dismiss(toastId);
+        toast.error("Não foi possível processar a imagem.");
+        return;
+      }
+
+      setForm((prev) => ({ ...prev, photo: compressed }));
+      saveProfile({ photo: compressed });
+      toast.dismiss(toastId);
+      toast.success("Foto da clínica atualizada com sucesso!");
+    } catch (err) {
+      console.error("Erro ao atualizar foto:", err);
+      toast.dismiss(toastId);
+      toast.error("Não foi possível atualizar a foto.");
+    } finally {
+      e.target.value = "";
+    }
+  };
+
+  const handleRemovePhoto = () => {
+    setForm((prev) => ({ ...prev, photo: "" }));
+    saveProfile({ photo: "" });
+    toast.success("Foto removida.");
+  };
+
   const openNewService = () => setServiceDialog({ open: true, item: null });
   const openNewMember = () => setMemberDialog({ open: true, item: null });
 
@@ -152,7 +217,88 @@ const ClinicProfile = () => {
               <Building2 className="h-5 w-5 text-primary" /> Dados da clínica
             </CardTitle>
           </CardHeader>
-          <CardContent>
+          <CardContent className="space-y-6">
+            {/* Foto / Logotipo da Clínica */}
+            <div className="flex flex-col sm:flex-row items-center gap-5 p-4 rounded-2xl bg-muted/40 border border-border/70">
+              <div
+                className="relative group cursor-pointer"
+                onClick={() => fileInputRef.current?.click()}
+              >
+                <div className="h-24 w-24 sm:h-28 sm:w-28 rounded-2xl overflow-hidden p-[2px] bg-gradient-to-tr from-primary/30 via-primary to-primary/80 shadow-soft transition-transform duration-300 group-hover:scale-105">
+                  <Avatar className="h-full w-full rounded-2xl border-2 border-background">
+                    <AvatarImage
+                      src={form.photo || profile.photo}
+                      alt={form.name || "Foto da clínica"}
+                      className="object-cover"
+                    />
+                    <AvatarFallback className="rounded-2xl bg-primary-soft text-xl font-bold text-primary flex flex-col items-center justify-center">
+                      <Building2 className="h-8 w-8 text-primary/70 mb-1" />
+                      <span className="text-xs uppercase font-semibold">
+                        {form.name
+                          ? form.name
+                              .split(" ")
+                              .map((w) => w[0])
+                              .slice(0, 2)
+                              .join("")
+                              .toUpperCase()
+                          : "CL"}
+                      </span>
+                    </AvatarFallback>
+                  </Avatar>
+                </div>
+
+                <button
+                  type="button"
+                  className="absolute -bottom-1 -right-1 flex h-8 w-8 items-center justify-center rounded-full bg-primary text-primary-foreground shadow-md transition-all duration-300 hover:scale-110"
+                  title="Alterar logotipo ou foto da clínica"
+                  aria-label="Alterar foto da clínica"
+                >
+                  <Camera className="h-4 w-4" />
+                </button>
+              </div>
+
+              <div className="flex-1 text-center sm:text-left space-y-1">
+                <h3 className="font-semibold text-base text-foreground">
+                  Foto ou Logotipo da Clínica
+                </h3>
+                <p className="text-xs text-muted-foreground">
+                  Esta imagem é exibida para os tutores no catálogo de parcerias e nas páginas públicas da clínica.
+                </p>
+                <div className="flex flex-wrap items-center justify-center sm:justify-start gap-2 pt-1.5">
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    className="h-8 gap-1.5 text-xs rounded-full"
+                    onClick={() => fileInputRef.current?.click()}
+                  >
+                    <Camera className="h-3.5 w-3.5" />
+                    {form.photo ? "Trocar foto" : "Carregar foto"}
+                  </Button>
+                  {form.photo && (
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="sm"
+                      className="h-8 gap-1 text-xs text-destructive hover:bg-destructive/10 hover:text-destructive rounded-full"
+                      onClick={handleRemovePhoto}
+                    >
+                      <Trash2 className="h-3.5 w-3.5" />
+                      Remover foto
+                    </Button>
+                  )}
+                </div>
+              </div>
+
+              <input
+                ref={fileInputRef}
+                type="file"
+                accept="image/*"
+                className="hidden"
+                onChange={handlePhotoUpload}
+              />
+            </div>
+
             <form onSubmit={save} className="space-y-4">
               <div className="grid gap-4 sm:grid-cols-2">
                 <div className="space-y-2">

@@ -22,7 +22,10 @@ class Clinic(Base):
     whatsapp = Column(String(30), nullable=True)
     endereco = Column(String(255), nullable=True)
     sobre = Column(Text, nullable=True)
-    foto_url = Column(String, nullable=True)
+    foto_url = Column(Text, nullable=True)
+    servicos = Column(Text, nullable=True)  # JSON codificado com lista de serviços/produtos
+    horarios = Column(Text, nullable=True)  # JSON codificado com horários de funcionamento
+    equipe = Column(Text, nullable=True)    # JSON codificado com profissionais e CRMVs
     criado_em = Column(DateTime(timezone=True), server_default=func.now(), nullable=False)
     atualizado_em = Column(
         DateTime(timezone=True),

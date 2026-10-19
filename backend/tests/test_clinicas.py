@@ -169,6 +169,10 @@ class TestClinicasAuthAndProfile(unittest.TestCase):
             "crmv": "SP-99999",
             "telefone": "(11) 4000-8888",
             "sobre": "Atendimento emergencial e clínico especializado 24 horas por dia.",
+            "foto_url": "data:image/jpeg;base64,/9j/4AAQSkZJRg==",
+            "servicos": '[{"name": "Consulta Especializada", "price": 180.0}]',
+            "horarios": '[{"day": "Seg", "open": true, "from": "08:00", "to": "18:00", "time": "08:00 às 18:00"}]',
+            "equipe": '[{"name": "Dra. Camila", "role": "Cardiologista", "crmv": "CRMV-SP 54321"}]',
         }
         resp = self.client.put("/api/clinicas/perfil", headers=headers, json=update_payload)
         self.assertEqual(resp.status_code, 200)
@@ -177,6 +181,10 @@ class TestClinicasAuthAndProfile(unittest.TestCase):
         self.assertEqual(data["crmv"], update_payload["crmv"])
         self.assertEqual(data["telefone"], update_payload["telefone"])
         self.assertEqual(data["sobre"], update_payload["sobre"])
+        self.assertEqual(data["foto_url"], update_payload["foto_url"])
+        self.assertEqual(data["servicos"], update_payload["servicos"])
+        self.assertEqual(data["horarios"], update_payload["horarios"])
+        self.assertEqual(data["equipe"], update_payload["equipe"])
         self.assertEqual(data["email"], "contato@vidanimal.com.br")
 
     def test_update_clinic_email_conflict(self):
