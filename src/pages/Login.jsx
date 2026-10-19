@@ -42,7 +42,7 @@ const Login = () => {
 
   useEffect(() => {
     if (authService.isAuthenticated()) {
-      navigate("/pets");
+      navigate("/perfil");
     }
   }, [navigate]);
 
@@ -68,14 +68,14 @@ const Login = () => {
         toast.success("Conta criada com sucesso!", {
           description: "Sua conta foi criada e sua sessão já está iniciada.",
         });
-        navigate("/pets");
+        navigate("/perfil");
       } else {
         await authService.login({
           email,
           senha: password,
         });
         toast.success("Bem-vindo de volta!");
-        navigate("/pets");
+        navigate("/perfil");
       }
     } catch (err) {
       const msg = err instanceof Error ? err.message : "Erro";

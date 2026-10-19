@@ -794,6 +794,25 @@ export const clinicService = {
   async listLinkRequests() {
     return apiFetch("/api/clinicas/solicitacoes-vinculo");
   },
+
+  /**
+   * Consulta pública de clínicas veterinárias parceiras cadastradas com busca opcional
+   */
+  async listPublicClinics(query = "") {
+    try {
+      const q = query && query.trim() ? `?q=${encodeURIComponent(query.trim())}` : "";
+      return await apiFetch(`/api/clinicas/publicas${q}`);
+    } catch {
+      return [];
+    }
+  },
+
+  /**
+   * Detalhes públicos de uma clínica parceira específica
+   */
+  async getPublicClinic(id) {
+    return apiFetch(`/api/clinicas/publicas/${id}`);
+  },
 };
 
 export default {

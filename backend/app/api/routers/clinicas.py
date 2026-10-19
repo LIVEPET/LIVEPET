@@ -851,4 +851,54 @@ def list_clinic_link_requests(
     return out
 
 
+@router.get(
+    "/publicas",
+    response_model=List[ClinicResponse],
+    summary="Listar clínicas veterinárias parceiras públicas para busca de tutores",
+    response_description="Lista de clínicas veterinárias disponíveis com dados cadastrais e contatos públicos",
+)
+def list_public_clinics(
+    q: Optional[str] = Query(None, description="Termo de busca por nome, endereço ou especialidade"),
+    db: Session = Depends(get_db),
+):
+    """
+    Retorna as clínicas veterinárias cadastradas na plataforma para consulta pública pelos tutores.
+    Permite filtrar por nome, endereço, CRMV ou texto de apresentação.
+    """
+    query = db.query(Clinic)
+    if q and q.strip():
+        term = f"%{q.strip().lower()}%"
+        from sqlalchemy import func, or_
+        query = query.filter(
+            or_(
+                func.lower(Clinic.nome).like(term),
+                func.lower(Clinic.endereco).like(term),
+                func.lower(Clinic.sobre).like(term),
+                func.lower(Clinic.crmv).like(term),
+            )
+        )
+    return query.order_by(Clinic.nome.asc()).all()
+
+
+@router.get(
+    "/publicas/{clinic_id}",
+    response_model=ClinicResponse,
+    summary="Consultar dados públicos de uma clínica parceira específica",
+)
+def get_public_clinic_details(
+    clinic_id: int,
+    db: Session = Depends(get_db),
+):
+    """
+    Retorna a vitrine e dados de contato públicos de uma clínica veterinária parceira pelo ID.
+    """
+    clinic = db.query(Clinic).filter(Clinic.id == clinic_id).first()
+    if not clinic:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Clínica veterinária não encontrada.",
+        )
+    return clinic
+
+
 
