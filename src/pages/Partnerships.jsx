@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { Link } from "react-router-dom";
 import {
   BadgePercent,
@@ -6,6 +6,9 @@ import {
   Copy,
   Gift,
   HeartPulse,
+  MapPin,
+  MessageCircle,
+  Phone,
   Scissors,
   Search,
   ShieldCheck,
@@ -15,11 +18,12 @@ import {
   Syringe,
   Ticket,
   X,
+  ExternalLink,
+  Clock,
 } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-
 import {
   Dialog,
   DialogContent,
@@ -29,8 +33,10 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { toast } from "@/hooks/use-toast";
+import { clinicService } from "@/services/api";
 
-const partners = [
+// Parceiros comerciais com benefícios e cupons
+const staticPartners = [
   {
     id: "petz",
     name: "Petz",
@@ -94,34 +100,6 @@ const partners = [
     ],
   },
   {
-    id: "vet-popular",
-    name: "Hospital Veterinário 24h São Francisco",
-    city: "Goiânia, GO",
-    category: "Clínica",
-    Icon: Stethoscope,
-    contract: "LP-VET24-2026",
-    rating: 5.0,
-    accent: "from-emerald-600/25 to-teal-500/10",
-    initials: "SF",
-    description:
-      "Pronto-atendimento veterinário 24 horas, UTI completa, cirurgias e exames de imagem imediatos.",
-    perks: [
-      "Atendimento emergencial 24 horas",
-      "Laboratório clínico próprio com laudos no mesmo dia",
-      "Desconto na primeira consulta para pets cadastrados no LivePet",
-    ],
-    coupons: [
-      {
-        code: "PLANTÃO20",
-        discount: "20% OFF na Consulta",
-        description:
-          "Desconto na consulta clínica ou emergencial para usuários LivePet.",
-        minSpend: "Consulta geral",
-        rules: "Apresente o Cartão Digital do pet no balcão de atendimento.",
-      },
-    ],
-  },
-  {
     id: "spa-bichos",
     name: "Spa dos Bichos — Estética & Bem-Estar",
     city: "Goiânia, GO",
@@ -181,20 +159,105 @@ const partners = [
 
 const categories = [
   { key: "Todos", label: "Todos", Icon: Sparkles },
+  { key: "Clínica", label: "Clínicas Parceiras", Icon: Stethoscope },
   { key: "Petshop", label: "Petshops", Icon: Store },
-  { key: "Clínica", label: "Clínicas", Icon: Stethoscope },
   { key: "Estética", label: "Estética", Icon: Scissors },
   { key: "Vacinação", label: "Vacinação", Icon: Syringe },
 ];
 
-const Partnerships = () => {
+export default function Partnerships() {
   const [query, setQuery] = useState("");
   const [category, setCategory] = useState("Todos");
-  const [active, setActive] = useState(null);
+  const [activePartner, setActivePartner] = useState(null);
+  const [activeClinic, setActiveClinic] = useState(null);
+
+  // Clínicas reais carregadas da API do banco de dados Neon
+  const [dbClinics, setDbClinics] = useState([]);
+  const [loadingClinics, setLoadingClinics] = useState(true);
+
+  useEffect(() => {
+    let isMounted = true;
+    const fetchClinics = async () => {
+      try {
+        setLoadingClinics(true);
+        const data = await clinicService.listPublicClinics();
+        if (isMounted && Array.isArray(data)) {
+          setDbClinics(data);
+        }
+      } catch {
+        if (isMounted) setDbClinics([]);
+      } finally {
+        if (isMounted) setLoadingClinics(false);
+      }
+    };
+    fetchClinics();
+    return () => {
+      isMounted = false;
+    };
+  }, []);
+
+  // Formata número de WhatsApp e link oficial
+  const getWhatsAppLink = (phoneOrWa, clinicName) => {
+    if (!phoneOrWa) return null;
+    const digits = phoneOrWa.replace(/\D/g, "");
+    if (!digits) return null;
+    const cleanNumber = digits.length <= 11 ? `55${digits}` : digits;
+    const message = encodeURIComponent(
+      `Olá! Encontrei o perfil da clínica ${clinicName || ""} no LivePet e gostaria de agendar uma consulta para meu pet.`
+    );
+    return `https://wa.me/${cleanNumber}?text=${message}`;
+  };
+
+  // Mapeia clínicas do banco de dados para a estrutura de cards sincronizados
+  const mappedDbClinics = useMemo(() => {
+    return dbClinics.map((c) => ({
+      id: `clinic-db-${c.id}`,
+      realId: c.id,
+      name: c.nome,
+      city: c.endereco ? c.endereco.split("-")[1]?.trim() || c.endereco : "Brasil",
+      address: c.endereco || "Atendimento sob agendamento",
+      crmv: c.crmv || "CRMV Regular",
+      cnpj: c.cnpj,
+      phone: c.telefone || c.whatsapp || "",
+      whatsapp: c.whatsapp || c.telefone || "",
+      photoUrl: c.foto_url,
+      category: "Clínica",
+      Icon: Stethoscope,
+      contract: `VET-${String(c.id).padStart(4, "0")}`,
+      rating: 5.0,
+      accent: "from-emerald-600/25 to-teal-500/10",
+      initials: c.nome
+        .split(" ")
+        .map((w) => w[0])
+        .slice(0, 2)
+        .join("")
+        .toUpperCase() || "CV",
+      description:
+        c.sobre ||
+        "Clínica veterinária parceira credenciada na plataforma LivePet para consultas, exames e cuidados clínicos.",
+      perks: [
+        "Prontuário integrado em tempo real com seu LivePet",
+        "Atendimento com profissionais com CRMV verificado",
+        "Acesso direto para agendamento rápido via WhatsApp",
+      ],
+      isRealClinic: true,
+      services: [
+        { name: "Consulta Geral & Avaliação", price: "Sob consulta" },
+        { name: "Vacinação & Imunização Preventiva", price: "Sob consulta" },
+        { name: "Exames Laboratoriais e Imagem", price: "Sob consulta" },
+        { name: "Cirurgias & Procedimentos Especiais", price: "Sob consulta" },
+      ],
+    }));
+  }, [dbClinics]);
+
+  // Lista unificada
+  const allPartners = useMemo(() => {
+    return [...mappedDbClinics, ...staticPartners];
+  }, [mappedDbClinics]);
 
   const filtered = useMemo(() => {
     const q = query.trim().toLowerCase();
-    return partners.filter((p) => {
+    return allPartners.filter((p) => {
       const matchesCat = category === "Todos" || p.category === category;
       if (!matchesCat) return false;
       if (!q) return true;
@@ -202,12 +265,17 @@ const Partnerships = () => {
         p.name.toLowerCase().includes(q) ||
         p.contract.toLowerCase().includes(q) ||
         p.category.toLowerCase().includes(q) ||
-        p.city.toLowerCase().includes(q)
+        (p.city && p.city.toLowerCase().includes(q)) ||
+        (p.description && p.description.toLowerCase().includes(q)) ||
+        (p.crmv && p.crmv.toLowerCase().includes(q))
       );
     });
-  }, [query, category]);
+  }, [allPartners, query, category]);
 
-  const totalCoupons = partners.reduce((sum, p) => sum + p.coupons.length, 0);
+  const totalCoupons = staticPartners.reduce(
+    (sum, p) => sum + (p.coupons ? p.coupons.length : 0),
+    0
+  );
 
   const copyCode = (code) => {
     navigator.clipboard.writeText(code).catch(() => {});
@@ -225,36 +293,37 @@ const Partnerships = () => {
   return (
     <div className="min-h-screen bg-background">
       <main>
-        {/* Hero — compacto e direto */}
+        {/* Hero */}
         <section className="relative overflow-hidden gradient-soft py-12 lg:py-16">
           <div className="blob -left-20 top-10 h-[320px] w-[320px] bg-primary/20" />
           <div className="container relative">
             <div className="mx-auto max-w-3xl text-center">
               <span className="inline-flex items-center gap-2 rounded-full bg-primary-soft px-4 py-1 text-xs font-bold uppercase tracking-[0.25em] text-primary">
-                <Sparkles className="h-3.5 w-3.5" /> Parcerias oficiais
+                <Sparkles className="h-3.5 w-3.5" /> Rede Credenciada & Benefícios
               </span>
               <h1 className="mt-4 font-display text-3xl font-bold leading-tight text-foreground sm:text-4xl lg:text-5xl">
-                Economize com parceiros{" "}
+                Encontre clínicas e parceiros{" "}
                 <span className="italic text-primary">verificados</span>
               </h1>
-              <p className="mt-3 text-muted-foreground">
-                Escolha uma categoria, copie o cupom e use no parceiro. Sem
-                cadastro extra, sem cobrança.
+              <p className="mt-3 text-muted-foreground text-base sm:text-lg">
+                Consulte clínicas veterinárias parceiras em tempo real, chame direto no WhatsApp ou aproveite cupons de desconto exclusivos para a saúde do seu pet.
               </p>
 
               {/* Stats rápidas */}
               <div className="mt-6 inline-flex flex-wrap items-center justify-center gap-2 rounded-2xl border border-border/60 bg-card/70 p-2 shadow-card backdrop-blur sm:gap-1">
-                <Stat value={partners.length} label="parceiros" />
+                <Stat value={allPartners.length} label="parceiros cadastrados" />
+                <div className="hidden h-8 w-px bg-border sm:block" />
+                <Stat value={mappedDbClinics.length} label="clínicas com WhatsApp" />
                 <div className="hidden h-8 w-px bg-border sm:block" />
                 <Stat value={totalCoupons} label="cupons ativos" />
                 <div className="hidden h-8 w-px bg-border sm:block" />
-                <Stat value="100%" label="verificados" />
+                <Stat value="100%" label="sincronizados" />
               </div>
             </div>
           </div>
         </section>
 
-        {/* Filtros — categorias em chips + busca */}
+        {/* Filtros em chips + busca */}
         <section className="sticky top-16 z-30 border-y border-border/60 bg-background/85 backdrop-blur-lg lg:top-20">
           <div className="container space-y-3 py-4">
             <div className="flex flex-wrap items-center gap-2">
@@ -262,8 +331,8 @@ const Partnerships = () => {
                 const isActive = category === key;
                 const count =
                   key === "Todos"
-                    ? partners.length
-                    : partners.filter((p) => p.category === key).length;
+                    ? allPartners.length
+                    : allPartners.filter((p) => p.category === key).length;
                 return (
                   <button
                     key={key}
@@ -296,7 +365,7 @@ const Partnerships = () => {
                 <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
                 <Input
                   id="partner-search"
-                  placeholder="Buscar por nome, cidade ou contrato"
+                  placeholder="Buscar por clínica, veterinário, serviço ou cidade..."
                   value={query}
                   onChange={(e) => setQuery(e.target.value)}
                   className="pl-9 pr-9"
@@ -319,7 +388,7 @@ const Partnerships = () => {
                 {(query || category !== "Todos") && (
                   <button
                     onClick={clearFilters}
-                    className="ml-2 text-primary hover:underline"
+                    className="ml-2 text-primary font-medium hover:underline"
                   >
                     limpar filtros
                   </button>
@@ -329,111 +398,118 @@ const Partnerships = () => {
           </div>
         </section>
 
-        {/* Como funciona — 3 passos curtos */}
-        <section className="container pt-10">
+        {/* Informações de facilidade */}
+        <section className="container pt-8">
           <div className="grid gap-3 rounded-3xl border border-border/60 bg-muted/30 p-4 sm:grid-cols-3 sm:p-5">
             <Step
               n={1}
-              title="Escolha o parceiro"
-              desc="Filtre por categoria e clique em Ver cupons."
+              title="Localize a clínica ideal"
+              desc="Pesquise por especialidade, localização ou confira clínicas parceiras."
             />
             <Step
               n={2}
-              title="Copie o código"
-              desc="Um clique copia o cupom para a área de transferência."
+              title="Contato ágil no WhatsApp"
+              desc="Converse diretamente com a equipe técnica da clínica com um clique."
             />
             <Step
               n={3}
-              title="Use no parceiro"
-              desc="Aplique o código no checkout ou no balcão."
+              title="Prontuário 100% integrado"
+              desc="Atendimentos realizados sincronizam vacinas e consultas no LivePet."
             />
           </div>
         </section>
 
-        {/* Grid de parceiros */}
+        {/* Grid de clínicas e parceiros */}
         <section className="py-10">
           <div className="container">
             {filtered.length === 0 ? (
               <div className="rounded-3xl border border-dashed border-border bg-card/50 py-16 text-center">
-                <p className="text-muted-foreground">
-                  Nenhum parceiro encontrado{query && <> para "{query}"</>}.
+                <p className="text-muted-foreground text-lg">
+                  Nenhum parceiro ou clínica encontrado{query && <> para "{query}"</>}.
                 </p>
                 <Button
                   variant="outline"
                   onClick={clearFilters}
                   className="mt-4 rounded-full"
                 >
-                  Limpar filtros
+                  Limpar filtros de busca
                 </Button>
               </div>
             ) : (
               <div className="grid gap-6 md:grid-cols-2 xl:grid-cols-3">
                 {filtered.map((p) => {
-                  const topCoupon = p.coupons[0];
+                  const isClinic = p.isRealClinic;
+                  const waUrl = getWhatsAppLink(p.whatsapp || p.phone, p.name);
+
                   return (
                     <article
                       key={p.id}
                       className="group relative flex flex-col overflow-hidden rounded-3xl border border-border/60 bg-card shadow-card transition-bounce hover:-translate-y-1 hover:shadow-glow"
                     >
-                      <div
-                        className={`relative h-24 bg-gradient-to-br ${p.accent}`}
-                      >
-                        <span className="absolute right-4 top-4 inline-flex items-center gap-1 rounded-full bg-background/85 px-3 py-1 text-xs font-semibold text-foreground backdrop-blur">
-                          <p.Icon className="h-3.5 w-3.5" /> {p.category}
+                      {/* Banner do card com foto sincronizada */}
+                      <div className={`relative h-28 bg-gradient-to-br ${p.accent}`}>
+                        <span className="absolute right-4 top-4 inline-flex items-center gap-1.5 rounded-full bg-background/90 px-3 py-1 text-xs font-semibold text-foreground backdrop-blur shadow-sm">
+                          <p.Icon className="h-3.5 w-3.5 text-primary" /> {p.category}
                         </span>
-                        <div className="absolute -bottom-8 left-6 flex h-16 w-16 items-center justify-center rounded-2xl border-4 border-card bg-primary text-xl font-bold text-primary-foreground shadow-soft">
-                          {p.initials}
+
+                        {/* Avatar ou Logo da clínica sincronizado */}
+                        <div className="absolute -bottom-8 left-6 flex h-16 w-16 items-center justify-center overflow-hidden rounded-2xl border-4 border-card bg-primary text-xl font-bold text-primary-foreground shadow-soft">
+                          {p.photoUrl ? (
+                            <img
+                              src={p.photoUrl}
+                              alt={p.name}
+                              className="h-full w-full object-cover"
+                            />
+                          ) : (
+                            <span>{p.initials}</span>
+                          )}
                         </div>
                       </div>
 
                       <div className="flex flex-1 flex-col gap-4 p-6 pt-10">
                         <div>
-                          <h3 className="font-display text-xl font-bold text-foreground">
-                            {p.name}
-                          </h3>
-                          <p className="text-xs text-muted-foreground">
-                            {p.city} · ★ {p.rating.toFixed(1)} · Contrato{" "}
-                            <code className="font-mono">{p.contract}</code>
+                          <div className="flex items-center gap-2">
+                            <h3 className="font-display text-xl font-bold text-foreground">
+                              {p.name}
+                            </h3>
+                            {isClinic && (
+                              <span
+                                title="Clínica parceira cadastrada e verificada no LivePet"
+                                className="inline-flex items-center gap-1 rounded-full bg-emerald-500/10 px-2 py-0.5 text-[11px] font-semibold text-emerald-600 dark:text-emerald-400"
+                              >
+                                <Check className="h-3 w-3" strokeWidth={3} /> Verificada
+                              </span>
+                            )}
+                          </div>
+
+                          <p className="mt-1 flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
+                            {p.crmv && (
+                              <span className="rounded bg-muted px-1.5 py-0.5 font-medium text-foreground">
+                                {p.crmv}
+                              </span>
+                            )}
+                            {p.address && (
+                              <span className="flex items-center gap-1 truncate">
+                                <MapPin className="h-3.5 w-3.5 shrink-0 text-muted-foreground" />
+                                <span className="truncate">{p.address}</span>
+                              </span>
+                            )}
                           </p>
                         </div>
 
-                        <p className="text-sm text-muted-foreground line-clamp-2">
+                        <p className="text-sm text-muted-foreground line-clamp-3">
                           {p.description}
                         </p>
 
-                        {/* Destaque do melhor cupom */}
-                        {topCoupon && (
-                          <div className="rounded-2xl border border-primary/20 bg-primary-soft/40 p-4">
-                            <div className="flex items-center justify-between gap-3">
-                              <div className="min-w-0">
-                                <p className="text-[11px] font-bold uppercase tracking-wider text-primary">
-                                  Melhor oferta
-                                </p>
-                                <p className="truncate font-display text-lg font-bold text-foreground">
-                                  {topCoupon.discount}
-                                </p>
-                              </div>
-                              <Button
-                                size="sm"
-                                variant="outline"
-                                onClick={() => copyCode(topCoupon.code)}
-                                className="shrink-0 rounded-full border-primary/40 bg-background font-mono text-xs font-bold text-primary hover:bg-primary hover:text-primary-foreground"
-                              >
-                                <Copy className="h-3.5 w-3.5" />{" "}
-                                {topCoupon.code}
-                              </Button>
-                            </div>
-                          </div>
-                        )}
-
+                        {/* Benefícios destacados */}
                         <ul className="space-y-1.5">
-                          {p.perks.slice(0, 3).map((perk) => (
+                          {p.perks.slice(0, 3).map((perk, idx) => (
                             <li
-                              key={perk}
-                              className="flex items-start gap-2 text-sm text-foreground"
+                              key={idx}
+                              className="flex items-start gap-2 text-xs text-foreground/90"
                             >
                               <Check
-                                className="mt-0.5 h-4 w-4 shrink-0 text-primary"
+                                className="mt-0.5 h-3.5 w-3.5 shrink-0 text-primary"
                                 strokeWidth={3}
                               />
                               <span>{perk}</span>
@@ -441,17 +517,56 @@ const Partnerships = () => {
                           ))}
                         </ul>
 
-                        <div className="mt-auto flex items-center justify-between gap-3 border-t border-border/60 pt-4">
-                          <span className="inline-flex items-center gap-1.5 text-xs font-semibold text-warm">
-                            <Ticket className="h-4 w-4" /> {p.coupons.length}{" "}
-                            {p.coupons.length === 1 ? "cupom" : "cupons"}
-                          </span>
-                          <Button
-                            onClick={() => setActive(p)}
-                            className="rounded-full gradient-primary text-primary-foreground shadow-soft hover:shadow-glow"
-                          >
-                            <Gift className="h-4 w-4" /> Ver cupons
-                          </Button>
+                        {/* Ações inferiores */}
+                        <div className="mt-auto flex flex-col gap-2 border-t border-border/60 pt-4">
+                          {isClinic ? (
+                            <div className="flex items-center gap-2">
+                              {waUrl ? (
+                                <a
+                                  href={waUrl}
+                                  target="_blank"
+                                  rel="noopener noreferrer"
+                                  className="flex-1"
+                                >
+                                  <Button
+                                    className="w-full gap-2 rounded-full bg-emerald-600 hover:bg-emerald-700 text-white shadow-soft transition-smooth font-medium"
+                                  >
+                                    <MessageCircle className="h-4 w-4" />
+                                    Chamar no WhatsApp
+                                  </Button>
+                                </a>
+                              ) : (
+                                <Button
+                                  disabled
+                                  variant="outline"
+                                  className="flex-1 rounded-full text-xs"
+                                >
+                                  Contato sob consulta
+                                </Button>
+                              )}
+
+                              <Button
+                                variant="outline"
+                                onClick={() => setActiveClinic(p)}
+                                className="rounded-full shrink-0"
+                              >
+                                Ver Detalhes
+                              </Button>
+                            </div>
+                          ) : (
+                            <div className="flex items-center justify-between gap-2">
+                              <span className="inline-flex items-center gap-1.5 text-xs font-semibold text-warm">
+                                <Ticket className="h-4 w-4" /> {p.coupons.length}{" "}
+                                {p.coupons.length === 1 ? "cupom" : "cupons"}
+                              </span>
+                              <Button
+                                onClick={() => setActivePartner(p)}
+                                className="rounded-full gradient-primary text-primary-foreground shadow-soft hover:shadow-glow"
+                              >
+                                <Gift className="h-4 w-4" /> Ver Cupons
+                              </Button>
+                            </div>
+                          )}
                         </div>
                       </div>
                     </article>
@@ -467,92 +582,178 @@ const Partnerships = () => {
           <div className="container grid gap-6 md:grid-cols-3">
             <Reassure
               icon={ShieldCheck}
-              title="Pagamento direto ao parceiro"
-              desc="Não cobramos taxa nenhuma sobre os cupons. Você paga o parceiro pelo canal dele, com a economia já aplicada."
+              title="Atendimento Direto & Seguro"
+              desc="Sem intermediários nem taxas extras. Você conversa e agenda diretamente com o profissional de confiança."
             />
-
             <Reassure
               icon={BadgePercent}
-              title="Cupons sem letra miúda"
-              desc="Cada cupom mostra exatamente para que serve, como usar e por quanto tempo é válido."
+              title="Vínculo com Prontuário"
+              desc="Ao ser atendido por clínicas parceiras, todas as vacinas e prescrições sincronizam no histórico do seu animal."
             />
-
             <Reassure
               icon={HeartPulse}
-              title="Garantia de atendimento"
-              desc="Se algo não for cumprido pelo parceiro, abra um chamado e nosso time resolve em até 48h."
+              title="Clínicas com CRMV Válido"
+              desc="Priorizamos clínicas registradas para garantir a máxima segurança e excelência nos cuidados veterinários."
             />
           </div>
         </section>
       </main>
 
-      {/* Coupon dialog */}
-      <Dialog open={!!active} onOpenChange={(o) => !o && setActive(null)}>
+      {/* Modal de Detalhes da Clínica Parceira */}
+      <Dialog open={!!activeClinic} onOpenChange={(o) => !o && setActiveClinic(null)}>
+        <DialogContent className="max-w-xl max-h-[90vh] overflow-y-auto">
+          {activeClinic && (
+            <>
+              <DialogHeader>
+                <div className="flex items-center gap-3">
+                  <div className="flex h-12 w-12 shrink-0 items-center justify-center overflow-hidden rounded-xl border border-border bg-primary text-lg font-bold text-primary-foreground">
+                    {activeClinic.photoUrl ? (
+                      <img
+                        src={activeClinic.photoUrl}
+                        alt={activeClinic.name}
+                        className="h-full w-full object-cover"
+                      />
+                    ) : (
+                      <span>{activeClinic.initials}</span>
+                    )}
+                  </div>
+                  <div>
+                    <DialogTitle className="font-display text-2xl">
+                      {activeClinic.name}
+                    </DialogTitle>
+                    <DialogDescription className="flex items-center gap-2 mt-0.5">
+                      <span className="font-semibold text-foreground">{activeClinic.crmv}</span>
+                      <span>·</span>
+                      <span>{activeClinic.address}</span>
+                    </DialogDescription>
+                  </div>
+                </div>
+              </DialogHeader>
+
+              <div className="space-y-5 py-2">
+                {/* Sobre a clínica */}
+                <div>
+                  <h4 className="text-xs font-bold uppercase tracking-wider text-muted-foreground mb-1">
+                    Sobre a Clínica
+                  </h4>
+                  <p className="text-sm text-foreground/90 leading-relaxed bg-muted/40 p-3 rounded-2xl border border-border/60">
+                    {activeClinic.description}
+                  </p>
+                </div>
+
+                {/* Serviços e procedimentos */}
+                <div>
+                  <h4 className="text-xs font-bold uppercase tracking-wider text-muted-foreground mb-2">
+                    Serviços & Procedimentos
+                  </h4>
+                  <div className="grid gap-2 sm:grid-cols-2">
+                    {activeClinic.services.map((srv, idx) => (
+                      <div
+                        key={idx}
+                        className="flex items-center justify-between p-2.5 rounded-xl border border-border/70 bg-card text-xs"
+                      >
+                        <span className="font-medium text-foreground">{srv.name}</span>
+                        <span className="text-muted-foreground font-mono">{srv.price}</span>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+
+                {/* Informações de contato direto */}
+                <div className="rounded-2xl border border-border/70 bg-card p-4 space-y-2">
+                  <h4 className="text-xs font-bold uppercase tracking-wider text-muted-foreground">
+                    Canais de Atendimento
+                  </h4>
+                  <div className="space-y-1.5 text-xs text-foreground">
+                    {activeClinic.address && (
+                      <div className="flex items-center gap-2">
+                        <MapPin className="h-4 w-4 text-primary shrink-0" />
+                        <span>{activeClinic.address}</span>
+                      </div>
+                    )}
+                    {activeClinic.phone && (
+                      <div className="flex items-center gap-2">
+                        <Phone className="h-4 w-4 text-primary shrink-0" />
+                        <span>{activeClinic.phone}</span>
+                      </div>
+                    )}
+                  </div>
+                </div>
+              </div>
+
+              <DialogFooter className="flex-col sm:flex-row gap-2">
+                <Button
+                  variant="outline"
+                  onClick={() => setActiveClinic(null)}
+                  className="rounded-full w-full sm:w-auto"
+                >
+                  Fechar
+                </Button>
+
+                {getWhatsAppLink(activeClinic.whatsapp || activeClinic.phone, activeClinic.name) && (
+                  <a
+                    href={getWhatsAppLink(activeClinic.whatsapp || activeClinic.phone, activeClinic.name)}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="w-full sm:w-auto flex-1"
+                  >
+                    <Button className="w-full gap-2 rounded-full bg-emerald-600 hover:bg-emerald-700 text-white">
+                      <MessageCircle className="h-4 w-4" />
+                      Conversar no WhatsApp
+                    </Button>
+                  </a>
+                )}
+              </DialogFooter>
+            </>
+          )}
+        </DialogContent>
+      </Dialog>
+
+      {/* Modal de Cupons de Parceiros Estáticos */}
+      <Dialog open={!!activePartner} onOpenChange={(o) => !o && setActivePartner(null)}>
         <DialogContent className="max-w-lg">
-          {active && (
+          {activePartner && (
             <>
               <DialogHeader>
                 <DialogTitle className="font-display text-2xl">
-                  {active.name}
+                  {activePartner.name}
                 </DialogTitle>
                 <DialogDescription>
-                  Contrato <code className="font-mono">{active.contract}</code>{" "}
-                  · {active.category}
+                  Contrato <code className="font-mono">{activePartner.contract}</code> · {activePartner.category}
                 </DialogDescription>
               </DialogHeader>
 
-              <div className="space-y-3">
-                {active.coupons.map((c) => (
+              <div className="space-y-3 py-2">
+                {activePartner.coupons.map((c) => (
                   <div
                     key={c.code}
-                    className="rounded-2xl border border-border bg-card p-4 transition-smooth hover:border-primary/50"
+                    className="flex items-center justify-between gap-3 rounded-2xl border border-primary/20 bg-primary-soft/40 p-4"
                   >
-                    <div className="flex items-center justify-between gap-3">
-                      <div>
-                        <p className="text-xs font-semibold uppercase tracking-wider text-warm">
-                          {c.discount}
-                        </p>
-                        <code className="mt-1 inline-block rounded-md bg-muted px-2 py-1 font-mono text-sm font-bold text-foreground">
-                          {c.code}
-                        </code>
-                      </div>
-                      <Button
-                        size="sm"
-                        variant="outline"
-                        onClick={() => copyCode(c.code)}
-                      >
-                        <Copy className="h-4 w-4" /> Copiar
-                      </Button>
+                    <div>
+                      <p className="font-display text-lg font-bold text-foreground">
+                        {c.discount}
+                      </p>
+                      <p className="text-xs text-muted-foreground">{c.description}</p>
                     </div>
-
-                    <dl className="mt-3 space-y-2 text-sm">
-                      <div>
-                        <dt className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
-                          Para que serve
-                        </dt>
-                        <dd className="text-foreground">{c.forWhat}</dd>
-                      </div>
-                      <div>
-                        <dt className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
-                          Como conseguir
-                        </dt>
-                        <dd className="text-muted-foreground">{c.howTo}</dd>
-                      </div>
-                    </dl>
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      onClick={() => copyCode(c.code)}
+                      className="rounded-full border-primary/40 bg-background font-mono text-xs font-bold text-primary hover:bg-primary hover:text-primary-foreground"
+                    >
+                      <Copy className="h-3.5 w-3.5 mr-1" /> {c.code}
+                    </Button>
                   </div>
                 ))}
               </div>
 
-              <DialogFooter className="flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
-                <p className="text-xs text-muted-foreground">
-                  Você não paga nada agora. O cupom é aplicado no checkout do
-                  parceiro.
-                </p>
+              <DialogFooter>
                 <Button
-                  asChild
-                  className="rounded-full gradient-primary text-primary-foreground"
+                  variant="outline"
+                  onClick={() => setActivePartner(null)}
+                  className="rounded-full"
                 >
-                  <Link to="/login">Resgatar na minha conta</Link>
+                  Fechar
                 </Button>
               </DialogFooter>
             </>
@@ -561,39 +762,47 @@ const Partnerships = () => {
       </Dialog>
     </div>
   );
-};
+}
 
-const Stat = ({ value, label }) => (
-  <div className="flex items-center gap-2 px-3 py-1">
-    <span className="font-display text-xl font-bold text-foreground">
-      {value}
-    </span>
-    <span className="text-xs font-medium text-muted-foreground">{label}</span>
-  </div>
-);
-
-const Step = ({ n, title, desc }) => (
-  <div className="flex items-start gap-3 rounded-2xl bg-card p-4 shadow-card">
-    <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-primary text-sm font-bold text-primary-foreground">
-      {n}
-    </span>
-    <div>
-      <p className="text-sm font-semibold text-foreground">{title}</p>
-      <p className="text-xs text-muted-foreground">{desc}</p>
+function Stat({ value, label }) {
+  return (
+    <div className="px-3 py-1 text-center">
+      <span className="font-display text-lg font-bold text-foreground sm:text-xl">
+        {value}
+      </span>
+      <span className="ml-1 text-xs text-muted-foreground">{label}</span>
     </div>
-  </div>
-);
+  );
+}
 
-const Reassure = ({ icon: Icon, title, desc }) => (
-  <div className="rounded-2xl border border-border/60 bg-card p-6 shadow-card">
-    <span className="inline-flex h-11 w-11 items-center justify-center rounded-xl bg-primary-soft text-primary">
-      <Icon className="h-5 w-5" />
-    </span>
-    <h3 className="mt-3 font-display text-lg font-bold text-foreground">
-      {title}
-    </h3>
-    <p className="mt-1 text-sm text-muted-foreground">{desc}</p>
-  </div>
-);
+function Step({ n, title, desc }) {
+  return (
+    <div className="flex items-start gap-3 rounded-2xl bg-card/60 p-3">
+      <div className="flex h-7 w-7 shrink-0 items-center justify-center rounded-xl bg-primary text-xs font-bold text-primary-foreground">
+        {n}
+      </div>
+      <div>
+        <p className="font-semibold text-foreground text-sm">{title}</p>
+        <p className="text-xs text-muted-foreground">{desc}</p>
+      </div>
+    </div>
+  );
+}
 
-export default Partnerships;
+function Reassure({ icon: Icon, title, desc }) {
+  return (
+    <div className="flex gap-4 rounded-3xl border border-border/60 bg-card p-6 shadow-card">
+      <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl bg-primary-soft text-primary">
+        <Icon className="h-6 w-6" />
+      </div>
+      <div>
+        <h3 className="font-display text-lg font-bold text-foreground">
+          {title}
+        </h3>
+        <p className="mt-1 text-sm text-muted-foreground leading-relaxed">
+          {desc}
+        </p>
+      </div>
+    </div>
+  );
+}

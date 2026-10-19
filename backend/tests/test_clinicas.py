@@ -556,6 +556,41 @@ class TestClinicasAuthAndProfile(unittest.TestCase):
         names = [p["name"] for p in list_resp.json()]
         self.assertNotIn("Thor Deletar", names)
 
+    def test_list_public_clinics_and_search(self):
+        # Consulta publica sem autenticacao
+        resp = self.client.get("/api/clinicas/publicas")
+        self.assertEqual(resp.status_code, 200)
+        data = resp.json()
+        self.assertIsInstance(data, list)
+        self.assertGreaterEqual(len(data), 1)
+
+        # Valida que dados da clinica estao presentes e senha_hash nao vaza
+        first = data[0]
+        self.assertEqual(first["nome"], "Clínica Veterinária Vida Animal")
+        self.assertEqual(first["crmv"], "SP-12345")
+        self.assertNotIn("senha_hash", first)
+        self.assertNotIn("senha", first)
+
+        # Busca por termo existente
+        search_resp = self.client.get("/api/clinicas/publicas?q=Animal")
+        self.assertEqual(search_resp.status_code, 200)
+        self.assertEqual(len(search_resp.json()), 1)
+
+        # Busca por termo inexistente
+        empty_resp = self.client.get("/api/clinicas/publicas?q=ClinicaInexistente999")
+        self.assertEqual(empty_resp.status_code, 200)
+        self.assertEqual(len(empty_resp.json()), 0)
+
+    def test_get_public_clinic_details(self):
+        resp = self.client.get(f"/api/clinicas/publicas/{self.clinic_id}")
+        self.assertEqual(resp.status_code, 200)
+        self.assertEqual(resp.json()["id"], self.clinic_id)
+        self.assertEqual(resp.json()["nome"], "Clínica Veterinária Vida Animal")
+
+        # Teste 404 para ID inexistente
+        not_found = self.client.get("/api/clinicas/publicas/999999")
+        self.assertEqual(not_found.status_code, 404)
+
 
 if __name__ == "__main__":
     unittest.main()
