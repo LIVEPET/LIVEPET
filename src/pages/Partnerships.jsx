@@ -1,5 +1,4 @@
 import { useEffect, useMemo, useState } from "react";
-import { Link } from "react-router-dom";
 import {
   BadgePercent,
   Check,
@@ -18,8 +17,6 @@ import {
   Syringe,
   Ticket,
   X,
-  ExternalLink,
-  Clock,
 } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
@@ -422,6 +419,13 @@ export default function Partnerships() {
         {/* Grid de clínicas e parceiros */}
         <section className="py-10">
           <div className="container">
+            {loadingClinics && (
+              <div className="mb-6 flex items-center justify-center gap-2 rounded-2xl border border-primary/20 bg-primary-soft/30 p-3 text-xs text-primary animate-pulse">
+                <Sparkles className="h-4 w-4" />
+                <span>Sincronizando clínicas parceiras em tempo real com o banco de dados...</span>
+              </div>
+            )}
+
             {filtered.length === 0 ? (
               <div className="rounded-3xl border border-dashed border-border bg-card/50 py-16 text-center">
                 <p className="text-muted-foreground text-lg">
