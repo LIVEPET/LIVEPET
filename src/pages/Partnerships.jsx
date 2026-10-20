@@ -25,7 +25,6 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
-import { useClinic } from "@/contexts/ClinicContext";
 import { clinicService } from "@/services/api";
 import {
   formatPrice,
@@ -41,34 +40,28 @@ export default function Partnerships() {
   const [dbClinics, setDbClinics] = useState([]);
   const [loadingClinics, setLoadingClinics] = useState(true);
 
-  // Perfil da clínica ativa gerenciada no painel local (caso esteja logada/em edição)
-  const { profile: localClinicProfile } = useClinic();
+  const fetchClinics = async () => {
+    try {
+      setLoadingClinics(true);
+      const data = await clinicService.listPublicClinics();
+      if (Array.isArray(data)) {
+        setDbClinics(data);
+      }
+    } catch {
+      setDbClinics([]);
+    } finally {
+      setLoadingClinics(false);
+    }
+  };
 
   useEffect(() => {
-    let isMounted = true;
-    const fetchClinics = async () => {
-      try {
-        setLoadingClinics(true);
-        const data = await clinicService.listPublicClinics();
-        if (isMounted && Array.isArray(data)) {
-          setDbClinics(data);
-        }
-      } catch {
-        if (isMounted) setDbClinics([]);
-      } finally {
-        if (isMounted) setLoadingClinics(false);
-      }
-    };
     fetchClinics();
-    return () => {
-      isMounted = false;
-    };
   }, []);
 
   // Formata número de WhatsApp e link oficial para conversa
   const getWhatsAppLink = (phoneOrWa, clinicName) => {
     if (!phoneOrWa) return null;
-    const digits = phoneOrWa.replace(/\D/g, "");
+    const digits = String(phoneOrWa).replace(/\D/g, "");
     if (!digits) return null;
     const cleanNumber = digits.length <= 11 ? `55${digits}` : digits;
     const message = encodeURIComponent(
@@ -79,19 +72,19 @@ export default function Partnerships() {
 
   // Mapeia clínicas reais do banco de dados Neon
   const mappedClinics = useMemo(() => {
-    // Lista base vinda do banco de dados
-    const list = dbClinics.map((c) => {
+    if (!Array.isArray(dbClinics)) return [];
+    return dbClinics.map((c) => {
       let rawServices = [];
-      if (c.servicos) {
+      if (c?.servicos) {
         try {
           const parsed = typeof c.servicos === "string" ? JSON.parse(c.servicos) : c.servicos;
           if (Array.isArray(parsed)) rawServices = parsed;
         } catch {}
       }
-      const services = rawServices.map(normalizeService).filter((s) => s.name);
+      const services = rawServices.map(normalizeService).filter((s) => s?.name);
 
       let rawHours = [];
-      if (c.horarios) {
+      if (c?.horarios) {
         try {
           const parsed = typeof c.horarios === "string" ? JSON.parse(c.horarios) : c.horarios;
           if (Array.isArray(parsed)) rawHours = parsed;
@@ -100,109 +93,53 @@ export default function Partnerships() {
       const hours = hoursForDisplay(rawHours);
 
       let rawTeam = [];
-      if (c.equipe) {
+      if (c?.equipe) {
         try {
           const parsed = typeof c.equipe === "string" ? JSON.parse(c.equipe) : c.equipe;
           if (Array.isArray(parsed)) rawTeam = parsed;
         } catch {}
       }
-      const team = rawTeam.map(normalizeMember).filter((m) => m.name);
+      const team = rawTeam.map(normalizeMember).filter((m) => m?.name);
 
-      // Se a clínica em edição no contexto for esta mesma (por email ou nome), usa os dados mais recentes
-      const isCurrentLocal =
-        localClinicProfile?.name &&
-        (localClinicProfile.email === c.email || localClinicProfile.name.trim() === c.nome.trim());
-
-      const effectivePhoto = isCurrentLocal && localClinicProfile.photo ? localClinicProfile.photo : c.foto_url;
-      const effectiveWa = isCurrentLocal && localClinicProfile.whatsapp ? localClinicProfile.whatsapp : (c.whatsapp || c.telefone || "");
-      const effectiveServices = isCurrentLocal && localClinicProfile.services?.length
-        ? localClinicProfile.services.map(normalizeService).filter((s) => s.name)
-        : services;
-      const effectiveHours = isCurrentLocal && localClinicProfile.hours?.length
-        ? hoursForDisplay(localClinicProfile.hours)
-        : hours;
-      const effectiveTeam = isCurrentLocal && localClinicProfile.team?.length
-        ? localClinicProfile.team.map(normalizeMember).filter((m) => m.name)
-        : team;
+      const clinicName = String(c?.nome || "Clínica Veterinária").trim();
+      const initials =
+        clinicName
+          .split(/\s+/)
+          .filter(Boolean)
+          .slice(0, 2)
+          .map((w) => w[0].toUpperCase())
+          .join("") || "CV";
 
       return {
         id: `clinic-db-${c.id}`,
         realId: c.id,
-        name: c.nome,
+        name: clinicName,
         city: c.endereco ? c.endereco.split("-")[1]?.trim() || c.endereco : "Brasil",
         address: c.endereco || "Atendimento sob agendamento",
         crmv: c.crmv || "CRMV Regular",
         cnpj: c.cnpj,
         phone: c.telefone || c.whatsapp || "",
-        whatsapp: effectiveWa,
-        photoUrl: effectivePhoto,
+        whatsapp: c.whatsapp || c.telefone || "",
+        photoUrl: c.foto_url || null,
         contract: `VET-${String(c.id).padStart(4, "0")}`,
         accent: "from-emerald-600/25 to-teal-500/10",
-        initials:
-          c.nome
-            .split(" ")
-            .map((w) => w[0])
-            .slice(0, 2)
-            .join("")
-            .toUpperCase() || "CV",
+        initials,
         description:
           c.sobre ||
           "Clínica veterinária parceira credenciada na plataforma LivePet para consultas, exames e cuidados clínicos.",
-        services: effectiveServices,
-        hours: effectiveHours,
-        team: effectiveTeam,
+        services,
+        hours,
+        team,
       };
     });
-
-    // Se o usuário cadastrou ou tem uma clínica configurada localmente que ainda não está na lista da API, insere no topo
-    if (
-      localClinicProfile?.name &&
-      !list.some(
-        (c) =>
-          c.name.trim().toLowerCase() === localClinicProfile.name.trim().toLowerCase() ||
-          (localClinicProfile.email && c.email === localClinicProfile.email)
-      )
-    ) {
-      list.unshift({
-        id: "clinic-local-managed",
-        realId: "local",
-        name: localClinicProfile.name,
-        city: localClinicProfile.address
-          ? localClinicProfile.address.split("-")[1]?.trim() || localClinicProfile.address
-          : "Brasil",
-        address: localClinicProfile.address || "Atendimento sob agendamento",
-        crmv: localClinicProfile.crmv || "CRMV Regular",
-        cnpj: null,
-        phone: localClinicProfile.phone || localClinicProfile.whatsapp || "",
-        whatsapp: localClinicProfile.whatsapp || localClinicProfile.phone || "",
-        photoUrl: localClinicProfile.photo || null,
-        contract: "VET-NOVO",
-        accent: "from-teal-600/25 to-emerald-500/10",
-        initials:
-          localClinicProfile.name
-            .split(" ")
-            .map((w) => w[0])
-            .slice(0, 2)
-            .join("")
-            .toUpperCase() || "CL",
-        description:
-          localClinicProfile.about ||
-          "Clínica veterinária parceira credenciada na plataforma LivePet para consultas, exames e cuidados clínicos.",
-        services: (localClinicProfile.services || []).map(normalizeService).filter((s) => s.name),
-        hours: hoursForDisplay(localClinicProfile.hours || []),
-        team: (localClinicProfile.team || []).map(normalizeMember).filter((m) => m.name),
-      });
-    }
-
-    return list;
-  }, [dbClinics, localClinicProfile]);
+  }, [dbClinics]);
 
   const filtered = useMemo(() => {
     const q = query.trim().toLowerCase();
     if (!q) return mappedClinics;
     return mappedClinics.filter((c) => {
-      const matchServices = c.services.some((s) => s.name.toLowerCase().includes(q));
-      const matchTeam = c.team.some((m) => m.name.toLowerCase().includes(q) || (m.crmv && m.crmv.toLowerCase().includes(q)));
+      const matchServices = Array.isArray(c.services) && c.services.some((s) => s.name?.toLowerCase().includes(q));
+      const matchTeam = Array.isArray(c.team) && c.team.some((m) => m.name?.toLowerCase().includes(q) || (m.crmv && m.crmv.toLowerCase().includes(q)));
       return (
         c.name.toLowerCase().includes(q) ||
         c.contract.toLowerCase().includes(q) ||

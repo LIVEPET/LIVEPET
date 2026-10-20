@@ -640,7 +640,20 @@ const saveProfile = useCallback((fields) => {
 export const useClinic = () => {
   const context = useContext(ClinicContext);
   if (!context) {
-    throw new Error("useClinic precisa ser usado dentro de <ClinicProvider>.");
+    return {
+      profile: {},
+      appointments: [],
+      patients: [],
+      beds: [],
+      saveProfile: () => {},
+      addAppointment: () => {},
+      updateAppointmentStatus: () => {},
+      cancelAppointment: () => {},
+      addPatient: () => {},
+      updatePatient: () => {},
+      deletePatient: () => {},
+      updateBed: () => {},
+    };
   }
   return context;
 };

@@ -3,7 +3,7 @@ import { BedDouble, CalendarDays, LayoutDashboard, LogOut, Menu, PawPrint, Steth
 import { Button } from "@/components/ui/button";
 import { Sheet, SheetContent, SheetTrigger, SheetClose } from "@/components/ui/sheet";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
-import { ClinicProvider, useClinic } from "@/contexts/ClinicContext";
+import { useClinic } from "@/contexts/ClinicContext";
 import { clinicService } from "@/services/api";
 
 const links = [
@@ -147,10 +147,6 @@ const ClinicShell = () => {
   );
 };
 
-const ClinicLayout = () => (
-  <ClinicProvider>
-    <ClinicShell />
-  </ClinicProvider>
-);
+const ClinicLayout = () => <ClinicShell />;
 
 export default ClinicLayout;
