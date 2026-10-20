@@ -98,6 +98,14 @@ export const clearStoredClinicAuth = () => {
   if (typeof window === "undefined") return;
   localStorage.removeItem(CLINIC_TOKEN_KEY);
   localStorage.removeItem(CLINIC_KEY);
+  localStorage.removeItem("livepet_clinic_data");
+  try {
+    Object.keys(localStorage).forEach((key) => {
+      if (key.startsWith("livepet_clinic_data")) {
+        localStorage.removeItem(key);
+      }
+    });
+  } catch {}
   window.dispatchEvent(
     new CustomEvent(CLINIC_AUTH_EVENT, { detail: { token: null, clinic: null } })
   );
@@ -117,7 +125,8 @@ async function apiFetch(endpoint, options = {}) {
   const isClinicEndpoint = endpoint.includes("/clinicas");
   const clinicToken = getClinicAuthToken();
   const tutorToken = getAuthToken();
-  const token = isClinicEndpoint ? (clinicToken || tutorToken) : (tutorToken || clinicToken);
+  // Isola estritamente o token de clínica do token de tutor para evitar contaminação cruzada de contas
+  const token = isClinicEndpoint ? clinicToken : tutorToken;
 
   if (token && !headers.Authorization) {
     headers.Authorization = `Bearer ${token}`;
@@ -592,55 +601,30 @@ export const clinicService = {
    * Autentica a clínica veterinária parceira com e-mail e senha
    */
   async login({ email, senha }) {
-    try {
-      const data = await apiFetch("/api/clinicas/login", {
-        method: "POST",
-        body: {
-          email: email.trim().toLowerCase(),
-          senha,
-        },
-      });
+    const data = await apiFetch("/api/clinicas/login", {
+      method: "POST",
+      body: {
+        email: email.trim().toLowerCase(),
+        senha,
+      },
+    });
 
-      setStoredClinicAuth(data.access_token, data.clinica);
-      return data;
-    } catch (err) {
-      if (import.meta.env.DEV) {
-        const mockClinic = {
-          id: "dev-clinic-1",
-          nome: email.split("@")[0] || "Clínica Vet LivePet",
-          email: email.trim().toLowerCase(),
-          crmv: "CRMV-SP 12345",
-        };
-        setStoredClinicAuth("dev-clinic-token", mockClinic);
-        return { access_token: "dev-clinic-token", clinica: mockClinic };
-      }
-      throw err;
-    }
+    setStoredClinicAuth(data.access_token, data.clinica);
+    return data;
   },
 
   /**
    * Cadastra uma nova clínica veterinária parceira
    */
   async register(clinicData) {
-    try {
-      const data = await apiFetch("/api/clinicas/register", {
-        method: "POST",
-        body: {
-          ...clinicData,
-          email: clinicData.email ? clinicData.email.trim().toLowerCase() : "",
-        },
-      });
-      return data;
-    } catch (err) {
-      if (import.meta.env.DEV) {
-        return {
-          id: "dev-clinic-1",
-          nome: clinicData.nome || "Clínica Vet LivePet",
-          email: clinicData.email ? clinicData.email.trim().toLowerCase() : "clinica@livepet.com",
-        };
-      }
-      throw err;
-    }
+    const data = await apiFetch("/api/clinicas/register", {
+      method: "POST",
+      body: {
+        ...clinicData,
+        email: clinicData.email ? clinicData.email.trim().toLowerCase() : "",
+      },
+    });
+    return data;
   },
 
   /**

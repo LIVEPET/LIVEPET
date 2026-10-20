@@ -38,6 +38,7 @@ const ClinicLogin = () => {
 
     setLoading(true);
     try {
+      clinicService.logout();
       const res = await clinicService.login({ email, senha: password });
       toast.success("Bem-vindo de volta!", {
         description: `Painel da ${res.clinica?.nome || "clínica"} liberado.`,
@@ -69,6 +70,7 @@ const ClinicLogin = () => {
 
     setLoading(true);
     try {
+      clinicService.logout();
       await clinicService.register({
         nome: name.trim(),
         email: email.trim(),

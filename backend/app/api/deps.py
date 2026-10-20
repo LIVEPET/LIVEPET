@@ -36,6 +36,13 @@ def get_current_user(
             headers={"WWW-Authenticate": "Bearer"},
         )
 
+    if payload.get("role") == "clinic":
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Token de clínica não pode ser utilizado para autenticar como tutor.",
+            headers={"WWW-Authenticate": "Bearer"},
+        )
+
     user_id_str = payload.get("sub")
     if not user_id_str:
         raise HTTPException(
@@ -83,6 +90,13 @@ def get_current_clinic(
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Token inválido ou expirado.",
+            headers={"WWW-Authenticate": "Bearer"},
+        )
+
+    if payload.get("role") != "clinic":
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Token de tutor não pode ser utilizado para autenticar como clínica parceira.",
             headers={"WWW-Authenticate": "Bearer"},
         )
 

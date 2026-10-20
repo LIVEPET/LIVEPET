@@ -86,11 +86,17 @@ const sanitizeBeds = (rawBeds) => {
   return rawBeds.filter((b) => isObject(b) && b.id);
 };
 
+const getStorageKey = () => {
+  const current = clinicService.getCurrentClinic();
+  return current?.id ? `livepet_clinic_data_${current.id}` : STORAGE_KEY;
+};
+
 // Lê do localStorage sem nunca quebrar: se estiver indisponível, vazio ou
 // corrompido, volta para os dados vazios.
 const loadData = () => {
   try {
-    const raw = window.localStorage.getItem(STORAGE_KEY);
+    const key = getStorageKey();
+    const raw = window.localStorage.getItem(key);
     if (!raw) return createEmptyData();
     const parsed = JSON.parse(raw);
     if (!isObject(parsed)) return createEmptyData();
@@ -109,8 +115,9 @@ const loadData = () => {
 
 const saveData = (data) => {
   try {
+    const key = getStorageKey();
     window.localStorage.setItem(
-      STORAGE_KEY,
+      key,
       JSON.stringify({ version: STORAGE_VERSION, ...data }),
     );
   } catch {
@@ -147,106 +154,126 @@ export const ClinicProvider = ({ children }) => {
     saveData(data);
   }, [data]);
 
-  // Sincroniza perfil da clínica se autenticada
-  useEffect(() => {
-    let active = true;
+  const loadClinicData = useCallback(async () => {
+    if (!clinicService.isAuthenticated()) return;
     const currentClinic = clinicService.getCurrentClinic();
+
     if (currentClinic) {
       setData((current) => ({
         ...current,
         profile: {
           ...current.profile,
-          name: currentClinic.nome || current.profile.name,
-          crmv: currentClinic.crmv || current.profile.crmv,
-          email: currentClinic.email || current.profile.email,
-          phone: currentClinic.telefone || current.profile.phone,
-          whatsapp: currentClinic.whatsapp || current.profile.whatsapp,
-          address: currentClinic.endereco || current.profile.address,
-          about: currentClinic.sobre || current.profile.about,
-          photo: currentClinic.foto_url || current.profile.photo,
+          name: currentClinic.nome || "",
+          crmv: currentClinic.crmv || "",
+          email: currentClinic.email || "",
+          phone: currentClinic.telefone || "",
+          whatsapp: currentClinic.whatsapp || "",
+          address: currentClinic.endereco || "",
+          about: currentClinic.sobre || "",
+          photo: currentClinic.foto_url || "",
         },
       }));
     }
 
+    try {
+      const clinic = await clinicService.getProfile();
+      if (clinic) {
+        let servicesList = [];
+        if (clinic.servicos) {
+          try {
+            const parsed = typeof clinic.servicos === "string" ? JSON.parse(clinic.servicos) : clinic.servicos;
+            if (Array.isArray(parsed)) servicesList = parsed;
+          } catch {}
+        }
+        let hoursList = [];
+        if (clinic.horarios) {
+          try {
+            const parsed = typeof clinic.horarios === "string" ? JSON.parse(clinic.horarios) : clinic.horarios;
+            if (Array.isArray(parsed)) hoursList = parsed;
+          } catch {}
+        }
+        let teamList = [];
+        if (clinic.equipe) {
+          try {
+            const parsed = typeof clinic.equipe === "string" ? JSON.parse(clinic.equipe) : clinic.equipe;
+            if (Array.isArray(parsed)) teamList = parsed;
+          } catch {}
+        }
+
+        setData((current) => ({
+          ...current,
+          profile: {
+            ...current.profile,
+            name: clinic.nome || "",
+            crmv: clinic.crmv || "",
+            email: clinic.email || "",
+            phone: clinic.telefone || "",
+            whatsapp: clinic.whatsapp || "",
+            address: clinic.endereco || "",
+            about: clinic.sobre || "",
+            photo: clinic.foto_url || "",
+            services: servicesList,
+            hours: hoursList,
+            team: teamList,
+          },
+        }));
+      }
+    } catch {}
+
+    try {
+      const appointments = await clinicService.listAppointments();
+      if (Array.isArray(appointments)) {
+        const mapped = appointments.map((a) => ({
+          id: a.id,
+          petName: a.pet_name,
+          species: a.species,
+          breed: a.breed,
+          tutor: a.tutor,
+          phone: a.phone,
+          service: a.service,
+          vet: a.vet,
+          date: a.date,
+          time: a.time,
+          status: a.status,
+          priority: a.priority || "Rotina",
+          notes: a.notes || "",
+        }));
+        setData((current) => ({ ...current, appointments: mapped }));
+      }
+    } catch {}
+
+    try {
+      const apiPatients = await clinicService.listPatients();
+      if (Array.isArray(apiPatients)) {
+        setData((current) => ({ ...current, patients: apiPatients }));
+      }
+    } catch {}
+  }, []);
+
+  // Monitora alterações de autenticação da clínica (login, logout, troca de conta)
+  useEffect(() => {
+    const handleAuthChange = (e) => {
+      const clinic = e.detail?.clinic;
+      if (!clinic) {
+        setData(createEmptyData());
+      } else {
+        setData(createEmptyData());
+        loadClinicData();
+      }
+    };
+
+    window.addEventListener("livepet-clinic-auth-change", handleAuthChange);
+    return () => {
+      window.removeEventListener("livepet-clinic-auth-change", handleAuthChange);
+    };
+  }, [loadClinicData]);
+
+  // Sincronização inicial se autenticado
+  useEffect(() => {
     if (clinicService.isAuthenticated()) {
-      clinicService
-        .getProfile()
-        .then((clinic) => {
-          if (!active || !clinic) return;
-          setData((current) => {
-            let servicesList = current.profile.services;
-          if (clinic.servicos) {
-            try {
-              const parsed = JSON.parse(clinic.servicos);
-              if (Array.isArray(parsed) && parsed.length > 0) servicesList = parsed;
-            } catch {}
-          }
-          let hoursList = current.profile.hours;
-          if (clinic.horarios) {
-            try {
-              const parsed = JSON.parse(clinic.horarios);
-              if (Array.isArray(parsed) && parsed.length > 0) hoursList = parsed;
-            } catch {}
-          }
-          let teamList = current.profile.team;
-          if (clinic.equipe) {
-            try {
-              const parsed = JSON.parse(clinic.equipe);
-              if (Array.isArray(parsed) && parsed.length > 0) teamList = parsed;
-            } catch {}
-          }
-
-          return {
-            ...current,
-            profile: {
-              ...current.profile,
-              name: clinic.nome || current.profile.name,
-              crmv: clinic.crmv || current.profile.crmv,
-              email: clinic.email || current.profile.email,
-              phone: clinic.telefone || current.profile.phone,
-              whatsapp: clinic.whatsapp || current.profile.whatsapp,
-              address: clinic.endereco || current.profile.address,
-              about: clinic.sobre || current.profile.about,
-              photo: clinic.foto_url || current.profile.photo,
-              services: servicesList,
-              hours: hoursList,
-              team: teamList,
-            },
-          };
-        });
-      })
-      .catch(() => {});
-  }
-
-  return () => {
-    active = false;
-  };
-}, []);
-
-// Sincroniza pacientes do banco de dados se a clínica estiver conectada
-useEffect(() => {
-  let active = true;
-  clinicService
-    .listPatients()
-    .then((apiPatients) => {
-      if (!active || !Array.isArray(apiPatients) || apiPatients.length === 0) return;
-      setData((current) => {
-        const merged = [...current.patients];
-        let changed = false;
-        apiPatients.forEach((ap) => {
-          if (!merged.some((p) => isSamePatient(p, { petName: ap.name, tutor: ap.tutor }))) {
-            merged.push(ap);
-            changed = true;
-          }
-        });
-        return changed ? { ...current, patients: merged } : current;
-      });
-    })
-    .catch(() => {});
-  return () => {
-    active = false;
-  };
-}, []);
+      loadClinicData();
+    }
+  }, [loadClinicData]);
 
 const saveProfile = useCallback((fields) => {
   setData((current) => ({ ...current, profile: { ...current.profile, ...fields } }));
