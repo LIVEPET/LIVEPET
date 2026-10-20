@@ -881,13 +881,17 @@ const MedicalHistory = () => {
             </div>
 
             <div className="space-y-1.5">
-              <Label htmlFor="rec-desc">Descrição / Laudo Clínico *</Label>
+              <div className="flex items-center justify-between">
+                <Label htmlFor="rec-desc">Descrição / Laudo Clínico *</Label>
+                <span className="text-[11px] text-muted-foreground">{description.length}/1500</span>
+              </div>
               <Textarea
                 id="rec-desc"
                 rows={3}
                 placeholder="Detalhes da consulta, prescrições, cuidados ou orientações..."
                 value={description}
-                onChange={(e) => setDescription(e.target.value)}
+                maxLength={1500}
+                onChange={(e) => setDescription(e.target.value.slice(0, 1500))}
                 required
               />
             </div>

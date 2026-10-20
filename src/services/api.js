@@ -338,15 +338,23 @@ export const petsService = {
   /**
    * Lista todos os pets do tutor logado
    */
-  async list() {
-    return apiFetch("/api/v1/pets");
+  async list(params = {}) {
+    const query = new URLSearchParams();
+    if (params.limit) query.append("limit", params.limit);
+    if (params.offset) query.append("offset", params.offset);
+    const qs = query.toString();
+    return apiFetch(`/api/v1/pets${qs ? `?${qs}` : ""}`);
   },
 
   /**
    * Lista pets da comunidade disponíveis para descoberta/match (excluindo os pets do tutor logado)
    */
-  async listExplore() {
-    return apiFetch("/api/v1/pets/explore");
+  async listExplore(params = {}) {
+    const query = new URLSearchParams();
+    if (params.limit) query.append("limit", params.limit);
+    if (params.offset) query.append("offset", params.offset);
+    const qs = query.toString();
+    return apiFetch(`/api/v1/pets/explore${qs ? `?${qs}` : ""}`);
   },
 
   /**

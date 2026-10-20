@@ -1,6 +1,6 @@
 import uuid
-from typing import List
-from fastapi import APIRouter, Depends, HTTPException, Request, status
+from typing import List, Optional
+from fastapi import APIRouter, Depends, HTTPException, Query, Request, status
 from sqlalchemy.orm import Session
 from app.api.deps import get_current_user
 from app.core.database import get_db
@@ -97,19 +97,24 @@ def create_pet(
     summary="Listar todos os pets do tutor autenticado",
 )
 def list_my_pets(
+    limit: Optional[int] = Query(None, ge=1, le=100, description="Limite de registros para paginação"),
+    offset: Optional[int] = Query(0, ge=0, description="Offset de registros para paginação"),
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
     """
     Retorna exclusivamente a lista de animais pertencentes ao tutor logado.
     """
-    pets = (
+    query = (
         db.query(Pet)
         .filter(Pet.user_id == current_user.id)
         .order_by(Pet.id.desc())
-        .all()
     )
-    return pets
+    if offset:
+        query = query.offset(offset)
+    if limit is not None:
+        query = query.limit(limit)
+    return query.all()
 
 
 @router.get(
@@ -118,6 +123,8 @@ def list_my_pets(
     summary="Listar pets da comunidade disponíveis para match/descoberta",
 )
 def list_explore_pets(
+    limit: Optional[int] = Query(None, ge=1, le=100, description="Limite de registros para paginação"),
+    offset: Optional[int] = Query(0, ge=0, description="Offset de registros para paginação"),
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
@@ -125,12 +132,16 @@ def list_explore_pets(
     Retorna exclusivamente pets de outros tutores (excluindo os pets pertencentes ao usuário logado).
     Garante que o tutor nunca veja ou dê match em seus próprios pets no MatchPet.
     """
-    pets = (
+    query = (
         db.query(Pet)
         .filter(Pet.user_id != current_user.id)
         .order_by(Pet.id.desc())
-        .all()
     )
+    if offset:
+        query = query.offset(offset)
+    if limit is not None:
+        query = query.limit(limit)
+    pets = query.all()
     res = []
     for p in pets:
         tutor = p.tutor
