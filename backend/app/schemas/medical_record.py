@@ -6,7 +6,7 @@ from pydantic import BaseModel, ConfigDict, Field
 class MedicalRecordBase(BaseModel):
     """Atributos compartilhados do prontuário / histórico médico."""
     tipo: str = Field(..., min_length=1, max_length=50, description="Tipo do registro (ex: Consulta, Cirurgia, Exame, Retorno)")
-    descricao: Optional[str] = Field(None, description="Descrição detalhada do atendimento ou observações clínicas")
+    descricao: Optional[str] = Field(None, max_length=1500, description="Descrição detalhada do atendimento ou observações clínicas")
     peso_registrado: Optional[float] = Field(None, ge=0, description="Peso aferido durante a consulta (kg)")
 
 

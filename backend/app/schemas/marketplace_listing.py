@@ -15,7 +15,7 @@ class MarketplaceListingBase(BaseModel):
     preco: Optional[float] = Field(0.0, ge=0, description="Preço em R$ (0 para adoção)")
     pedigree: Optional[bool] = Field(False, description="Possui registro de pedigree")
     pedigree_registro: Optional[str] = Field(None, max_length=100, description="Número do pedigree/registro")
-    descricao: Optional[str] = Field(None, description="Descrição detalhada do anúncio")
+    descricao: Optional[str] = Field(None, max_length=1000, description="Descrição detalhada do anúncio")
     foto_url: Optional[str] = Field(None, description="Foto do animal (URL ou base64 data-url)")
     telefone_contato: Optional[str] = Field(None, max_length=50, description="Telefone / WhatsApp de contato")
     pet_id: Optional[int] = Field(None, description="ID do pet já cadastrado (opcional)")

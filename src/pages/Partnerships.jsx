@@ -72,8 +72,23 @@ export default function Partnerships() {
 
   // Mapeia clínicas reais do banco de dados Neon
   const mappedClinics = useMemo(() => {
-    if (!Array.isArray(dbClinics)) return [];
-    return dbClinics.map((c) => {
+    const list = Array.isArray(dbClinics) ? [...dbClinics] : [];
+
+    // Se o usuário acabou de cadastrar ou está logado em uma clínica que ainda não retornou na listagem pública da API, adiciona no topo
+    const currentClinic = clinicService.getCurrentClinic();
+    if (currentClinic && (currentClinic.id || currentClinic.nome)) {
+      const alreadyInList = list.some(
+        (c) =>
+          (c.id && currentClinic.id && String(c.id) === String(currentClinic.id)) ||
+          (c.email && currentClinic.email && c.email.toLowerCase() === currentClinic.email.toLowerCase()) ||
+          (c.nome && currentClinic.nome && c.nome.trim().toLowerCase() === currentClinic.nome.trim().toLowerCase())
+      );
+      if (!alreadyInList) {
+        list.unshift(currentClinic);
+      }
+    }
+
+    return list.map((c) => {
       let rawServices = [];
       if (c?.servicos) {
         try {

@@ -17,6 +17,11 @@ const CLINIC_TOKEN_KEY = "livepet_clinic_access_token";
 const CLINIC_KEY = "livepet_current_clinic";
 const CLINIC_AUTH_EVENT = "livepet-clinic-auth-change";
 
+// Cache em memória para /me com stale time de 5 minutos para evitar requisições redundantes a cada rota
+let meCache = null;
+let meCacheTimestamp = 0;
+const ME_CACHE_TTL_MS = 5 * 60 * 1000;
+
 export const getAuthToken = () => {
   if (typeof window === "undefined") return null;
   return localStorage.getItem(TOKEN_KEY);
@@ -53,6 +58,8 @@ export const setStoredAuth = (token, user) => {
 
 export const clearStoredAuth = () => {
   if (typeof window === "undefined") return;
+  meCache = null;
+  meCacheTimestamp = 0;
   localStorage.removeItem(TOKEN_KEY);
   localStorage.removeItem(USER_KEY);
   window.dispatchEvent(
@@ -258,11 +265,29 @@ export const authService = {
   },
 
   /**
-   * Consulta os dados atualizados do tutor autenticado no back-end
+   * Consulta os dados atualizados do tutor autenticado no back-end com staleTime de 5 minutos
+   * @param {boolean} forceRefresh Se true, ignora o cache e bate na rede
    */
-  async getMe() {
+  async getMe(forceRefresh = false) {
+    const now = Date.now();
+    const stored = getStoredUser();
+
+    // Retorna do cache em memória se ainda estiver dentro do TTL de 5 minutos
+    if (!forceRefresh && meCache && now - meCacheTimestamp < ME_CACHE_TTL_MS) {
+      return meCache;
+    }
+
+    // Se já tiver usuário persistido no localStorage e primeira chamada da sessão, usa e revalida
+    if (!forceRefresh && stored && meCacheTimestamp === 0) {
+      meCache = stored;
+      meCacheTimestamp = now;
+      return stored;
+    }
+
     const user = await apiFetch("/api/v1/auth/me");
     const currentToken = getAuthToken();
+    meCache = user;
+    meCacheTimestamp = now;
     setStoredAuth(currentToken, user);
     return user;
   },
@@ -276,6 +301,8 @@ export const authService = {
       body: userData,
     });
     const currentToken = getAuthToken();
+    meCache = updatedUser;
+    meCacheTimestamp = Date.now();
     setStoredAuth(currentToken, updatedUser);
     return updatedUser;
   },
@@ -653,9 +680,10 @@ export const clinicService = {
    */
   async getProfile() {
     const clinic = await apiFetch("/api/clinicas/perfil");
-    const currentToken = getClinicAuthToken();
-    if (currentToken) {
-      setStoredClinicAuth(currentToken, clinic);
+    if (clinic && typeof window !== "undefined") {
+      try {
+        localStorage.setItem(CLINIC_KEY, JSON.stringify(clinic));
+      } catch {}
     }
     return clinic;
   },
@@ -668,9 +696,10 @@ export const clinicService = {
       method: "PUT",
       body: fields,
     });
-    const currentToken = getClinicAuthToken();
-    if (currentToken) {
-      setStoredClinicAuth(currentToken, clinic);
+    if (clinic && typeof window !== "undefined") {
+      try {
+        localStorage.setItem(CLINIC_KEY, JSON.stringify(clinic));
+      } catch {}
     }
     return clinic;
   },

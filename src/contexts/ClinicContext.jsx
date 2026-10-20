@@ -1,4 +1,4 @@
-import { createContext, useCallback, useContext, useEffect, useMemo, useState } from "react";
+import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState } from "react";
 
 import { createDefaultBeds } from "@/data/clinicDemo";
 import { clinicService } from "@/services/api";
@@ -149,6 +149,8 @@ const ClinicContext = createContext(null);
 
 export const ClinicProvider = ({ children }) => {
   const [data, setData] = useState(loadData);
+  const isFetchingRef = useRef(false);
+  const activeClinicIdRef = useRef(clinicService.getCurrentClinic()?.id || null);
 
   useEffect(() => {
     saveData(data);
@@ -156,98 +158,83 @@ export const ClinicProvider = ({ children }) => {
 
   const loadClinicData = useCallback(async () => {
     if (!clinicService.isAuthenticated()) return;
-    const currentClinic = clinicService.getCurrentClinic();
+    if (isFetchingRef.current) return;
+    isFetchingRef.current = true;
 
-    if (currentClinic) {
+    try {
+      const currentClinic = clinicService.getCurrentClinic();
+      activeClinicIdRef.current = currentClinic?.id || null;
+
+      const [clinicRes, apptsRes, patientsRes] = await Promise.allSettled([
+        clinicService.getProfile(),
+        clinicService.listAppointments(),
+        clinicService.listPatients(),
+      ]);
+
+      const clinic = clinicRes.status === "fulfilled" && clinicRes.value ? clinicRes.value : currentClinic;
+      const appointments = apptsRes.status === "fulfilled" && Array.isArray(apptsRes.value) ? apptsRes.value : [];
+      const patients = patientsRes.status === "fulfilled" && Array.isArray(patientsRes.value) ? patientsRes.value : [];
+
+      let servicesList = [];
+      if (clinic?.servicos) {
+        try {
+          const parsed = typeof clinic.servicos === "string" ? JSON.parse(clinic.servicos) : clinic.servicos;
+          if (Array.isArray(parsed)) servicesList = parsed;
+        } catch {}
+      }
+      let hoursList = [];
+      if (clinic?.horarios) {
+        try {
+          const parsed = typeof clinic.horarios === "string" ? JSON.parse(clinic.horarios) : clinic.horarios;
+          if (Array.isArray(parsed)) hoursList = parsed;
+        } catch {}
+      }
+      let teamList = [];
+      if (clinic?.equipe) {
+        try {
+          const parsed = typeof clinic.equipe === "string" ? JSON.parse(clinic.equipe) : clinic.equipe;
+          if (Array.isArray(parsed)) teamList = parsed;
+        } catch {}
+      }
+
+      const mappedAppointments = appointments.map((a) => ({
+        id: a.id,
+        petName: a.pet_name,
+        species: a.species,
+        breed: a.breed,
+        tutor: a.tutor,
+        phone: a.phone,
+        service: a.service,
+        vet: a.vet,
+        date: a.date,
+        time: a.time,
+        status: a.status,
+        priority: a.priority || "Rotina",
+        notes: a.notes || "",
+      }));
+
       setData((current) => ({
         ...current,
         profile: {
           ...current.profile,
-          name: currentClinic.nome || "",
-          crmv: currentClinic.crmv || "",
-          email: currentClinic.email || "",
-          phone: currentClinic.telefone || "",
-          whatsapp: currentClinic.whatsapp || "",
-          address: currentClinic.endereco || "",
-          about: currentClinic.sobre || "",
-          photo: currentClinic.foto_url || "",
+          name: clinic?.nome || currentClinic?.nome || "",
+          crmv: clinic?.crmv || currentClinic?.crmv || "",
+          email: clinic?.email || currentClinic?.email || "",
+          phone: clinic?.telefone || currentClinic?.telefone || "",
+          whatsapp: clinic?.whatsapp || currentClinic?.whatsapp || "",
+          address: clinic?.endereco || currentClinic?.endereco || "",
+          about: clinic?.sobre || currentClinic?.sobre || "",
+          photo: clinic?.foto_url || currentClinic?.foto_url || "",
+          services: servicesList,
+          hours: hoursList,
+          team: teamList,
         },
+        appointments: mappedAppointments,
+        patients: patients.length > 0 ? patients : current.patients,
       }));
+    } finally {
+      isFetchingRef.current = false;
     }
-
-    try {
-      const clinic = await clinicService.getProfile();
-      if (clinic) {
-        let servicesList = [];
-        if (clinic.servicos) {
-          try {
-            const parsed = typeof clinic.servicos === "string" ? JSON.parse(clinic.servicos) : clinic.servicos;
-            if (Array.isArray(parsed)) servicesList = parsed;
-          } catch {}
-        }
-        let hoursList = [];
-        if (clinic.horarios) {
-          try {
-            const parsed = typeof clinic.horarios === "string" ? JSON.parse(clinic.horarios) : clinic.horarios;
-            if (Array.isArray(parsed)) hoursList = parsed;
-          } catch {}
-        }
-        let teamList = [];
-        if (clinic.equipe) {
-          try {
-            const parsed = typeof clinic.equipe === "string" ? JSON.parse(clinic.equipe) : clinic.equipe;
-            if (Array.isArray(parsed)) teamList = parsed;
-          } catch {}
-        }
-
-        setData((current) => ({
-          ...current,
-          profile: {
-            ...current.profile,
-            name: clinic.nome || "",
-            crmv: clinic.crmv || "",
-            email: clinic.email || "",
-            phone: clinic.telefone || "",
-            whatsapp: clinic.whatsapp || "",
-            address: clinic.endereco || "",
-            about: clinic.sobre || "",
-            photo: clinic.foto_url || "",
-            services: servicesList,
-            hours: hoursList,
-            team: teamList,
-          },
-        }));
-      }
-    } catch {}
-
-    try {
-      const appointments = await clinicService.listAppointments();
-      if (Array.isArray(appointments)) {
-        const mapped = appointments.map((a) => ({
-          id: a.id,
-          petName: a.pet_name,
-          species: a.species,
-          breed: a.breed,
-          tutor: a.tutor,
-          phone: a.phone,
-          service: a.service,
-          vet: a.vet,
-          date: a.date,
-          time: a.time,
-          status: a.status,
-          priority: a.priority || "Rotina",
-          notes: a.notes || "",
-        }));
-        setData((current) => ({ ...current, appointments: mapped }));
-      }
-    } catch {}
-
-    try {
-      const apiPatients = await clinicService.listPatients();
-      if (Array.isArray(apiPatients)) {
-        setData((current) => ({ ...current, patients: apiPatients }));
-      }
-    } catch {}
   }, []);
 
   // Monitora alterações de autenticação da clínica (login, logout, troca de conta)
@@ -255,8 +242,10 @@ export const ClinicProvider = ({ children }) => {
     const handleAuthChange = (e) => {
       const clinic = e.detail?.clinic;
       if (!clinic) {
+        activeClinicIdRef.current = null;
         setData(createEmptyData());
-      } else {
+      } else if (clinic.id !== activeClinicIdRef.current) {
+        activeClinicIdRef.current = clinic.id;
         setData(createEmptyData());
         loadClinicData();
       }
