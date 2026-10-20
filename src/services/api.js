@@ -801,7 +801,8 @@ export const clinicService = {
   async listPublicClinics(query = "") {
     try {
       const q = query && query.trim() ? `?q=${encodeURIComponent(query.trim())}` : "";
-      return await apiFetch(`/api/clinicas/publicas${q}`);
+      const res = await apiFetch(`/api/clinicas/publicas${q}`);
+      return Array.isArray(res) ? res : [];
     } catch {
       return [];
     }
