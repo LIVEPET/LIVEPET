@@ -20,7 +20,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
-import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import {
   Dialog,
   DialogContent,
@@ -46,6 +46,14 @@ import {
 import EmptyState from "@/components/EmptyState";
 import { useClinic } from "@/contexts/ClinicContext";
 import { clinicService } from "@/services/api";
+import { ECC_OPTIONS, buildVitals, normalizeEcc } from "@/lib/clinicVitals";
+import {
+  AlertsBanner,
+  BodyConditionScale,
+  VitalsCards,
+  WeightChart,
+  WeightTable,
+} from "./PatientVitals";
 
 const vaccineLabel = (upToDate) => {
   if (upToDate === true) return "Vacinas em dia";
@@ -64,11 +72,15 @@ const PatientPhoto = ({ patient, className, iconClassName }) =>
 
 const ClinicPatients = () => {
   const navigate = useNavigate();
-  const { patients, updatePatient, deletePatient, linkPatientWithLivePet } = useClinic();
+  const { patients, appointments, updatePatient, deletePatient, linkPatientWithLivePet } = useClinic();
   const [query, setQuery] = useState("");
   const [species, setSpecies] = useState("Todos");
   const [breed, setBreed] = useState("Todas");
   const [selected, setSelected] = useState(null);
+  const vitals = useMemo(
+    () => (selected ? buildVitals(selected, appointments) : null),
+    [selected, appointments],
+  );
 
   // Espécies sincronizadas do banco de dados
   const [dbSpecies, setDbSpecies] = useState(["Cão", "Gato", "Ave", "Roedor", "Réptil", "Outro"]);
@@ -88,6 +100,7 @@ const ClinicPatients = () => {
     tutor: "",
     phone: "",
     alertsText: "",
+    ecc: "none",
   });
 
   // Estados do Vínculo com Pet Oficial do Tutor
@@ -158,6 +171,7 @@ const ClinicPatients = () => {
       tutor: selected.tutor || "",
       phone: selected.phone && selected.phone !== "—" ? selected.phone : "",
       alertsText: Array.isArray(selected.alerts) ? selected.alerts.join(", ") : "",
+      ecc: normalizeEcc(selected.ecc) ? String(normalizeEcc(selected.ecc)) : "none",
     });
     setEditOpen(true);
   };
@@ -188,6 +202,7 @@ const ClinicPatients = () => {
       tutor: editForm.tutor.trim(),
       phone: editForm.phone.trim() || "—",
       alerts: parsedAlerts,
+      ecc: editForm.ecc === "none" ? null : Number(editForm.ecc),
     };
 
     updatePatient(selected.id, updatedData);
@@ -356,7 +371,7 @@ const ClinicPatients = () => {
 
       {/* Painel lateral de detalhes do Paciente selecionado */}
       <Sheet open={!!selected} onOpenChange={(o) => !o && setSelected(null)}>
-        <SheetContent className="w-full overflow-y-auto sm:max-w-lg">
+        <SheetContent className="w-full overflow-y-auto sm:max-w-xl">
           {selected && (
             <>
               <SheetHeader className="text-left">
@@ -389,6 +404,8 @@ const ClinicPatients = () => {
                 </SheetDescription>
               </SheetHeader>
 
+              <AlertsBanner alerts={selected.alerts} />
+
               <PatientPhoto
                 patient={selected}
                 className="mt-5 h-48 w-full rounded-2xl object-cover"
@@ -396,75 +413,92 @@ const ClinicPatients = () => {
               />
 
               <div className="mt-5 space-y-4">
-                <div className="rounded-2xl border border-border p-4">
-                  <p className="text-sm font-semibold">Tutor responsável</p>
-                  <p className="text-sm text-muted-foreground">{selected.tutor}</p>
-                  <p className="mt-1 flex items-center gap-1 text-sm text-muted-foreground">
-                    <Phone className="h-3.5 w-3.5" /> {selected.phone}
-                  </p>
-                </div>
+                <Tabs defaultValue="resumo" className="w-full">
+                  <TabsList className="grid h-auto w-full grid-cols-3">
+                    <TabsTrigger value="resumo" className="h-auto whitespace-normal px-2 py-1.5 text-xs">Resumo &amp; Sinais Vitais</TabsTrigger>
+                    <TabsTrigger value="peso" className="h-auto whitespace-normal px-2 py-1.5 text-xs">Evolução de Peso</TabsTrigger>
+                    <TabsTrigger value="historico" className="h-auto whitespace-normal px-2 py-1.5 text-xs">Histórico Clínico</TabsTrigger>
+                  </TabsList>
 
-                <div className="rounded-2xl border border-border p-4">
-                  <div className="mb-2 flex items-center justify-between">
-                    <p className="text-sm font-semibold">Vínculo LivePet</p>
-                    {selected.linked_pet_id ? (
-                      <Badge className="bg-primary-soft text-primary hover:bg-primary-soft gap-1">
-                        <ShieldCheck className="h-3.5 w-3.5" /> Oficial Conectado
-                      </Badge>
-                    ) : (
-                      <Button
-                        variant="secondary"
-                        size="sm"
-                        className="h-7 gap-1 rounded-full text-xs font-medium"
-                        onClick={handleOpenLink}
-                      >
-                        <Link2 className="h-3 w-3" /> Vincular ao tutor
-                      </Button>
-                    )}
-                  </div>
-                  <p className="text-xs text-muted-foreground">
-                    {selected.linked_pet_id
-                      ? "Este paciente está vinculado à conta LivePet do tutor. O prontuário e vacinas são sincronizados."
-                      : "Paciente cadastrado localmente na clínica. Vincule à conta LivePet do tutor para sincronizar o prontuário."}
-                  </p>
-                </div>
+                  <TabsContent value="resumo" className="mt-4 space-y-4">
+                    <VitalsCards vitals={vitals} />
+                    <BodyConditionScale score={selected.ecc} />
 
-                <div className="rounded-2xl border border-border p-4">
-                  <p className="mb-2 text-sm font-semibold">Situação clínica</p>
-                  <p className="flex items-center gap-2 text-sm">
-                    {selected.vaccinesUpToDate === true && <CheckCircle2 className="h-4 w-4 text-primary" />}
-                    {selected.vaccinesUpToDate === false && <AlertTriangle className="h-4 w-4 text-warm" />}
-                    {selected.vaccinesUpToDate == null && <Syringe className="h-4 w-4 text-muted-foreground" />}
-                    {selected.vaccinesUpToDate === true
-                      ? "Carteira de vacinas em dia"
-                      : selected.vaccinesUpToDate === false
-                        ? "Vacinação pendente"
-                        : "Sem registro de vacinas"}
-                  </p>
-                  {selected.alerts.map((a) => (
-                    <p key={a} className="mt-2 rounded-xl bg-warm-soft/70 px-3 py-2 text-xs">{a}</p>
-                  ))}
-                </div>
+                    <div className="rounded-2xl border border-border p-4">
+                      <p className="text-sm font-semibold">Tutor responsável</p>
+                      <p className="text-sm text-muted-foreground">{selected.tutor}</p>
+                      <p className="mt-1 flex items-center gap-1 text-sm text-muted-foreground">
+                        <Phone className="h-3.5 w-3.5" /> {selected.phone}
+                      </p>
+                    </div>
 
-                <div>
-                  <p className="mb-3 flex items-center gap-2 text-sm font-semibold">
-                    <FileText className="h-4 w-4" /> Histórico veterinário
-                  </p>
-                  {selected.history.length === 0 ? (
-                    <p className="text-sm text-muted-foreground">Nenhum atendimento registrado ainda.</p>
-                  ) : (
-                    <ol className="space-y-3 border-l border-border pl-5">
-                      {selected.history.map((h, i) => (
-                        <li key={i} className="relative">
-                          <span className="absolute -left-[26px] top-1.5 h-2.5 w-2.5 rounded-full bg-primary" />
-                          <p className="text-sm font-semibold">{h.type} · {h.date}</p>
-                          <p className="text-xs text-muted-foreground">{h.vet}</p>
-                          <p className="text-sm text-muted-foreground">{h.summary}</p>
-                        </li>
-                      ))}
-                    </ol>
-                  )}
-                </div>
+                    <div className="rounded-2xl border border-border p-4">
+                      <div className="mb-2 flex items-center justify-between">
+                        <p className="text-sm font-semibold">Vínculo LivePet</p>
+                        {selected.linked_pet_id ? (
+                          <Badge className="bg-primary-soft text-primary hover:bg-primary-soft gap-1">
+                            <ShieldCheck className="h-3.5 w-3.5" /> Oficial Conectado
+                          </Badge>
+                        ) : (
+                          <Button
+                            variant="secondary"
+                            size="sm"
+                            className="h-7 gap-1 rounded-full text-xs font-medium"
+                            onClick={handleOpenLink}
+                          >
+                            <Link2 className="h-3 w-3" /> Vincular ao tutor
+                          </Button>
+                        )}
+                      </div>
+                      <p className="text-xs text-muted-foreground">
+                        {selected.linked_pet_id
+                          ? "Este paciente está vinculado à conta LivePet do tutor. O prontuário e vacinas são sincronizados."
+                          : "Paciente cadastrado localmente na clínica. Vincule à conta LivePet do tutor para sincronizar o prontuário."}
+                      </p>
+                    </div>
+
+                    <div className="rounded-2xl border border-border p-4">
+                      <p className="mb-2 text-sm font-semibold">Situação clínica</p>
+                      <p className="flex items-center gap-2 text-sm">
+                        {selected.vaccinesUpToDate === true && <CheckCircle2 className="h-4 w-4 text-primary" />}
+                        {selected.vaccinesUpToDate === false && <AlertTriangle className="h-4 w-4 text-warm" />}
+                        {selected.vaccinesUpToDate == null && <Syringe className="h-4 w-4 text-muted-foreground" />}
+                        {selected.vaccinesUpToDate === true
+                          ? "Carteira de vacinas em dia"
+                          : selected.vaccinesUpToDate === false
+                            ? "Vacinação pendente"
+                            : "Sem registro de vacinas"}
+                      </p>
+                    </div>
+                  </TabsContent>
+
+                  <TabsContent value="peso" className="mt-4 space-y-4">
+                    <WeightChart series={vitals.weightSeries} />
+                    <WeightTable series={vitals.weightSeries} />
+                  </TabsContent>
+
+                  <TabsContent value="historico" className="mt-4">
+                    <div>
+                      <p className="mb-3 flex items-center gap-2 text-sm font-semibold">
+                        <FileText className="h-4 w-4" /> Histórico veterinário
+                      </p>
+                      {selected.history.length === 0 ? (
+                        <p className="text-sm text-muted-foreground">Nenhum atendimento registrado ainda.</p>
+                      ) : (
+                        <ol className="space-y-3 border-l border-border pl-5">
+                          {selected.history.map((h, i) => (
+                            <li key={i} className="relative">
+                              <span className="absolute -left-[26px] top-1.5 h-2.5 w-2.5 rounded-full bg-primary" />
+                              <p className="text-sm font-semibold">{h.type} · {h.date}</p>
+                              <p className="text-xs text-muted-foreground">{h.vet}</p>
+                              <p className="text-sm text-muted-foreground">{h.summary}</p>
+                            </li>
+                          ))}
+                        </ol>
+                      )}
+                    </div>
+                  </TabsContent>
+                </Tabs>
 
                 <Button
                   onClick={() => {
@@ -571,6 +605,26 @@ const ClinicPatients = () => {
                 value={editForm.tutor}
                 onChange={(e) => setEditForm((f) => ({ ...f, tutor: e.target.value }))}
               />
+            </div>
+
+            <div className="space-y-1.5">
+              <Label htmlFor="editEcc">Escore de condição corporal (ECC)</Label>
+              <Select
+                value={editForm.ecc}
+                onValueChange={(val) => setEditForm((f) => ({ ...f, ecc: val }))}
+              >
+                <SelectTrigger id="editEcc">
+                  <SelectValue placeholder="Não avaliado" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="none">Não avaliado</SelectItem>
+                  {ECC_OPTIONS.map((option) => (
+                    <SelectItem key={option.value} value={option.value}>
+                      {option.label}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
             </div>
 
             <div className="space-y-1.5">
