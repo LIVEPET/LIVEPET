@@ -134,9 +134,14 @@ describe("ClinicContext", () => {
     expect(result.current.appointments).toHaveLength(1);
   });
 
-  it("useClinic fora do Provider avisa com uma mensagem clara", () => {
-    vi.spyOn(console, "error").mockImplementation(() => {});
-    expect(() => renderHook(() => useClinic())).toThrow(/ClinicProvider/);
+  it("useClinic fora do Provider devolve dados vazios com o formato do perfil", () => {
+    const { result } = renderHook(() => useClinic());
+    expect(result.current.profile.name).toBe("");
+    expect(result.current.profile.services).toEqual([]);
+    expect(result.current.profile.team).toEqual([]);
+    expect(result.current.profile.hours).toEqual([]);
+    expect(result.current.appointments).toEqual([]);
+    expect(() => result.current.saveProfile({ name: "X" })).not.toThrow();
   });
 
   it("não duplica o paciente quando patientId é informado explicitamente ao agendar", () => {
@@ -207,4 +212,4 @@ describe("ClinicContext", () => {
     expect(result.current.patients[0].history).toHaveLength(1);
     expect(result.current.patients[0].history[0].summary).toBe("Saudável");
   });
-});
+});

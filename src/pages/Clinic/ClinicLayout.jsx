@@ -15,7 +15,7 @@ const links = [
 ];
 
 const getInitials = (name) =>
-  name
+  String(name ?? "")
     .trim()
     .split(/\s+/)
     .filter(Boolean)

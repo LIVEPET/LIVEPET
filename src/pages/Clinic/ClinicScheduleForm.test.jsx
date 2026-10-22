@@ -2,7 +2,7 @@ import { render, screen, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { MemoryRouter, Route, Routes } from "react-router-dom";
 import { beforeAll, beforeEach, describe, expect, it } from "vitest";
-import { STORAGE_KEY } from "@/contexts/ClinicContext";
+import { STORAGE_KEY, ClinicProvider } from "@/contexts/ClinicContext";
 import {
   chooseOption,
   fillAppointmentForm,
@@ -13,14 +13,14 @@ import ClinicLayout from "./ClinicLayout";
 import ClinicSchedule from "./ClinicSchedule";
 
 const app = () => (
-  <MemoryRouter initialEntries={["/clinica/agenda"]}>
+  <ClinicProvider><MemoryRouter initialEntries={["/clinica/agenda"]}>
     <Routes>
       <Route path="/clinica" element={<ClinicLayout />}>
         <Route path="agenda" element={<ClinicSchedule />} />
         <Route path="perfil" element={<div>TELA DE PERFIL</div>} />
       </Route>
     </Routes>
-  </MemoryRouter>
+  </MemoryRouter></ClinicProvider>
 );
 
 const submit = () => userEvent.click(screen.getByRole("button", { name: "Confirmar agendamento" }));

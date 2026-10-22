@@ -17,6 +17,40 @@ const CLINIC_TOKEN_KEY = "livepet_clinic_access_token";
 const CLINIC_KEY = "livepet_current_clinic";
 const CLINIC_AUTH_EVENT = "livepet-clinic-auth-change";
 
+// Acesso ao localStorage que nunca lança erro. Em aba anônima, com cookies
+// bloqueados ou cota cheia, o navegador pode recusar o acesso; nesse caso a
+// sessão segue funcionando, apenas sem persistir entre recarregamentos.
+const storage = {
+  get: (key) => {
+    try {
+      return window.storage.get(key);
+    } catch {
+      return null;
+    }
+  },
+  set: (key, value) => {
+    try {
+      window.storage.set(key, value);
+    } catch {
+      /* armazenamento indisponível */
+    }
+  },
+  remove: (key) => {
+    try {
+      window.storage.remove(key);
+    } catch {
+      /* armazenamento indisponível */
+    }
+  },
+  keys: () => {
+    try {
+      return Object.keys(window.localStorage);
+    } catch {
+      return [];
+    }
+  },
+};
+
 // Cache em memória para /me com stale time de 5 minutos para evitar requisições redundantes a cada rota
 let meCache = null;
 let meCacheTimestamp = 0;
@@ -24,13 +58,13 @@ const ME_CACHE_TTL_MS = 5 * 60 * 1000;
 
 export const getAuthToken = () => {
   if (typeof window === "undefined") return null;
-  return localStorage.getItem(TOKEN_KEY);
+  return storage.get(TOKEN_KEY);
 };
 
 export const getStoredUser = () => {
   if (typeof window === "undefined") return null;
   try {
-    const raw = localStorage.getItem(USER_KEY);
+    const raw = storage.get(USER_KEY);
     return raw ? JSON.parse(raw) : null;
   } catch {
     return null;
@@ -40,15 +74,15 @@ export const getStoredUser = () => {
 export const setStoredAuth = (token, user) => {
   if (typeof window === "undefined") return;
   if (token) {
-    localStorage.setItem(TOKEN_KEY, token);
+    storage.set(TOKEN_KEY, token);
   } else {
-    localStorage.removeItem(TOKEN_KEY);
+    storage.remove(TOKEN_KEY);
   }
 
   if (user) {
-    localStorage.setItem(USER_KEY, JSON.stringify(user));
+    storage.set(USER_KEY, JSON.stringify(user));
   } else {
-    localStorage.removeItem(USER_KEY);
+    storage.remove(USER_KEY);
   }
 
   window.dispatchEvent(
@@ -60,8 +94,8 @@ export const clearStoredAuth = () => {
   if (typeof window === "undefined") return;
   meCache = null;
   meCacheTimestamp = 0;
-  localStorage.removeItem(TOKEN_KEY);
-  localStorage.removeItem(USER_KEY);
+  storage.remove(TOKEN_KEY);
+  storage.remove(USER_KEY);
   window.dispatchEvent(
     new CustomEvent(AUTH_EVENT, { detail: { token: null, user: null } })
   );
@@ -69,13 +103,13 @@ export const clearStoredAuth = () => {
 
 export const getClinicAuthToken = () => {
   if (typeof window === "undefined") return null;
-  return localStorage.getItem(CLINIC_TOKEN_KEY);
+  return storage.get(CLINIC_TOKEN_KEY);
 };
 
 export const getStoredClinic = () => {
   if (typeof window === "undefined") return null;
   try {
-    const raw = localStorage.getItem(CLINIC_KEY);
+    const raw = storage.get(CLINIC_KEY);
     return raw ? JSON.parse(raw) : null;
   } catch {
     return null;
@@ -85,15 +119,15 @@ export const getStoredClinic = () => {
 export const setStoredClinicAuth = (token, clinic) => {
   if (typeof window === "undefined") return;
   if (token) {
-    localStorage.setItem(CLINIC_TOKEN_KEY, token);
+    storage.set(CLINIC_TOKEN_KEY, token);
   } else {
-    localStorage.removeItem(CLINIC_TOKEN_KEY);
+    storage.remove(CLINIC_TOKEN_KEY);
   }
 
   if (clinic) {
-    localStorage.setItem(CLINIC_KEY, JSON.stringify(clinic));
+    storage.set(CLINIC_KEY, JSON.stringify(clinic));
   } else {
-    localStorage.removeItem(CLINIC_KEY);
+    storage.remove(CLINIC_KEY);
   }
 
   window.dispatchEvent(
@@ -103,13 +137,13 @@ export const setStoredClinicAuth = (token, clinic) => {
 
 export const clearStoredClinicAuth = () => {
   if (typeof window === "undefined") return;
-  localStorage.removeItem(CLINIC_TOKEN_KEY);
-  localStorage.removeItem(CLINIC_KEY);
-  localStorage.removeItem("livepet_clinic_data");
+  storage.remove(CLINIC_TOKEN_KEY);
+  storage.remove(CLINIC_KEY);
+  storage.remove("livepet_clinic_data");
   try {
-    Object.keys(localStorage).forEach((key) => {
+    storage.keys().forEach((key) => {
       if (key.startsWith("livepet_clinic_data")) {
-        localStorage.removeItem(key);
+        storage.remove(key);
       }
     });
   } catch {}
@@ -690,7 +724,7 @@ export const clinicService = {
     const clinic = await apiFetch("/api/clinicas/perfil");
     if (clinic && typeof window !== "undefined") {
       try {
-        localStorage.setItem(CLINIC_KEY, JSON.stringify(clinic));
+        storage.set(CLINIC_KEY, JSON.stringify(clinic));
       } catch {}
     }
     return clinic;
@@ -706,7 +740,7 @@ export const clinicService = {
     });
     if (clinic && typeof window !== "undefined") {
       try {
-        localStorage.setItem(CLINIC_KEY, JSON.stringify(clinic));
+        storage.set(CLINIC_KEY, JSON.stringify(clinic));
       } catch {}
     }
     return clinic;

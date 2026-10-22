@@ -2,19 +2,19 @@ import { render, screen, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { MemoryRouter, Route, Routes } from "react-router-dom";
 import { beforeAll, beforeEach, describe, expect, it } from "vitest";
-import { STORAGE_KEY } from "@/contexts/ClinicContext";
+import { STORAGE_KEY, ClinicProvider } from "@/contexts/ClinicContext";
 import { chooseOption, stubRadixForJsdom } from "@/test/clinicTestUtils";
 import ClinicLayout from "./ClinicLayout";
 import ClinicPatients from "./ClinicPatients";
 
 const app = () => (
-  <MemoryRouter initialEntries={["/clinica/pacientes"]}>
+  <ClinicProvider><MemoryRouter initialEntries={["/clinica/pacientes"]}>
     <Routes>
       <Route path="/clinica" element={<ClinicLayout />}>
         <Route path="pacientes" element={<ClinicPatients />} />
       </Route>
     </Routes>
-  </MemoryRouter>
+  </MemoryRouter></ClinicProvider>
 );
 
 const patient = (extra) => ({
