@@ -1,0 +1,30 @@
+version: '3.8'
+
+# Trabalho da faculdade - LivePet
+# Pra rodar tudo junto: docker-compose up --build
+
+services:
+  # API em Python
+  backend:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    ports:
+      - "8000:8000"
+    environment:
+      - DATABASE_URL=postgresql://livepet-db_owner:npg_w2iNkSgZJ7qb@ep-polished-cake-b6f4q7cf-pooler.c-2.sa-east-1.aws.neon.tech/livepet-db?sslmode=require&channel_binding=require
+      - SECRET_KEY=minha_chave_secreta_123
+    volumes:
+      - ./backend:/app
+
+  # Front em React
+  frontend:
+    build:
+      context: .
+      dockerfile: Dockerfile.frontend
+    ports:
+      - "5173:5173"
+    environment:
+      - VITE_API_URL=http://localhost:8000
+    depends_on:
+      - backend

@@ -1,0 +1,19 @@
+# Dockerfile do front (React / Vite)
+
+FROM node:20
+
+WORKDIR /app
+
+# Copia as coisas do npm e instala
+COPY package.json ./
+COPY package-lock.json ./
+RUN npm install
+
+# Copia todo o resto do front
+COPY . .
+
+# Porta padrao do vite
+EXPOSE 5173
+
+# Comando pra ligar o front
+CMD ["npm", "run", "dev", "--", "--host"]
