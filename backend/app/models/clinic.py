@@ -42,5 +42,13 @@ class Clinic(Base):
         lazy="selectin",
     )
 
+    # Relacionamento 1:N com Veterinários da Clínica (Issue #53)
+    veterinarios = relationship(
+        "Veterinario",
+        back_populates="clinic",
+        cascade="all, delete-orphan",
+        lazy="selectin",
+    )
+
     def __repr__(self) -> str:
         return f"<Clinic id={self.id} nome='{self.nome}' email='{self.email}'>"

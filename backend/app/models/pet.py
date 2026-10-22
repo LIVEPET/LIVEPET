@@ -26,6 +26,7 @@ class Pet(Base):
     cor = Column(String(80), nullable=True)
     peso = Column(Float, nullable=True)
     foto_url = Column(Text, nullable=True)
+    microchip = Column(String(50), nullable=True, index=True)
     token_publico = Column(
         String(64),
         unique=True,

@@ -82,6 +82,7 @@ def create_pet(
         cor=pet_in.cor,
         peso=pet_in.peso,
         foto_url=pet_in.foto_url,
+        microchip=pet_in.microchip,
         token_publico=token_publico,
     )
 
@@ -448,6 +449,7 @@ def get_public_pet_emergency(
         "cor": pet.cor,
         "peso": pet.peso,
         "foto_url": pet.foto_url,
+        "microchip": pet.microchip,
         "token_publico": pet.token_publico,
         "tutor_nome": pet.tutor.nome if pet.tutor else "Tutor não identificado",
         "tutor_telefone": pet.tutor.telefone if pet.tutor else None,
