@@ -18,6 +18,7 @@ from app.models.clinic_link_request import ClinicPetLinkRequest
 from app.models.medical_record import MedicalRecord
 from app.models.pet import Pet
 from app.models.vaccine import Vaccine
+from app.models.veterinario import Veterinario
 from app.schemas.clinic import (
     ClinicCreate,
     ClinicLogin,
@@ -36,6 +37,11 @@ from app.schemas.clinic_appointment import (
 from app.schemas.clinic_link import (
     ClinicPetLinkCreate,
     ClinicPetLinkResponse,
+)
+from app.schemas.veterinario import (
+    VeterinarioCreate,
+    VeterinarioResponse,
+    VeterinarioUpdate,
 )
 
 router = APIRouter(tags=["Clínicas"])
@@ -905,6 +911,169 @@ def get_public_clinic_details(
             detail="Clínica veterinária não encontrada.",
         )
     return clinic
+
+
+# ==============================================================================
+# Endpoints de Gestão de Veterinários da Clínica (Issue #53)
+# ==============================================================================
+
+@router.get(
+    "/veterinarios",
+    response_model=List[VeterinarioResponse],
+    summary="Listar veterinários da clínica autenticada",
+)
+def list_veterinarios(
+    apenas_ativos: bool = Query(True, description="Filtrar apenas profissionais ativos"),
+    db: Session = Depends(get_db),
+    current_clinic: Clinic = Depends(get_current_clinic),
+):
+    """
+    Lista todos os médicos veterinários pertencentes ao corpo clínico da clínica autenticada.
+    """
+    query = db.query(Veterinario).filter(Veterinario.clinic_id == current_clinic.id)
+    if apenas_ativos:
+        query = query.filter(Veterinario.ativo.is_(True))
+    return query.order_by(Veterinario.nome.asc()).all()
+
+
+@router.post(
+    "/veterinarios",
+    response_model=VeterinarioResponse,
+    status_code=status.HTTP_201_CREATED,
+    summary="Cadastrar novo veterinário na clínica autenticada",
+)
+def create_veterinario(
+    vet_in: VeterinarioCreate,
+    db: Session = Depends(get_db),
+    current_clinic: Clinic = Depends(get_current_clinic),
+):
+    """
+    Adiciona um novo médico veterinário ao corpo clínico da clínica autenticada.
+    """
+    vet = Veterinario(
+        clinic_id=current_clinic.id,
+        nome=vet_in.nome,
+        crmv=vet_in.crmv,
+        especialidade=vet_in.especialidade,
+        telefone=vet_in.telefone,
+        email=vet_in.email,
+        ativo=vet_in.ativo,
+    )
+    db.add(vet)
+    db.commit()
+    db.refresh(vet)
+    return vet
+
+
+@router.get(
+    "/veterinarios/{vet_id}",
+    response_model=VeterinarioResponse,
+    summary="Obter detalhes de um veterinário da clínica",
+)
+def get_veterinario(
+    vet_id: int,
+    db: Session = Depends(get_db),
+    current_clinic: Clinic = Depends(get_current_clinic),
+):
+    """
+    Obtém os dados cadastrais de um médico veterinário pelo ID.
+    """
+    vet = db.query(Veterinario).filter(
+        Veterinario.id == vet_id,
+        Veterinario.clinic_id == current_clinic.id,
+    ).first()
+    if not vet:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Veterinário não encontrado nesta clínica.",
+        )
+    return vet
+
+
+@router.put(
+    "/veterinarios/{vet_id}",
+    response_model=VeterinarioResponse,
+    summary="Atualizar dados de um veterinário da clínica",
+)
+def update_veterinario(
+    vet_id: int,
+    vet_update: VeterinarioUpdate,
+    db: Session = Depends(get_db),
+    current_clinic: Clinic = Depends(get_current_clinic),
+):
+    """
+    Atualiza os dados de um médico veterinário do corpo clínico.
+    """
+    vet = db.query(Veterinario).filter(
+        Veterinario.id == vet_id,
+        Veterinario.clinic_id == current_clinic.id,
+    ).first()
+    if not vet:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Veterinário não encontrado nesta clínica.",
+        )
+
+    update_data = vet_update.model_dump(exclude_unset=True)
+    for field, val in update_data.items():
+        setattr(vet, field, val)
+
+    db.commit()
+    db.refresh(vet)
+    return vet
+
+
+@router.delete(
+    "/veterinarios/{vet_id}",
+    status_code=status.HTTP_204_NO_CONTENT,
+    summary="Remover ou desativar veterinário da clínica",
+)
+def delete_veterinario(
+    vet_id: int,
+    db: Session = Depends(get_db),
+    current_clinic: Clinic = Depends(get_current_clinic),
+):
+    """
+    Remove o registro de um médico veterinário da clínica autenticada.
+    """
+    vet = db.query(Veterinario).filter(
+        Veterinario.id == vet_id,
+        Veterinario.clinic_id == current_clinic.id,
+    ).first()
+    if not vet:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Veterinário não encontrado nesta clínica.",
+        )
+
+    db.delete(vet)
+    db.commit()
+    return None
+
+
+@router.get(
+    "/publicas/{clinic_id}/veterinarios",
+    response_model=List[VeterinarioResponse],
+    summary="Listar veterinários ativos de uma clínica (consulta pública)",
+)
+def get_public_clinic_veterinarios(
+    clinic_id: int,
+    db: Session = Depends(get_db),
+):
+    """
+    Retorna a lista de médicos veterinários ativos de uma clínica parceira específica para consulta pública.
+    """
+    clinic = db.query(Clinic).filter(Clinic.id == clinic_id).first()
+    if not clinic:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Clínica veterinária não encontrada.",
+        )
+    return db.query(Veterinario).filter(
+        Veterinario.clinic_id == clinic_id,
+        Veterinario.ativo.is_(True),
+    ).order_by(Veterinario.nome.asc()).all()
+
 
 
 

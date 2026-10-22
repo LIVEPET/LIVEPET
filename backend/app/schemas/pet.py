@@ -15,6 +15,7 @@ class PetBase(BaseModel):
     cor: Optional[str] = Field(None, max_length=80, description="Cor da pelagem/penas")
     peso: Optional[float] = Field(None, ge=0, description="Peso em kg")
     foto_url: Optional[str] = Field(None, description="URL ou data-url da foto do animal")
+    microchip: Optional[str] = Field(None, max_length=50, description="Número de identificação do microchip do pet")
 
     @field_validator("foto_url")
     def check_foto_url(cls, v: Optional[str]) -> Optional[str]:
@@ -38,6 +39,7 @@ class PetUpdate(BaseModel):
     cor: Optional[str] = Field(None, max_length=80)
     peso: Optional[float] = Field(None, ge=0)
     foto_url: Optional[str] = Field(None, description="URL ou data-url da foto do animal")
+    microchip: Optional[str] = Field(None, max_length=50, description="Número de identificação do microchip do pet")
 
     @field_validator("foto_url")
     def check_foto_url(cls, v: Optional[str]) -> Optional[str]:
@@ -98,6 +100,7 @@ class PetPublicResponse(BaseModel):
     cor: Optional[str] = None
     peso: Optional[float] = None
     foto_url: Optional[str] = None
+    microchip: Optional[str] = None
     token_publico: str
     tutor_nome: str
     tutor_telefone: Optional[str] = None

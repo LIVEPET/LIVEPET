@@ -11,6 +11,27 @@ import app.models  # noqa: F401
 async def lifespan(app: FastAPI):
     # Inicializa as tabelas no banco de dados automaticamente no startup
     Base.metadata.create_all(bind=engine)
+    try:
+        from sqlalchemy import inspect, text
+        inspector = inspect(engine)
+        db_tables = inspector.get_table_names()
+        dialect = engine.dialect.name
+        with engine.begin() as conn:
+            for table_name, table in Base.metadata.tables.items():
+                if table_name not in db_tables:
+                    continue
+                db_cols = {c["name"]: c for c in inspector.get_columns(table_name)}
+                for col in table.columns:
+                    if col.name not in db_cols:
+                        col_type = col.type.compile(engine.dialect)
+                        if dialect == "postgresql":
+                            stmt = f'ALTER TABLE "{table_name}" ADD COLUMN IF NOT EXISTS "{col.name}" {col_type};'
+                        else:
+                            stmt = f'ALTER TABLE "{table_name}" ADD COLUMN "{col.name}" {col_type};'
+                        conn.execute(text(stmt))
+    except Exception as e:
+        import logging
+        logging.getLogger(__name__).warning("Aviso durante sincronização de colunas no startup: %s", e)
     yield
 
 
