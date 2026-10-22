@@ -656,10 +656,10 @@ const saveProfile = useCallback((fields) => {
 export const useClinic = () => {
   const context = useContext(ClinicContext);
   if (!context) {
+    // Fora do ClinicProvider (que fica no App), devolve dados vazios mas com o
+    // mesmo formato do perfil real, para nenhuma tela quebrar com .map/.trim.
     return {
-      profile: {},
-      appointments: [],
-      patients: [],
+      ...createEmptyData(),
       beds: [],
       saveProfile: () => {},
       addAppointment: () => {},

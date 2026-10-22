@@ -185,7 +185,8 @@ describe("<PetHealth />", () => {
     const semVacinas = [{ ...PETS[0], vacinas: [] }];
     renderizar({ pets: semVacinas });
 
-    expect(screen.getByText(/Nenhuma vacina registrada/)).toBeInTheDocument();
+    expect(screen.getByText("Nenhuma vacina registrada para este pet.")).toBeInTheDocument();
+    expect(screen.getByText(/Nenhuma vacina registrada ainda/)).toBeInTheDocument();
     expect(screen.queryByRole("table")).not.toBeInTheDocument();
   });
 });

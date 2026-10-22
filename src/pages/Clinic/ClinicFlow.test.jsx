@@ -1,3 +1,4 @@
+import { ClinicProvider } from "@/contexts/ClinicContext";
 import { render, screen, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { MemoryRouter, Route, Routes } from "react-router-dom";
@@ -10,7 +11,7 @@ import ClinicPatients from "./ClinicPatients";
 import ClinicProfile from "./ClinicProfile";
 
 const app = (initial = "/clinica") => (
-  <MemoryRouter initialEntries={[initial]}>
+  <ClinicProvider><MemoryRouter initialEntries={[initial]}>
     <Routes>
       <Route path="/clinica" element={<ClinicLayout />}>
         <Route index element={<ClinicDashboard />} />
@@ -19,7 +20,7 @@ const app = (initial = "/clinica") => (
         <Route path="perfil" element={<ClinicProfile />} />
       </Route>
     </Routes>
-  </MemoryRouter>
+  </MemoryRouter></ClinicProvider>
 );
 
 const goTo = (label) => userEvent.click(within(document.querySelector("aside")).getByText(label));
@@ -53,8 +54,11 @@ describe("fluxo da clínica com estado compartilhado", () => {
     await fillAppointmentForm();
     await userEvent.click(screen.getByRole("button", { name: "Confirmar agendamento" }));
 
+    // "Iniciar" coloca em atendimento e abre o exame clínico; o envio conclui.
     await userEvent.click(await screen.findByRole("button", { name: "Iniciar" }));
-    await userEvent.click(await screen.findByRole("button", { name: "Concluir" }));
+    await userEvent.click(
+      await screen.findByRole("button", { name: /Concluir e registrar no prontuário/ }),
+    );
 
     await goTo("Painel");
     expect(await screen.findByText("1 concluído(s)")).toBeTruthy();
