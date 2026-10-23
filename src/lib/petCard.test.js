@@ -1,5 +1,10 @@
 import { describe, expect, it } from "vitest";
-import { buildHealthSummary, buildPetTags, buildPetWeight } from "./petCard";
+import {
+  buildHealthSummary,
+  buildPetTags,
+  buildPetWeight,
+  formatMicrochip,
+} from "./petCard";
 
 const max = {
   especie: "Cachorro",
@@ -64,3 +69,18 @@ describe("buildHealthSummary", () => {
     });
   });
 });
+
+describe("formatMicrochip", () => {
+  it("retorna o número do microchip quando informado", () => {
+    expect(formatMicrochip("981098109810981")).toBe("981098109810981");
+    expect(formatMicrochip("  BR-12345  ")).toBe("BR-12345");
+  });
+
+  it("retorna 'Não informado' quando ausente, nulo ou vazio", () => {
+    expect(formatMicrochip("")).toBe("Não informado");
+    expect(formatMicrochip("   ")).toBe("Não informado");
+    expect(formatMicrochip(null)).toBe("Não informado");
+    expect(formatMicrochip(undefined)).toBe("Não informado");
+  });
+});
+

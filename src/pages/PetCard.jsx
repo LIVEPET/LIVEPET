@@ -684,6 +684,11 @@ const PetCard = () => {
                 .filter(Boolean)
                 .join(" • ")}
             </p>
+            {emergencyPet.microchip && (
+              <p className="text-xs font-mono text-muted-foreground mt-1">
+                Microchip: <span className="font-semibold text-foreground">{emergencyPet.microchip}</span>
+              </p>
+            )}
           </div>
 
           {/* Destaque de Saúde e Imunização contra Raiva */}
@@ -1033,8 +1038,8 @@ const PetCard = () => {
                     value={selectedPet.cor || "Padrão"}
                   />
                   <Field
-                    label="Token Público"
-                    value={selectedPet.token_publico?.slice(0, 12) + "..."}
+                    label="Microchip"
+                    value={selectedPet.microchip || "Não informado"}
                   />
                 </div>
 
@@ -1433,7 +1438,7 @@ const PetCard = () => {
                 <strong>Porte:</strong> {selectedPet?.porte || "Médio"}
               </p>
               <p>
-                <strong>Identificador:</strong> {selectedPet?.token_publico}
+                <strong>Microchip:</strong> {selectedPet?.microchip || "Não informado"}
               </p>
             </div>
             <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">

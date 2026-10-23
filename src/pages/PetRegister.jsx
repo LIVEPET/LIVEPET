@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from "react";
-import { Link, useNavigate } from "react-router-dom";
+import { Link, useNavigate, useParams, useSearchParams } from "react-router-dom";
 import {
   ArrowLeft,
   PawPrint,
@@ -17,6 +17,7 @@ import {
   Cake,
   Calendar,
   Stethoscope,
+  Cpu,
 } from "lucide-react";
 import { toast } from "sonner";
 import { z } from "zod";
@@ -39,6 +40,12 @@ const petSchema = z.object({
   name: z.string().trim().min(1, "Informe o nome do pet").max(60),
   species: z.string().trim().min(1, "Selecione a espécie").max(40),
   breed: z.string().trim().max(60).optional().or(z.literal("")),
+  microchip: z
+    .string()
+    .trim()
+    .max(50, "Microchip deve ter no máximo 50 caracteres")
+    .optional()
+    .or(z.literal("")),
   data_nascimento: z.string().optional().or(z.literal("")),
   size: z.enum(["Pequeno", "Médio", "Grande"], {
     errorMap: () => ({ message: "Selecione o porte" }),
@@ -88,11 +95,16 @@ const formatPhone = (value) => {
 
 const PetRegister = () => {
   const navigate = useNavigate();
+  const { id: paramId } = useParams();
+  const [searchParams] = useSearchParams();
+  const editId = paramId || searchParams.get("id") || searchParams.get("edit");
+  const isEditing = Boolean(editId);
   const fileInputRef = useRef(null);
 
   const [userId, setUserId] = useState(null);
   const [checkingAuth, setCheckingAuth] = useState(true);
   const [saving, setSaving] = useState(false);
+  const [loadingPet, setLoadingPet] = useState(isEditing);
   const [photoFile, setPhotoFile] = useState(null);
   const [photoPreview, setPhotoPreview] = useState("");
 
@@ -100,6 +112,7 @@ const PetRegister = () => {
     name: "",
     species: "Cachorro",
     breed: "",
+    microchip: "",
     data_nascimento: "",
     age: "",
     size: "",
@@ -111,6 +124,43 @@ const PetRegister = () => {
   });
   const [errors, setErrors] = useState({});
   const [speciesOptions, setSpeciesOptions] = useState(SPECIES);
+
+  // Carrega dados do pet quando estiver em modo edição
+  useEffect(() => {
+    if (!editId) return;
+    let isMounted = true;
+    setLoadingPet(true);
+    petsService
+      .get(editId)
+      .then((pet) => {
+        if (!isMounted || !pet) return;
+        setForm((prev) => ({
+          ...prev,
+          name: pet.nome || "",
+          species: pet.especie || "Cachorro",
+          breed: pet.raca || "",
+          microchip: pet.microchip || "",
+          data_nascimento: pet.data_nascimento || "",
+          size: pet.porte || "Médio",
+          gender: pet.sexo || "Macho",
+          weight: pet.peso ? String(pet.peso) : "",
+          tutorPhone: prev.tutorPhone,
+        }));
+        if (pet.foto_url) {
+          setPhotoPreview(pet.foto_url);
+        }
+      })
+      .catch((err) => {
+        console.error("Erro ao carregar dados do pet para edição:", err);
+        toast.error("Não foi possível carregar os dados do pet para edição.");
+      })
+      .finally(() => {
+        if (isMounted) setLoadingPet(false);
+      });
+    return () => {
+      isMounted = false;
+    };
+  }, [editId]);
 
   // Sincroniza espécies cadastradas no banco de dados
   useEffect(() => {
@@ -188,6 +238,7 @@ const PetRegister = () => {
       name: "",
       species: "Cachorro",
       breed: "",
+      microchip: "",
       data_nascimento: "",
       age: "",
       size: "",
@@ -241,8 +292,7 @@ const PetRegister = () => {
         });
       }
 
-      // Persiste o pet diretamente no PostgreSQL Neon via endpoint FastAPI
-      await petsService.create({
+      const payload = {
         nome: parsed.data.name,
         especie: parsed.data.species,
         raca: parsed.data.breed || null,
@@ -253,23 +303,33 @@ const PetRegister = () => {
           ? Number(parsed.data.weight.replace(",", "."))
           : null,
         foto_url,
-      });
+        microchip: parsed.data.microchip?.trim() || null,
+      };
 
-      toast.success(`${parsed.data.name} foi cadastrado(a) com sucesso!`, {
-        description: "Pet adicionado com sucesso ao seu perfil!",
-        icon: <CheckCircle2 className="h-4 w-4" />,
-      });
+      if (isEditing) {
+        await petsService.update(editId, payload);
+        toast.success(`${parsed.data.name} foi atualizado(a) com sucesso!`, {
+          description: "Dados do pet salvos com sucesso!",
+          icon: <CheckCircle2 className="h-4 w-4" />,
+        });
+      } else {
+        await petsService.create(payload);
+        toast.success(`${parsed.data.name} foi cadastrado(a) com sucesso!`, {
+          description: "Pet adicionado com sucesso ao seu perfil!",
+          icon: <CheckCircle2 className="h-4 w-4" />,
+        });
+      }
       reset();
       setTimeout(() => navigate("/pets"), 900);
     } catch (err) {
       const msg = err instanceof Error ? err.message : "Erro ao salvar";
-      toast.error("Não foi possível cadastrar o pet.", { description: msg });
+      toast.error(isEditing ? "Não foi possível atualizar o pet." : "Não foi possível cadastrar o pet.", { description: msg });
     } finally {
       setSaving(false);
     }
   };
 
-  if (checkingAuth) {
+  if (checkingAuth || loadingPet) {
     return (
       <div className="flex min-h-[60vh] items-center justify-center">
         <Loader2 className="h-6 w-6 animate-spin text-primary" />
@@ -293,10 +353,12 @@ const PetRegister = () => {
             </span>
             <div>
               <h1 className="font-display text-3xl font-bold text-foreground sm:text-4xl">
-                Cadastrar novo pet
+                {isEditing ? `Editar ${form.name || "pet"}` : "Cadastrar novo pet"}
               </h1>
               <p className="text-muted-foreground">
-                Preencha as informações abaixo. Campos com * são obrigatórios.
+                {isEditing
+                  ? "Atualize as informações do seu animal abaixo. Campos com * são obrigatórios."
+                  : "Preencha as informações abaixo. Campos com * são obrigatórios."}
               </p>
             </div>
           </div>
@@ -412,6 +474,20 @@ const PetRegister = () => {
                       <SelectItem value="Fêmea">Fêmea</SelectItem>
                     </SelectContent>
                   </Select>
+                </Field>
+                <Field
+                  label="Microchip (opcional)"
+                  error={errors.microchip}
+                  icon={Cpu}
+                >
+                  <Input
+                    value={form.microchip}
+                    onChange={(e) =>
+                      setForm({ ...form, microchip: e.target.value })
+                    }
+                    placeholder="Ex.: 981098109810981"
+                    maxLength={50}
+                  />
                 </Field>
               </div>
             </Card>
@@ -558,10 +634,10 @@ const PetRegister = () => {
               >
                 {saving ? (
                   <>
-                    <Loader2 className="h-4 w-4 animate-spin" /> Salvando...
+                    <Loader2 className="h-4 w-4 animate-spin" /> {isEditing ? "Salvando..." : "Cadastrando..."}
                   </>
                 ) : (
-                  <>Salvar Cadastro</>
+                  <>{isEditing ? "Salvar alterações" : "Salvar Cadastro"}</>
                 )}
               </Button>
             </div>
