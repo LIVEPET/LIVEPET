@@ -869,6 +869,49 @@ export const clinicService = {
   async getPublicClinic(id) {
     return apiFetch(`/api/clinicas/publicas/${id}`);
   },
+
+  /**
+   * Lista todos os médicos veterinários da clínica autenticada
+   */
+  async listVeterinarians(apenasAtivos = true) {
+    try {
+      const q = apenasAtivos ? "?apenas_ativos=true" : "?apenas_ativos=false";
+      const res = await apiFetch(`/api/clinicas/veterinarios${q}`);
+      return Array.isArray(res) ? res : [];
+    } catch (err) {
+      console.error("Erro ao listar veterinários:", err);
+      return [];
+    }
+  },
+
+  /**
+   * Cadastra um novo veterinário na clínica autenticada
+   */
+  async createVeterinarian(data) {
+    return apiFetch("/api/clinicas/veterinarios", {
+      method: "POST",
+      body: data,
+    });
+  },
+
+  /**
+   * Atualiza os dados de um veterinário da clínica autenticada
+   */
+  async updateVeterinarian(id, data) {
+    return apiFetch(`/api/clinicas/veterinarios/${id}`, {
+      method: "PUT",
+      body: data,
+    });
+  },
+
+  /**
+   * Remove o registro de um veterinário da clínica autenticada
+   */
+  async deleteVeterinarian(id) {
+    return apiFetch(`/api/clinicas/veterinarios/${id}`, {
+      method: "DELETE",
+    });
+  },
 };
 
 export default {
