@@ -6,7 +6,6 @@ import {
   Search,
   ShieldCheck,
   Stethoscope,
-  Star,
   Award,
   Sparkles,
   Filter,
@@ -53,6 +52,7 @@ import { getStoredUser, petsService } from "@/services/api";
 import { compressImage } from "@/lib/image";
 import { BLANK_PET_IMAGE, getPetPhoto } from "@/lib/petPlaceholder";
 import { formatTutorCity, hasApprovedPedigree, hasVetRecord } from "@/lib/petBadges";
+import { buildHealthSummary, buildPetTags, buildPetWeight } from "@/lib/petCard";
 
 const PETS = [];
 
@@ -224,6 +224,8 @@ const Pets = () => {
         if (Array.isArray(data)) {
           const tutorCity = formatTutorCity(getStoredUser());
           const mapped = data.map((p) => {
+            const age = formatAge(p.data_nascimento);
+            const health = buildHealthSummary(p);
             return {
               id: p.id,
               name: p.nome,
@@ -231,16 +233,13 @@ const Pets = () => {
               breed: p.raca || "SRD",
               size: p.porte || "Médio",
               gender: p.sexo || "Não informado",
-              age: formatAge(p.data_nascimento),
+              age,
               ageGroup: getAgeGroup(p.data_nascimento),
               city: tutorCity,
-              description: `${p.especie} registrado e protegido na plataforma LivePet.`,
-              personality: ["Dócil", "Amigável", "Sociável"],
-              rating: 5.0,
-              reviews: 1,
-              medicalNote:
-                p.medical_records?.[0]?.descricao ||
-                "Acompanhamento preventivo em dia.",
+              description: buildPetWeight(p),
+              personality: buildPetTags(p),
+              healthCounts: health.counts,
+              medicalNote: health.note,
               image: getPetPhoto(p.foto_url),
               img: getPetPhoto(p.foto_url),
               pedigree: hasApprovedPedigree(p),
@@ -1072,35 +1071,35 @@ const PetCard = ({
           </p>
         )}
 
-        {/* Personality tags */}
-        <div className="mt-3 flex flex-wrap gap-1.5">
-          {pet.personality.map((tag) => (
-            <span
-              key={tag}
-              className="rounded-full border border-primary/20 bg-primary-soft px-2 py-0.5 text-[10px] font-semibold text-primary"
-            >
-              {tag}
-            </span>
-          ))}
-        </div>
+        {/* Etiquetas: sexo, raça e cor do pet */}
+        {pet.personality.length > 0 && (
+          <div className="mt-3 flex flex-wrap gap-1.5">
+            {pet.personality.map((tag) => (
+              <span
+                key={tag}
+                className="rounded-full border border-primary/20 bg-primary-soft px-2 py-0.5 text-[10px] font-semibold text-primary"
+              >
+                {tag}
+              </span>
+            ))}
+          </div>
+        )}
 
-        <p className="mt-3 text-sm text-muted-foreground line-clamp-2">
-          {pet.description}
-        </p>
+        {pet.description && (
+          <p className="mt-3 text-sm text-muted-foreground line-clamp-2">
+            {pet.description}
+          </p>
+        )}
 
-        {/* Medical eval */}
+        {/* Saúde: vacinas, consultas e a consulta mais recente */}
         <div className="mt-4 rounded-2xl border border-border/60 bg-secondary/50 p-3">
           <div className="flex items-center justify-between">
             <span className="inline-flex items-center gap-1 text-xs font-semibold text-foreground">
               <Award className="h-3.5 w-3.5 text-primary" />
-              Avaliação médica
+              Saúde
             </span>
-            <span className="inline-flex items-center gap-1 rounded-full bg-card px-2 py-0.5 text-xs font-bold text-foreground shadow-soft">
-              <Star className="h-3 w-3 fill-accent-yellow text-accent-yellow" />
-              {pet.rating.toFixed(1)}
-              <span className="font-normal text-muted-foreground">
-                ({pet.reviews})
-              </span>
+            <span className="rounded-full bg-card px-2 py-0.5 text-[11px] font-semibold text-foreground shadow-soft">
+              {pet.healthCounts}
             </span>
           </div>
           <p className="mt-2 text-[11px] leading-relaxed text-muted-foreground line-clamp-2">
