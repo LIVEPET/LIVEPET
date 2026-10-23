@@ -49,9 +49,10 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
-import { petsService } from "@/services/api";
+import { getStoredUser, petsService } from "@/services/api";
 import { compressImage } from "@/lib/image";
 import { BLANK_PET_IMAGE, getPetPhoto } from "@/lib/petPlaceholder";
+import { formatTutorCity, hasApprovedPedigree, hasVetRecord } from "@/lib/petBadges";
 
 const PETS = [];
 
@@ -221,6 +222,7 @@ const Pets = () => {
         const data = await petsService.list();
         if (!isMounted) return;
         if (Array.isArray(data)) {
+          const tutorCity = formatTutorCity(getStoredUser());
           const mapped = data.map((p) => {
             return {
               id: p.id,
@@ -231,7 +233,7 @@ const Pets = () => {
               gender: p.sexo || "Não informado",
               age: formatAge(p.data_nascimento),
               ageGroup: getAgeGroup(p.data_nascimento),
-              city: "Goiânia, GO",
+              city: tutorCity,
               description: `${p.especie} registrado e protegido na plataforma LivePet.`,
               personality: ["Dócil", "Amigável", "Sociável"],
               rating: 5.0,
@@ -241,8 +243,8 @@ const Pets = () => {
                 "Acompanhamento preventivo em dia.",
               image: getPetPhoto(p.foto_url),
               img: getPetPhoto(p.foto_url),
-              pedigree: Boolean(p.lineage || p.raca),
-              vetCertified: true,
+              pedigree: hasApprovedPedigree(p),
+              vetCertified: hasVetRecord(p),
               vaccines: (p.vaccines || []).map((v) => ({
                 name: v.nome,
                 lastDate: v.data_aplicacao,
@@ -927,7 +929,7 @@ const PetCard = ({
       <div className="relative aspect-[4/3] overflow-hidden bg-gradient-to-br from-primary-soft to-secondary">
         <img
           src={pet.img}
-          alt={`${pet.name}, ${pet.species.toLowerCase()} para adoção em ${pet.city}`}
+          alt={`${pet.name}, ${pet.species.toLowerCase()}${pet.breed ? ` da raça ${pet.breed}` : ""}`}
           loading="lazy"
           width={768}
           height={768}
@@ -1063,10 +1065,12 @@ const PetCard = ({
             {pet.age}
           </span>
         </div>
-        <p className="mt-1 flex items-center gap-1 text-xs text-muted-foreground">
-          <MapPin className="h-3 w-3" />
-          {pet.city}
-        </p>
+        {pet.city && (
+          <p className="mt-1 flex items-center gap-1 text-xs text-muted-foreground">
+            <MapPin className="h-3 w-3" />
+            {pet.city}
+          </p>
+        )}
 
         {/* Personality tags */}
         <div className="mt-3 flex flex-wrap gap-1.5">
