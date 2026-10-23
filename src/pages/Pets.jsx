@@ -27,6 +27,7 @@ import {
   ClipboardList,
   Camera,
   Trash2,
+  Pencil,
 } from "lucide-react";
 import { toast } from "sonner";
 import PetsCategoryHub from "@/components/PetsCategoryHub";
@@ -1008,6 +1009,16 @@ const PetCard = ({
               />
             ))}
           </div>
+
+          {/* Edit pet button */}
+          <Link
+            to={`/pets/novo?id=${pet.id}`}
+            title={`Editar dados de ${pet.name}`}
+            aria-label={`Editar dados de ${pet.name}`}
+            className="flex h-10 w-10 items-center justify-center rounded-full bg-card/95 text-muted-foreground shadow-soft backdrop-blur transition-all duration-300 hover:scale-110 hover:bg-primary hover:text-primary-foreground"
+          >
+            <Pencil className="h-4 w-4" />
+          </Link>
 
           {/* Delete pet button */}
           <button

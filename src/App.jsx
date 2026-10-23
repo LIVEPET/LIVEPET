@@ -65,6 +65,7 @@ const App = () => (
             <Route element={<ProtectedRoute />}>
               <Route path="/pets" element={<Pets />} />
               <Route path="/pets/novo" element={<PetRegister />} />
+              <Route path="/pets/:id/editar" element={<PetRegister />} />
               <Route path="/pedigree" element={<Pedigree />} />
               <Route path="/tasks" element={<Tasks />} />
               <Route path="/historico-medico" element={<MedicalHistory />} />
