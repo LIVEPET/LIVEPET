@@ -12,8 +12,7 @@ services:
     ports:
       - "8000:8000"
     environment:
-      - DATABASE_URL=postgresql://livepet-db_owner:npg_w2iNkSgZJ7qb@ep-polished-cake-b6f4q7cf-pooler.c-2.sa-east-1.aws.neon.tech/livepet-db?sslmode=require&channel_binding=require
-      - SECRET_KEY=minha_chave_secreta_123
+     
     volumes:
       - ./backend:/app
 
