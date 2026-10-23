@@ -23,21 +23,21 @@ const CLINIC_AUTH_EVENT = "livepet-clinic-auth-change";
 const storage = {
   get: (key) => {
     try {
-      return window.storage.get(key);
+      return window.localStorage.getItem(key);
     } catch {
       return null;
     }
   },
   set: (key, value) => {
     try {
-      window.storage.set(key, value);
+      window.localStorage.setItem(key, value);
     } catch {
       /* armazenamento indisponível */
     }
   },
   remove: (key) => {
     try {
-      window.storage.remove(key);
+      window.localStorage.removeItem(key);
     } catch {
       /* armazenamento indisponível */
     }

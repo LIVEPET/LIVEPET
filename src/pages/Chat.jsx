@@ -30,23 +30,18 @@ import { Card } from "@/components/ui/card";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { authService, marketplaceService } from "@/services/api";
 import { BLANK_PET_IMAGE, getPetPhoto } from "@/lib/petPlaceholder";
+import { readUserJSON, writeUserJSON } from "@/lib/userStorage";
 
 export const CHAT_STORAGE_KEY = "livepet_conversations_v1";
 
+// Conversas separadas por usuário: cada conta vê só as próprias.
 export const getStoredConversations = () => {
-  try {
-    return JSON.parse(localStorage.getItem(CHAT_STORAGE_KEY) || "[]");
-  } catch {
-    return [];
-  }
+  const list = readUserJSON(CHAT_STORAGE_KEY, []);
+  return Array.isArray(list) ? list : [];
 };
 
 export const saveStoredConversations = (conversations) => {
-  try {
-    localStorage.setItem(CHAT_STORAGE_KEY, JSON.stringify(conversations));
-  } catch (e) {
-    console.error(e);
-  }
+  writeUserJSON(CHAT_STORAGE_KEY, conversations);
 };
 
 export const startOrOpenConversation = ({
