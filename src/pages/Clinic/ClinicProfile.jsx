@@ -24,6 +24,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import EmptyState from "@/components/EmptyState";
 import { useClinic } from "@/contexts/ClinicContext";
+import { clinicService } from "@/services/api";
 import { compressImage } from "@/lib/image";
 import {
   hoursForDisplay,
@@ -61,7 +62,7 @@ const IconButton = ({ label, onClick, children }) => (
 );
 
 const ClinicProfile = () => {
-  const { profile, saveProfile } = useClinic();
+  const { profile, saveProfile, refreshData } = useClinic();
   const fileInputRef = useRef(null);
   const [form, setForm] = useState({
     name: profile.name || "",
@@ -125,14 +126,48 @@ const ClinicProfile = () => {
     toast.success(original ? "Serviço atualizado!" : "Serviço adicionado!");
   };
 
-  const saveMember = (data, original) => {
+  const saveMember = async (data, original) => {
+    const vetId = original?.id || data?.id;
+
+    if (clinicService.isAuthenticated()) {
+      const payload = {
+        nome: data.name,
+        crmv: data.crmv,
+        especialidade: data.role || null,
+        telefone: data.phone || null,
+        email: data.email || null,
+        ativo: true,
+      };
+
+      try {
+        if (vetId) {
+          await clinicService.updateVeterinarian(vetId, payload);
+          toast.success("Profissional atualizado com sucesso!");
+        } else {
+          await clinicService.createVeterinarian(payload);
+          toast.success("Profissional adicionado com sucesso!");
+        }
+        setMemberDialog((dialog) => ({ ...dialog, open: false }));
+        if (typeof refreshData === "function") {
+          await refreshData();
+        }
+        return;
+      } catch (err) {
+        console.error("Erro ao salvar profissional:", err);
+        const msg = err.response?.data?.detail || err.message || "Erro ao salvar profissional.";
+        toast.error(typeof msg === "string" ? msg : "Erro ao salvar profissional.");
+        return;
+      }
+    }
+
+    // Modo offline / mock local
     const current = profile.team.map((raw) => (raw === original ? data : normalizeMember(raw)));
     saveProfile({ team: (original ? current : [...current, data]).filter((m) => m.name) });
     setMemberDialog((dialog) => ({ ...dialog, open: false }));
     toast.success(original ? "Profissional atualizado!" : "Profissional adicionado!");
   };
 
-  const confirmRemoval = () => {
+  const confirmRemoval = async () => {
     if (!removal) return;
     if (removal.kind === "service") {
       saveProfile({
@@ -143,6 +178,25 @@ const ClinicProfile = () => {
       });
       toast.success("Serviço removido.");
     } else {
+      const memberItem = normalizeMember(removal.raw);
+      if (clinicService.isAuthenticated() && memberItem?.id) {
+        try {
+          await clinicService.deleteVeterinarian(memberItem.id);
+          toast.success("Profissional removido com sucesso.");
+          if (typeof refreshData === "function") {
+            await refreshData();
+          }
+          setRemoval(null);
+          return;
+        } catch (err) {
+          console.error("Erro ao remover veterinário:", err);
+          const msg = err.response?.data?.detail || err.message || "Erro ao remover profissional.";
+          toast.error(typeof msg === "string" ? msg : "Erro ao remover profissional.");
+          setRemoval(null);
+          return;
+        }
+      }
+
       saveProfile({
         team: profile.team
           .filter((raw) => raw !== removal.raw)
