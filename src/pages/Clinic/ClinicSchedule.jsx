@@ -9,6 +9,7 @@ import {
   CheckCircle2,
   Clock,
   Columns3,
+  FileText,
   Heart,
   LayoutList,
   Phone,
@@ -48,6 +49,11 @@ import { getPriorityMeta, PRIORITY_OPTIONS, statusStyles } from "@/data/clinicDe
 import { useClinic } from "@/contexts/ClinicContext";
 import { clinicService } from "@/services/api";
 import { formatPhone, isValidPhone } from "@/lib/phone";
+import {
+  hasPrescription,
+  PrescriptionBuilder,
+  PrescriptionSheetDialog,
+} from "./ClinicPrescription";
 
 const filters = ["Todos", "Confirmado", "Aguardando", "Em atendimento", "Concluído", "Cancelado"];
 const DEFAULT_SPECIES = ["Cão", "Gato", "Ave", "Roedor", "Réptil", "Outro"];
@@ -203,6 +209,7 @@ const ClinicSchedule = () => {
   // Estados do Modal de Anamnese & Exame Clínico
   const [examOpen, setExamOpen] = useState(false);
   const [activeExamApp, setActiveExamApp] = useState(null);
+  const [prescriptionPreviewApp, setPrescriptionPreviewApp] = useState(null);
   const [examForm, setExamForm] = useState({
     priority: "Rotina",
     queixa_principal: "",
@@ -213,6 +220,7 @@ const ClinicSchedule = () => {
     mucosas: "Normocoradas",
     diagnostico: "",
     prescricao: "",
+    prescricao_itens: [],
     applyVaccine: false,
     vacina_aplicada: "",
     vacina_lote: "",
@@ -285,6 +293,7 @@ const ClinicSchedule = () => {
       mucosas: a.mucosas || "Normocoradas",
       diagnostico: a.diagnostico || "",
       prescricao: a.prescricao || "",
+      prescricao_itens: Array.isArray(a.prescricao_itens) ? a.prescricao_itens : [],
       applyVaccine: !!a.vacina_aplicada,
       vacina_aplicada: a.vacina_aplicada || "",
       vacina_lote: a.vacina_lote || "",
@@ -335,6 +344,7 @@ const ClinicSchedule = () => {
       mucosas: examForm.mucosas || "Normocoradas",
       diagnostico: examForm.diagnostico.trim() || null,
       prescricao: examForm.prescricao.trim() || null,
+      prescricao_itens: Array.isArray(examForm.prescricao_itens) ? examForm.prescricao_itens : [],
       vacina_aplicada: examForm.applyVaccine && examForm.vacina_aplicada.trim() ? examForm.vacina_aplicada.trim() : null,
       vacina_lote: examForm.applyVaccine && examForm.vacina_lote.trim() ? examForm.vacina_lote.trim() : null,
       vacina_proxima_dose: examForm.applyVaccine && examForm.vacina_proxima_dose ? examForm.vacina_proxima_dose : null,
@@ -715,6 +725,16 @@ const ClinicSchedule = () => {
                   </div>
                   <div className="flex flex-wrap items-center gap-2">
                     <Badge className={`${statusStyles[a.status]} hover:opacity-90`}>{a.status}</Badge>
+                    {hasPrescription(a) && (
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        className="rounded-full gap-1.5 border-primary/40 text-xs font-medium text-primary hover:bg-primary-soft"
+                        onClick={() => setPrescriptionPreviewApp(a)}
+                      >
+                        <FileText className="h-3.5 w-3.5" /> Visualizar Receituário
+                      </Button>
+                    )}
                     {a.status !== "Concluído" && a.status !== "Cancelado" && (
                       <>
                         <Button size="sm" className="rounded-full gap-1.5" onClick={() => handleOpenExam(a)}>
@@ -852,6 +872,17 @@ const ClinicSchedule = () => {
                           )}
 
                           <div className="flex flex-wrap items-center justify-between gap-2 border-t border-border/60 pt-2.5">
+                            {hasPrescription(a) && (
+                              <Button
+                                size="sm"
+                                variant="outline"
+                                className="h-8 w-full rounded-full gap-1 border-primary/40 text-xs font-medium text-primary hover:bg-primary-soft"
+                                onClick={() => setPrescriptionPreviewApp(a)}
+                              >
+                                <FileText className="h-3 w-3" /> Visualizar Receituário
+                              </Button>
+                            )}
+
                             {col.id === "waiting" && (
                               <>
                                 <Button
@@ -1072,8 +1103,8 @@ const ClinicSchedule = () => {
                   </div>
                 </div>
 
-                {/* 3. Diagnóstico e Prescrição */}
-                <div className="space-y-3 rounded-2xl border border-border/80 bg-muted/20 p-4">
+                {/* 3. Diagnóstico e Prescrição Estruturada */}
+                <div className="space-y-4 rounded-2xl border border-border/80 bg-muted/20 p-4">
                   <p className="flex items-center gap-1.5 text-sm font-semibold">
                     <Heart className="h-4 w-4 text-primary" /> Diagnóstico & Conduta Clínica
                   </p>
@@ -1087,16 +1118,25 @@ const ClinicSchedule = () => {
                       onChange={(e) => setExamForm((f) => ({ ...f, diagnostico: e.target.value }))}
                     />
                   </div>
-                  <div className="space-y-2">
-                    <Label htmlFor="prescricao" className="text-xs font-semibold">Prescrição & Orientações ao Tutor</Label>
-                    <Textarea
-                      id="prescricao"
-                      rows={3}
-                      placeholder="Receita médica, dosagens, horários, dieta recomendada e orientações de retorno..."
-                      value={examForm.prescricao}
-                      onChange={(e) => setExamForm((f) => ({ ...f, prescricao: e.target.value }))}
-                    />
-                  </div>
+
+                  <PrescriptionBuilder
+                    items={examForm.prescricao_itens}
+                    onChangeItems={(nextItems) =>
+                      setExamForm((f) => ({ ...f, prescricao_itens: nextItems }))
+                    }
+                    notes={examForm.prescricao}
+                    onChangeNotes={(nextNotes) =>
+                      setExamForm((f) => ({ ...f, prescricao: nextNotes }))
+                    }
+                    onOpenPreview={() =>
+                      setPrescriptionPreviewApp({
+                        ...activeExamApp,
+                        peso: examForm.peso || activeExamApp.peso,
+                        prescricao: examForm.prescricao,
+                        prescricao_itens: examForm.prescricao_itens,
+                      })
+                    }
+                  />
                 </div>
 
                 {/* 4. Vacinação Rápida (Opcional) */}
@@ -1164,8 +1204,16 @@ const ClinicSchedule = () => {
           )}
         </DialogContent>
       </Dialog>
+
+      {/* Modal de Pré-visualização de Receituário Veterinário Timbrado */}
+      <PrescriptionSheetDialog
+        open={Boolean(prescriptionPreviewApp)}
+        onOpenChange={(o) => !o && setPrescriptionPreviewApp(null)}
+        appointment={prescriptionPreviewApp}
+        profile={profile}
+      />
     </div>
   );
 };
 
-export default ClinicSchedule;
+export default ClinicSchedule;
