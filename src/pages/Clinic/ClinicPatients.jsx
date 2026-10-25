@@ -47,6 +47,7 @@ import EmptyState from "@/components/EmptyState";
 import { useClinic } from "@/contexts/ClinicContext";
 import { clinicService } from "@/services/api";
 import { ECC_OPTIONS, buildVitals, normalizeEcc } from "@/lib/clinicVitals";
+import { PatientExamsSection } from "./ClinicExams";
 import {
   AlertsBanner,
   BodyConditionScale,
@@ -72,7 +73,7 @@ const PatientPhoto = ({ patient, className, iconClassName }) =>
 
 const ClinicPatients = () => {
   const navigate = useNavigate();
-  const { patients, appointments, updatePatient, deletePatient, linkPatientWithLivePet } = useClinic();
+  const { patients, appointments, updatePatient, deletePatient, linkPatientWithLivePet, updateAppointmentExam } = useClinic();
   const [query, setQuery] = useState("");
   const [species, setSpecies] = useState("Todos");
   const [breed, setBreed] = useState("Todas");
@@ -423,6 +424,11 @@ const ClinicPatients = () => {
                   <TabsContent value="resumo" className="mt-4 space-y-4">
                     <VitalsCards vitals={vitals} />
                     <BodyConditionScale score={selected.ecc} />
+                    <PatientExamsSection
+                      patient={selected}
+                      appointments={appointments}
+                      onUpdateExam={updateAppointmentExam}
+                    />
 
                     <div className="rounded-2xl border border-border p-4">
                       <p className="text-sm font-semibold">Tutor responsável</p>
@@ -477,7 +483,12 @@ const ClinicPatients = () => {
                     <WeightTable series={vitals.weightSeries} />
                   </TabsContent>
 
-                  <TabsContent value="historico" className="mt-4">
+                  <TabsContent value="historico" className="mt-4 space-y-4">
+                    <PatientExamsSection
+                      patient={selected}
+                      appointments={appointments}
+                      onUpdateExam={updateAppointmentExam}
+                    />
                     <div>
                       <p className="mb-3 flex items-center gap-2 text-sm font-semibold">
                         <FileText className="h-4 w-4" /> Histórico veterinário

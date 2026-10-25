@@ -49,6 +49,7 @@ import { getPriorityMeta, PRIORITY_OPTIONS, statusStyles } from "@/data/clinicDe
 import { useClinic } from "@/contexts/ClinicContext";
 import { clinicService } from "@/services/api";
 import { formatPhone, isValidPhone } from "@/lib/phone";
+import { ComplementaryExamsSelector } from "./ClinicExams";
 import {
   hasPrescription,
   PrescriptionBuilder,
@@ -221,6 +222,7 @@ const ClinicSchedule = () => {
     diagnostico: "",
     prescricao: "",
     prescricao_itens: [],
+    exames_complementares: [],
     applyVaccine: false,
     vacina_aplicada: "",
     vacina_lote: "",
@@ -294,6 +296,7 @@ const ClinicSchedule = () => {
       diagnostico: a.diagnostico || "",
       prescricao: a.prescricao || "",
       prescricao_itens: Array.isArray(a.prescricao_itens) ? a.prescricao_itens : [],
+      exames_complementares: Array.isArray(a.exames_complementares) ? a.exames_complementares : [],
       applyVaccine: !!a.vacina_aplicada,
       vacina_aplicada: a.vacina_aplicada || "",
       vacina_lote: a.vacina_lote || "",
@@ -345,6 +348,7 @@ const ClinicSchedule = () => {
       diagnostico: examForm.diagnostico.trim() || null,
       prescricao: examForm.prescricao.trim() || null,
       prescricao_itens: Array.isArray(examForm.prescricao_itens) ? examForm.prescricao_itens : [],
+      exames_complementares: Array.isArray(examForm.exames_complementares) ? examForm.exames_complementares : [],
       vacina_aplicada: examForm.applyVaccine && examForm.vacina_aplicada.trim() ? examForm.vacina_aplicada.trim() : null,
       vacina_lote: examForm.applyVaccine && examForm.vacina_lote.trim() ? examForm.vacina_lote.trim() : null,
       vacina_proxima_dose: examForm.applyVaccine && examForm.vacina_proxima_dose ? examForm.vacina_proxima_dose : null,
@@ -1138,6 +1142,13 @@ const ClinicSchedule = () => {
                     }
                   />
                 </div>
+
+                <ComplementaryExamsSelector
+                  exams={examForm.exames_complementares}
+                  onChangeExams={(nextExams) =>
+                    setExamForm((f) => ({ ...f, exames_complementares: nextExams }))
+                  }
+                />
 
                 {/* 4. Vacinação Rápida (Opcional) */}
                 <div className="space-y-3 rounded-2xl border border-border/80 bg-muted/20 p-4">

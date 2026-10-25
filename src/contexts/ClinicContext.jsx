@@ -360,6 +360,37 @@ const saveProfile = useCallback((fields) => {
     }
   }, []);
 
+  const updateAppointmentExam = useCallback((appointmentId, examId, fields) => {
+    setData((current) => ({
+      ...current,
+      appointments: current.appointments.map((a) => {
+        if (a.id !== appointmentId) return a;
+        const exams = asArray(a.exames_complementares).map((ex, idx) => {
+          const item =
+            typeof ex === "string"
+              ? {
+                  id: `exam-${idx}-${ex.toLowerCase().replace(/[^a-z0-9]+/g, "-")}`,
+                  nome: ex,
+                  status: "Solicitado",
+                  resultado: "",
+                }
+              : ex;
+          if (!item) return ex;
+          const matchesId = item.id === examId || item.nome === examId;
+          if (!matchesId) return item;
+          return {
+            ...item,
+            ...fields,
+          };
+        });
+        return {
+          ...a,
+          exames_complementares: exams,
+        };
+      }),
+    }));
+  }, []);
+
   const updateAppointmentPriority = useCallback((id, priority) => {
     setData((current) => ({
       ...current,
@@ -621,6 +652,7 @@ const saveProfile = useCallback((fields) => {
       addAppointment,
       updateAppointmentStatus,
       updateAppointmentPriority,
+      updateAppointmentExam,
       updatePatient,
       deletePatient,
       concludeAppointment,
@@ -637,6 +669,7 @@ const saveProfile = useCallback((fields) => {
       addAppointment,
       updateAppointmentStatus,
       updateAppointmentPriority,
+      updateAppointmentExam,
       updatePatient,
       deletePatient,
       concludeAppointment,
