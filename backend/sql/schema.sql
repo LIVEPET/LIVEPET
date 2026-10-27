@@ -255,6 +255,19 @@ CREATE TABLE public.marketplace_listings (
 CREATE INDEX idx_marketplace_user_id ON public.marketplace_listings(user_id);
 CREATE INDEX idx_marketplace_status ON public.marketplace_listings(status);
 
+-- 12. Tabela de Swipes (curtidas) do MatchPet
+CREATE TABLE public.pet_swipes (
+    id SERIAL PRIMARY KEY,
+    pet_origem_id INTEGER NOT NULL REFERENCES public.pets(id) ON DELETE CASCADE,
+    pet_destino_id INTEGER NOT NULL REFERENCES public.pets(id) ON DELETE CASCADE,
+    acao VARCHAR(20) NOT NULL CHECK (acao IN ('like', 'super_like', 'pass')),
+    criado_em TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    CONSTRAINT uq_pet_swipes_par UNIQUE (pet_origem_id, pet_destino_id),
+    CONSTRAINT ck_pet_swipes_pets_diferentes CHECK (pet_origem_id <> pet_destino_id)
+);
+
+CREATE INDEX idx_pet_swipes_destino ON public.pet_swipes(pet_destino_id);
+
 -- Comentários de documentação
 COMMENT ON TABLE public.users IS 'Tabela de tutores e usuários do sistema LivePet';
 COMMENT ON TABLE public.pets IS 'Tabela de animais vinculados aos tutores';
@@ -268,5 +281,6 @@ COMMENT ON TABLE public.veterinarios IS 'Tabela de médicos veterinários do cor
 COMMENT ON TABLE public.clinic_appointments IS 'Prontuários e consultas realizadas por clínicas parceiras';
 COMMENT ON TABLE public.clinic_pet_link_requests IS 'Vínculos entre clínicas e pets oficiais de tutores';
 COMMENT ON TABLE public.marketplace_listings IS 'Anúncios do marketplace de filhotes e adoção responsável';
+COMMENT ON TABLE public.pet_swipes IS 'Curtidas, super curtidas e passes entre pets no MatchPet';
 
 
