@@ -1,4 +1,4 @@
-import { createContext, useCallback, useContext, useEffect, useMemo, useState } from "react";
+import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState } from "react";
 
 import { createDefaultBeds } from "@/data/clinicDemo";
 import { clinicService } from "@/services/api";
@@ -86,11 +86,17 @@ const sanitizeBeds = (rawBeds) => {
   return rawBeds.filter((b) => isObject(b) && b.id);
 };
 
+const getStorageKey = () => {
+  const current = clinicService.getCurrentClinic();
+  return current?.id ? `livepet_clinic_data_${current.id}` : STORAGE_KEY;
+};
+
 // Lê do localStorage sem nunca quebrar: se estiver indisponível, vazio ou
 // corrompido, volta para os dados vazios.
 const loadData = () => {
   try {
-    const raw = window.localStorage.getItem(STORAGE_KEY);
+    const key = getStorageKey();
+    const raw = window.localStorage.getItem(key);
     if (!raw) return createEmptyData();
     const parsed = JSON.parse(raw);
     if (!isObject(parsed)) return createEmptyData();
@@ -109,8 +115,9 @@ const loadData = () => {
 
 const saveData = (data) => {
   try {
+    const key = getStorageKey();
     window.localStorage.setItem(
-      STORAGE_KEY,
+      key,
       JSON.stringify({ version: STORAGE_VERSION, ...data }),
     );
   } catch {
@@ -142,111 +149,120 @@ const ClinicContext = createContext(null);
 
 export const ClinicProvider = ({ children }) => {
   const [data, setData] = useState(loadData);
+  const isFetchingRef = useRef(false);
+  const activeClinicIdRef = useRef(clinicService.getCurrentClinic()?.id || null);
 
   useEffect(() => {
     saveData(data);
   }, [data]);
 
-  // Sincroniza perfil da clínica se autenticada
-  useEffect(() => {
-    let active = true;
-    const currentClinic = clinicService.getCurrentClinic();
-    if (currentClinic) {
+  const loadClinicData = useCallback(async () => {
+    if (!clinicService.isAuthenticated()) return;
+    if (isFetchingRef.current) return;
+    isFetchingRef.current = true;
+
+    try {
+      const currentClinic = clinicService.getCurrentClinic();
+      activeClinicIdRef.current = currentClinic?.id || null;
+
+      const [clinicRes, apptsRes, patientsRes] = await Promise.allSettled([
+        clinicService.getProfile(),
+        clinicService.listAppointments(),
+        clinicService.listPatients(),
+      ]);
+
+      const clinic = clinicRes.status === "fulfilled" && clinicRes.value ? clinicRes.value : currentClinic;
+      const appointments = apptsRes.status === "fulfilled" && Array.isArray(apptsRes.value) ? apptsRes.value : [];
+      const patients = patientsRes.status === "fulfilled" && Array.isArray(patientsRes.value) ? patientsRes.value : [];
+
+      let servicesList = [];
+      if (clinic?.servicos) {
+        try {
+          const parsed = typeof clinic.servicos === "string" ? JSON.parse(clinic.servicos) : clinic.servicos;
+          if (Array.isArray(parsed)) servicesList = parsed;
+        } catch {}
+      }
+      let hoursList = [];
+      if (clinic?.horarios) {
+        try {
+          const parsed = typeof clinic.horarios === "string" ? JSON.parse(clinic.horarios) : clinic.horarios;
+          if (Array.isArray(parsed)) hoursList = parsed;
+        } catch {}
+      }
+      let teamList = [];
+      if (clinic?.equipe) {
+        try {
+          const parsed = typeof clinic.equipe === "string" ? JSON.parse(clinic.equipe) : clinic.equipe;
+          if (Array.isArray(parsed)) teamList = parsed;
+        } catch {}
+      }
+
+      const mappedAppointments = appointments.map((a) => ({
+        id: a.id,
+        petName: a.pet_name,
+        species: a.species,
+        breed: a.breed,
+        tutor: a.tutor,
+        phone: a.phone,
+        service: a.service,
+        vet: a.vet,
+        date: a.date,
+        time: a.time,
+        status: a.status,
+        priority: a.priority || "Rotina",
+        notes: a.notes || "",
+      }));
+
       setData((current) => ({
         ...current,
         profile: {
           ...current.profile,
-          name: currentClinic.nome || current.profile.name,
-          crmv: currentClinic.crmv || current.profile.crmv,
-          email: currentClinic.email || current.profile.email,
-          phone: currentClinic.telefone || current.profile.phone,
-          whatsapp: currentClinic.whatsapp || current.profile.whatsapp,
-          address: currentClinic.endereco || current.profile.address,
-          about: currentClinic.sobre || current.profile.about,
-          photo: currentClinic.foto_url || current.profile.photo,
+          name: clinic?.nome || currentClinic?.nome || "",
+          crmv: clinic?.crmv || currentClinic?.crmv || "",
+          email: clinic?.email || currentClinic?.email || "",
+          phone: clinic?.telefone || currentClinic?.telefone || "",
+          whatsapp: clinic?.whatsapp || currentClinic?.whatsapp || "",
+          address: clinic?.endereco || currentClinic?.endereco || "",
+          about: clinic?.sobre || currentClinic?.sobre || "",
+          photo: clinic?.foto_url || currentClinic?.foto_url || "",
+          services: servicesList,
+          hours: hoursList,
+          team: teamList,
         },
+        appointments: mappedAppointments,
+        patients: patients.length > 0 ? patients : current.patients,
       }));
+    } finally {
+      isFetchingRef.current = false;
     }
+  }, []);
 
+  // Monitora alterações de autenticação da clínica (login, logout, troca de conta)
+  useEffect(() => {
+    const handleAuthChange = (e) => {
+      const clinic = e.detail?.clinic;
+      if (!clinic) {
+        activeClinicIdRef.current = null;
+        setData(createEmptyData());
+      } else if (clinic.id !== activeClinicIdRef.current) {
+        activeClinicIdRef.current = clinic.id;
+        setData(createEmptyData());
+        loadClinicData();
+      }
+    };
+
+    window.addEventListener("livepet-clinic-auth-change", handleAuthChange);
+    return () => {
+      window.removeEventListener("livepet-clinic-auth-change", handleAuthChange);
+    };
+  }, [loadClinicData]);
+
+  // Sincronização inicial se autenticado
+  useEffect(() => {
     if (clinicService.isAuthenticated()) {
-      clinicService
-        .getProfile()
-        .then((clinic) => {
-          if (!active || !clinic) return;
-          setData((current) => {
-            let servicesList = current.profile.services;
-          if (clinic.servicos) {
-            try {
-              const parsed = JSON.parse(clinic.servicos);
-              if (Array.isArray(parsed) && parsed.length > 0) servicesList = parsed;
-            } catch {}
-          }
-          let hoursList = current.profile.hours;
-          if (clinic.horarios) {
-            try {
-              const parsed = JSON.parse(clinic.horarios);
-              if (Array.isArray(parsed) && parsed.length > 0) hoursList = parsed;
-            } catch {}
-          }
-          let teamList = current.profile.team;
-          if (clinic.equipe) {
-            try {
-              const parsed = JSON.parse(clinic.equipe);
-              if (Array.isArray(parsed) && parsed.length > 0) teamList = parsed;
-            } catch {}
-          }
-
-          return {
-            ...current,
-            profile: {
-              ...current.profile,
-              name: clinic.nome || current.profile.name,
-              crmv: clinic.crmv || current.profile.crmv,
-              email: clinic.email || current.profile.email,
-              phone: clinic.telefone || current.profile.phone,
-              whatsapp: clinic.whatsapp || current.profile.whatsapp,
-              address: clinic.endereco || current.profile.address,
-              about: clinic.sobre || current.profile.about,
-              photo: clinic.foto_url || current.profile.photo,
-              services: servicesList,
-              hours: hoursList,
-              team: teamList,
-            },
-          };
-        });
-      })
-      .catch(() => {});
-  }
-
-  return () => {
-    active = false;
-  };
-}, []);
-
-// Sincroniza pacientes do banco de dados se a clínica estiver conectada
-useEffect(() => {
-  let active = true;
-  clinicService
-    .listPatients()
-    .then((apiPatients) => {
-      if (!active || !Array.isArray(apiPatients) || apiPatients.length === 0) return;
-      setData((current) => {
-        const merged = [...current.patients];
-        let changed = false;
-        apiPatients.forEach((ap) => {
-          if (!merged.some((p) => isSamePatient(p, { petName: ap.name, tutor: ap.tutor }))) {
-            merged.push(ap);
-            changed = true;
-          }
-        });
-        return changed ? { ...current, patients: merged } : current;
-      });
-    })
-    .catch(() => {});
-  return () => {
-    active = false;
-  };
-}, []);
+      loadClinicData();
+    }
+  }, [loadClinicData]);
 
 const saveProfile = useCallback((fields) => {
   setData((current) => ({ ...current, profile: { ...current.profile, ...fields } }));
@@ -342,6 +358,37 @@ const saveProfile = useCallback((fields) => {
     } catch {
       // Modo offline
     }
+  }, []);
+
+  const updateAppointmentExam = useCallback((appointmentId, examId, fields) => {
+    setData((current) => ({
+      ...current,
+      appointments: current.appointments.map((a) => {
+        if (a.id !== appointmentId) return a;
+        const exams = asArray(a.exames_complementares).map((ex, idx) => {
+          const item =
+            typeof ex === "string"
+              ? {
+                  id: `exam-${idx}-${ex.toLowerCase().replace(/[^a-z0-9]+/g, "-")}`,
+                  nome: ex,
+                  status: "Solicitado",
+                  resultado: "",
+                }
+              : ex;
+          if (!item) return ex;
+          const matchesId = item.id === examId || item.nome === examId;
+          if (!matchesId) return item;
+          return {
+            ...item,
+            ...fields,
+          };
+        });
+        return {
+          ...a,
+          exames_complementares: exams,
+        };
+      }),
+    }));
   }, []);
 
   const updateAppointmentPriority = useCallback((id, priority) => {
@@ -605,6 +652,7 @@ const saveProfile = useCallback((fields) => {
       addAppointment,
       updateAppointmentStatus,
       updateAppointmentPriority,
+      updateAppointmentExam,
       updatePatient,
       deletePatient,
       concludeAppointment,
@@ -621,6 +669,7 @@ const saveProfile = useCallback((fields) => {
       addAppointment,
       updateAppointmentStatus,
       updateAppointmentPriority,
+      updateAppointmentExam,
       updatePatient,
       deletePatient,
       concludeAppointment,
@@ -640,7 +689,20 @@ const saveProfile = useCallback((fields) => {
 export const useClinic = () => {
   const context = useContext(ClinicContext);
   if (!context) {
-    throw new Error("useClinic precisa ser usado dentro de <ClinicProvider>.");
+    // Fora do ClinicProvider (que fica no App), devolve dados vazios mas com o
+    // mesmo formato do perfil real, para nenhuma tela quebrar com .map/.trim.
+    return {
+      ...createEmptyData(),
+      beds: [],
+      saveProfile: () => {},
+      addAppointment: () => {},
+      updateAppointmentStatus: () => {},
+      cancelAppointment: () => {},
+      addPatient: () => {},
+      updatePatient: () => {},
+      deletePatient: () => {},
+      updateBed: () => {},
+    };
   }
   return context;
 };

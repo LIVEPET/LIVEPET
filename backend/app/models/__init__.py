@@ -9,7 +9,6 @@ from app.models.marketplace_listing import MarketplaceListing
 from app.models.clinic import Clinic
 from app.models.clinic_appointment import ClinicAppointment
 from app.models.clinic_link_request import ClinicPetLinkRequest
-from app.models.pet_swipe import PetSwipe
 
 __all__ = [
     "User",
@@ -23,6 +22,5 @@ __all__ = [
     "Clinic",
     "ClinicAppointment",
     "ClinicPetLinkRequest",
-    "PetSwipe",
 ]
 

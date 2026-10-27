@@ -17,15 +17,54 @@ const CLINIC_TOKEN_KEY = "livepet_clinic_access_token";
 const CLINIC_KEY = "livepet_current_clinic";
 const CLINIC_AUTH_EVENT = "livepet-clinic-auth-change";
 
+// Acesso ao localStorage que nunca lança erro. Em aba anônima, com cookies
+// bloqueados ou cota cheia, o navegador pode recusar o acesso; nesse caso a
+// sessão segue funcionando, apenas sem persistir entre recarregamentos.
+const storage = {
+  get: (key) => {
+    try {
+      return window.localStorage.getItem(key);
+    } catch {
+      return null;
+    }
+  },
+  set: (key, value) => {
+    try {
+      window.localStorage.setItem(key, value);
+    } catch {
+      /* armazenamento indisponível */
+    }
+  },
+  remove: (key) => {
+    try {
+      window.localStorage.removeItem(key);
+    } catch {
+      /* armazenamento indisponível */
+    }
+  },
+  keys: () => {
+    try {
+      return Object.keys(window.localStorage);
+    } catch {
+      return [];
+    }
+  },
+};
+
+// Cache em memória para /me com stale time de 5 minutos para evitar requisições redundantes a cada rota
+let meCache = null;
+let meCacheTimestamp = 0;
+const ME_CACHE_TTL_MS = 5 * 60 * 1000;
+
 export const getAuthToken = () => {
   if (typeof window === "undefined") return null;
-  return localStorage.getItem(TOKEN_KEY);
+  return storage.get(TOKEN_KEY);
 };
 
 export const getStoredUser = () => {
   if (typeof window === "undefined") return null;
   try {
-    const raw = localStorage.getItem(USER_KEY);
+    const raw = storage.get(USER_KEY);
     return raw ? JSON.parse(raw) : null;
   } catch {
     return null;
@@ -35,15 +74,15 @@ export const getStoredUser = () => {
 export const setStoredAuth = (token, user) => {
   if (typeof window === "undefined") return;
   if (token) {
-    localStorage.setItem(TOKEN_KEY, token);
+    storage.set(TOKEN_KEY, token);
   } else {
-    localStorage.removeItem(TOKEN_KEY);
+    storage.remove(TOKEN_KEY);
   }
 
   if (user) {
-    localStorage.setItem(USER_KEY, JSON.stringify(user));
+    storage.set(USER_KEY, JSON.stringify(user));
   } else {
-    localStorage.removeItem(USER_KEY);
+    storage.remove(USER_KEY);
   }
 
   window.dispatchEvent(
@@ -53,8 +92,10 @@ export const setStoredAuth = (token, user) => {
 
 export const clearStoredAuth = () => {
   if (typeof window === "undefined") return;
-  localStorage.removeItem(TOKEN_KEY);
-  localStorage.removeItem(USER_KEY);
+  meCache = null;
+  meCacheTimestamp = 0;
+  storage.remove(TOKEN_KEY);
+  storage.remove(USER_KEY);
   window.dispatchEvent(
     new CustomEvent(AUTH_EVENT, { detail: { token: null, user: null } })
   );
@@ -62,13 +103,13 @@ export const clearStoredAuth = () => {
 
 export const getClinicAuthToken = () => {
   if (typeof window === "undefined") return null;
-  return localStorage.getItem(CLINIC_TOKEN_KEY);
+  return storage.get(CLINIC_TOKEN_KEY);
 };
 
 export const getStoredClinic = () => {
   if (typeof window === "undefined") return null;
   try {
-    const raw = localStorage.getItem(CLINIC_KEY);
+    const raw = storage.get(CLINIC_KEY);
     return raw ? JSON.parse(raw) : null;
   } catch {
     return null;
@@ -78,15 +119,15 @@ export const getStoredClinic = () => {
 export const setStoredClinicAuth = (token, clinic) => {
   if (typeof window === "undefined") return;
   if (token) {
-    localStorage.setItem(CLINIC_TOKEN_KEY, token);
+    storage.set(CLINIC_TOKEN_KEY, token);
   } else {
-    localStorage.removeItem(CLINIC_TOKEN_KEY);
+    storage.remove(CLINIC_TOKEN_KEY);
   }
 
   if (clinic) {
-    localStorage.setItem(CLINIC_KEY, JSON.stringify(clinic));
+    storage.set(CLINIC_KEY, JSON.stringify(clinic));
   } else {
-    localStorage.removeItem(CLINIC_KEY);
+    storage.remove(CLINIC_KEY);
   }
 
   window.dispatchEvent(
@@ -96,8 +137,16 @@ export const setStoredClinicAuth = (token, clinic) => {
 
 export const clearStoredClinicAuth = () => {
   if (typeof window === "undefined") return;
-  localStorage.removeItem(CLINIC_TOKEN_KEY);
-  localStorage.removeItem(CLINIC_KEY);
+  storage.remove(CLINIC_TOKEN_KEY);
+  storage.remove(CLINIC_KEY);
+  storage.remove("livepet_clinic_data");
+  try {
+    storage.keys().forEach((key) => {
+      if (key.startsWith("livepet_clinic_data")) {
+        storage.remove(key);
+      }
+    });
+  } catch {}
   window.dispatchEvent(
     new CustomEvent(CLINIC_AUTH_EVENT, { detail: { token: null, clinic: null } })
   );
@@ -117,7 +166,8 @@ async function apiFetch(endpoint, options = {}) {
   const isClinicEndpoint = endpoint.includes("/clinicas");
   const clinicToken = getClinicAuthToken();
   const tutorToken = getAuthToken();
-  const token = isClinicEndpoint ? (clinicToken || tutorToken) : (tutorToken || clinicToken);
+  // Isola estritamente o token de clínica do token de tutor para evitar contaminação cruzada de contas
+  const token = isClinicEndpoint ? clinicToken : tutorToken;
 
   if (token && !headers.Authorization) {
     headers.Authorization = `Bearer ${token}`;
@@ -249,11 +299,29 @@ export const authService = {
   },
 
   /**
-   * Consulta os dados atualizados do tutor autenticado no back-end
+   * Consulta os dados atualizados do tutor autenticado no back-end com staleTime de 5 minutos
+   * @param {boolean} forceRefresh Se true, ignora o cache e bate na rede
    */
-  async getMe() {
+  async getMe(forceRefresh = false) {
+    const now = Date.now();
+    const stored = getStoredUser();
+
+    // Retorna do cache em memória se ainda estiver dentro do TTL de 5 minutos
+    if (!forceRefresh && meCache && now - meCacheTimestamp < ME_CACHE_TTL_MS) {
+      return meCache;
+    }
+
+    // Se já tiver usuário persistido no localStorage e primeira chamada da sessão, usa e revalida
+    if (!forceRefresh && stored && meCacheTimestamp === 0) {
+      meCache = stored;
+      meCacheTimestamp = now;
+      return stored;
+    }
+
     const user = await apiFetch("/api/v1/auth/me");
     const currentToken = getAuthToken();
+    meCache = user;
+    meCacheTimestamp = now;
     setStoredAuth(currentToken, user);
     return user;
   },
@@ -267,6 +335,8 @@ export const authService = {
       body: userData,
     });
     const currentToken = getAuthToken();
+    meCache = updatedUser;
+    meCacheTimestamp = Date.now();
     setStoredAuth(currentToken, updatedUser);
     return updatedUser;
   },
@@ -302,15 +372,23 @@ export const petsService = {
   /**
    * Lista todos os pets do tutor logado
    */
-  async list() {
-    return apiFetch("/api/v1/pets");
+  async list(params = {}) {
+    const query = new URLSearchParams();
+    if (params.limit) query.append("limit", params.limit);
+    if (params.offset) query.append("offset", params.offset);
+    const qs = query.toString();
+    return apiFetch(`/api/v1/pets${qs ? `?${qs}` : ""}`);
   },
 
   /**
    * Lista pets da comunidade disponíveis para descoberta/match (excluindo os pets do tutor logado)
    */
-  async listExplore() {
-    return apiFetch("/api/v1/pets/explore");
+  async listExplore(params = {}) {
+    const query = new URLSearchParams();
+    if (params.limit) query.append("limit", params.limit);
+    if (params.offset) query.append("offset", params.offset);
+    const qs = query.toString();
+    return apiFetch(`/api/v1/pets/explore${qs ? `?${qs}` : ""}`);
   },
 
   /**
@@ -592,55 +670,30 @@ export const clinicService = {
    * Autentica a clínica veterinária parceira com e-mail e senha
    */
   async login({ email, senha }) {
-    try {
-      const data = await apiFetch("/api/clinicas/login", {
-        method: "POST",
-        body: {
-          email: email.trim().toLowerCase(),
-          senha,
-        },
-      });
+    const data = await apiFetch("/api/clinicas/login", {
+      method: "POST",
+      body: {
+        email: email.trim().toLowerCase(),
+        senha,
+      },
+    });
 
-      setStoredClinicAuth(data.access_token, data.clinica);
-      return data;
-    } catch (err) {
-      if (import.meta.env.DEV) {
-        const mockClinic = {
-          id: "dev-clinic-1",
-          nome: email.split("@")[0] || "Clínica Vet LivePet",
-          email: email.trim().toLowerCase(),
-          crmv: "CRMV-SP 12345",
-        };
-        setStoredClinicAuth("dev-clinic-token", mockClinic);
-        return { access_token: "dev-clinic-token", clinica: mockClinic };
-      }
-      throw err;
-    }
+    setStoredClinicAuth(data.access_token, data.clinica);
+    return data;
   },
 
   /**
    * Cadastra uma nova clínica veterinária parceira
    */
   async register(clinicData) {
-    try {
-      const data = await apiFetch("/api/clinicas/register", {
-        method: "POST",
-        body: {
-          ...clinicData,
-          email: clinicData.email ? clinicData.email.trim().toLowerCase() : "",
-        },
-      });
-      return data;
-    } catch (err) {
-      if (import.meta.env.DEV) {
-        return {
-          id: "dev-clinic-1",
-          nome: clinicData.nome || "Clínica Vet LivePet",
-          email: clinicData.email ? clinicData.email.trim().toLowerCase() : "clinica@livepet.com",
-        };
-      }
-      throw err;
-    }
+    const data = await apiFetch("/api/clinicas/register", {
+      method: "POST",
+      body: {
+        ...clinicData,
+        email: clinicData.email ? clinicData.email.trim().toLowerCase() : "",
+      },
+    });
+    return data;
   },
 
   /**
@@ -669,9 +722,10 @@ export const clinicService = {
    */
   async getProfile() {
     const clinic = await apiFetch("/api/clinicas/perfil");
-    const currentToken = getClinicAuthToken();
-    if (currentToken) {
-      setStoredClinicAuth(currentToken, clinic);
+    if (clinic && typeof window !== "undefined") {
+      try {
+        storage.set(CLINIC_KEY, JSON.stringify(clinic));
+      } catch {}
     }
     return clinic;
   },
@@ -684,9 +738,10 @@ export const clinicService = {
       method: "PUT",
       body: fields,
     });
-    const currentToken = getClinicAuthToken();
-    if (currentToken) {
-      setStoredClinicAuth(currentToken, clinic);
+    if (clinic && typeof window !== "undefined") {
+      try {
+        storage.set(CLINIC_KEY, JSON.stringify(clinic));
+      } catch {}
     }
     return clinic;
   },
@@ -801,7 +856,8 @@ export const clinicService = {
   async listPublicClinics(query = "") {
     try {
       const q = query && query.trim() ? `?q=${encodeURIComponent(query.trim())}` : "";
-      return await apiFetch(`/api/clinicas/publicas${q}`);
+      const res = await apiFetch(`/api/clinicas/publicas${q}`);
+      return Array.isArray(res) ? res : [];
     } catch {
       return [];
     }

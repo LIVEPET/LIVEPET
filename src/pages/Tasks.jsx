@@ -47,6 +47,7 @@ import {
 } from "@/components/ui/select";
 import { toast } from "sonner";
 import { petsService } from "@/services/api";
+import { readUserJSON, writeUserJSON } from "@/lib/userStorage";
 
 const CATEGORIES = {
   alimentacao: {
@@ -91,24 +92,11 @@ const DEFAULT_TASKS = [];
 const STORAGE_KEY = "livepet_routine_tasks_v2";
 
 const Tasks = () => {
+  // Tarefas do usuário logado. As antigas, salvas sem dono, são descartadas
+  // em userStorage; por isso não é mais preciso filtrar os pets de exemplo.
   const [tasks, setTasks] = useState(() => {
-    try {
-      const saved = localStorage.getItem(STORAGE_KEY);
-      if (saved) {
-        const parsed = JSON.parse(saved);
-        if (Array.isArray(parsed)) {
-          // Filtra tarefas legadas que faziam referência aos pets mockados Thor ou Mia
-          return parsed.filter(
-            (t) =>
-              !["def-1", "def-2", "def-3", "def-4", "def-5", "def-6"].includes(t.id) &&
-              !["Thor", "Mia"].includes(t.petName)
-          );
-        }
-      }
-    } catch {
-      // fallback
-    }
-    return [];
+    const saved = readUserJSON(STORAGE_KEY, []);
+    return Array.isArray(saved) ? saved : [];
   });
 
   const [pets, setPets] = useState([]);
@@ -127,13 +115,9 @@ const Tasks = () => {
   const [newTaskTime, setNewTaskTime] = useState("08:00");
   const [newTaskNotes, setNewTaskNotes] = useState("");
 
-  // Save to localStorage
+  // Salva as tarefas no navegador, separadas por usuário
   useEffect(() => {
-    try {
-      localStorage.setItem(STORAGE_KEY, JSON.stringify(tasks));
-    } catch (e) {
-      console.error("Erro ao salvar tarefas:", e);
-    }
+    writeUserJSON(STORAGE_KEY, tasks);
   }, [tasks]);
 
   // Load pets from backend

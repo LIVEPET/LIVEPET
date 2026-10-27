@@ -1172,10 +1172,14 @@ const PuppiesMarketplace = () => {
 
             {/* Descrição */}
             <div className="space-y-1">
-              <Label className="text-xs font-semibold">Descrição do Filhote / Ninhada</Label>
+              <div className="flex items-center justify-between">
+                <Label className="text-xs font-semibold">Descrição do Filhote / Ninhada</Label>
+                <span className="text-[10px] text-muted-foreground">{formDesc.length}/1000</span>
+              </div>
               <Textarea
                 value={formDesc}
-                onChange={(e) => setFormDesc(e.target.value)}
+                maxLength={1000}
+                onChange={(e) => setFormDesc(e.target.value.slice(0, 1000))}
                 placeholder="Conte sobre o temperamento, vacinas tomadas, vermifugação, data para desmame e cuidados especiais…"
                 rows={3}
                 className="rounded-xl text-xs"

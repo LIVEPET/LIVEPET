@@ -524,10 +524,15 @@ const PetRegister = () => {
             <Card className="border-border/60 p-6 shadow-card sm:p-8">
               <SectionTitle icon={Stethoscope} title="Saúde e cuidados" />
               <div className="mt-4">
-                <Field label="Alergias / Cuidados médicos" error={errors.allergies} icon={Stethoscope}>
+                <Field
+                  label="Alergias / Cuidados médicos"
+                  counter={`${(form.allergies || "").length}/500`}
+                  error={errors.allergies}
+                  icon={Stethoscope}
+                >
                   <Textarea
                     value={form.allergies}
-                    onChange={(e) => setForm({ ...form, allergies: e.target.value })}
+                    onChange={(e) => setForm({ ...form, allergies: e.target.value.slice(0, 500) })}
                     placeholder="Ex.: alérgico a frango, toma medicação diária, evitar ração X..."
                     rows={4}
                     maxLength={500}
@@ -576,12 +581,15 @@ const SectionTitle = ({ icon: Icon, title }) => (
   </div>
 );
 
-const Field = ({ label, error, icon: Icon, children }) => (
+const Field = ({ label, counter, error, icon: Icon, children }) => (
   <div className="space-y-1.5">
-    <Label className="flex items-center gap-1.5 text-sm font-semibold text-foreground">
-      {Icon && <Icon className="h-3.5 w-3.5 text-primary" />}
-      {label}
-    </Label>
+    <div className="flex items-center justify-between">
+      <Label className="flex items-center gap-1.5 text-sm font-semibold text-foreground">
+        {Icon && <Icon className="h-3.5 w-3.5 text-primary" />}
+        {label}
+      </Label>
+      {counter && <span className="text-[11px] text-muted-foreground">{counter}</span>}
+    </div>
     {children}
     {error && <p className="text-xs font-medium text-destructive">{error}</p>}
   </div>

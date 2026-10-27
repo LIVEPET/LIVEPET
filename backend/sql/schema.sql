@@ -39,12 +39,14 @@ CREATE TABLE public.pets (
     cor VARCHAR(80),
     peso NUMERIC(5, 2),
     foto_url VARCHAR(500),
+    microchip VARCHAR(50),
     token_publico VARCHAR(64) NOT NULL UNIQUE,
     criado_em TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP
 );
 
 CREATE INDEX idx_pets_user_id ON public.pets(user_id);
 CREATE INDEX idx_pets_token_publico ON public.pets(token_publico);
+CREATE INDEX idx_pets_microchip ON public.pets(microchip);
 
 -- 3. Tabela de Vacinas
 CREATE TABLE public.vaccines (
@@ -159,7 +161,24 @@ CREATE TABLE public.clinics (
 CREATE INDEX idx_clinics_email ON public.clinics(email);
 CREATE INDEX idx_clinics_crmv ON public.clinics(crmv);
 
--- 9. Tabela de Atendimentos Clínicos
+-- 9. Tabela de Veterinários (Issue #53)
+CREATE TABLE public.veterinarios (
+    id SERIAL PRIMARY KEY,
+    clinic_id INTEGER NOT NULL REFERENCES public.clinics(id) ON DELETE CASCADE,
+    nome VARCHAR(150) NOT NULL,
+    crmv VARCHAR(50) NOT NULL,
+    especialidade VARCHAR(100),
+    telefone VARCHAR(30),
+    email VARCHAR(255),
+    ativo BOOLEAN NOT NULL DEFAULT TRUE,
+    criado_em TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    atualizado_em TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE INDEX idx_veterinarios_clinic_id ON public.veterinarios(clinic_id);
+CREATE INDEX idx_veterinarios_crmv ON public.veterinarios(crmv);
+
+-- 10. Tabela de Atendimentos Clínicos
 CREATE TABLE public.clinic_appointments (
     id SERIAL PRIMARY KEY,
     clinic_id INTEGER NOT NULL REFERENCES public.clinics(id) ON DELETE CASCADE,
@@ -258,6 +277,7 @@ COMMENT ON TABLE public.care_contacts IS 'Rede de contatos de emergência e cuid
 COMMENT ON TABLE public.lineages IS 'Registro de pedigree e linhagem ancestral dos pets';
 COMMENT ON TABLE public.lineage_requests IS 'Solicitações de validação de ascendência entre tutores';
 COMMENT ON TABLE public.clinics IS 'Tabela de clínicas veterinárias cadastradas no LivePet';
+COMMENT ON TABLE public.veterinarios IS 'Tabela de médicos veterinários do corpo clínico das clínicas parceiras';
 COMMENT ON TABLE public.clinic_appointments IS 'Prontuários e consultas realizadas por clínicas parceiras';
 COMMENT ON TABLE public.clinic_pet_link_requests IS 'Vínculos entre clínicas e pets oficiais de tutores';
 COMMENT ON TABLE public.marketplace_listings IS 'Anúncios do marketplace de filhotes e adoção responsável';

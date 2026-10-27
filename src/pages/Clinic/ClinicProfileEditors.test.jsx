@@ -2,21 +2,21 @@ import { fireEvent, render, screen, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { MemoryRouter, Route, Routes } from "react-router-dom";
 import { beforeAll, beforeEach, describe, expect, it } from "vitest";
-import { STORAGE_KEY } from "@/contexts/ClinicContext";
+import { STORAGE_KEY, ClinicProvider } from "@/contexts/ClinicContext";
 import { chooseOption, openNewAppointment, stubRadixForJsdom } from "@/test/clinicTestUtils";
 import ClinicLayout from "./ClinicLayout";
 import ClinicProfile from "./ClinicProfile";
 import ClinicSchedule from "./ClinicSchedule";
 
 const app = (initial = "/clinica/perfil") => (
-  <MemoryRouter initialEntries={[initial]}>
+  <ClinicProvider><MemoryRouter initialEntries={[initial]}>
     <Routes>
       <Route path="/clinica" element={<ClinicLayout />}>
         <Route path="agenda" element={<ClinicSchedule />} />
         <Route path="perfil" element={<ClinicProfile />} />
       </Route>
     </Routes>
-  </MemoryRouter>
+  </MemoryRouter></ClinicProvider>
 );
 
 const saved = () => JSON.parse(localStorage.getItem(STORAGE_KEY));

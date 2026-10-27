@@ -1,0 +1,29 @@
+version: '3.8'
+
+# Trabalho da faculdade - LivePet
+# Pra rodar tudo junto: docker-compose up --build
+
+services:
+  # API em Python
+  backend:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    ports:
+      - "8000:8000"
+    environment:
+     
+    volumes:
+      - ./backend:/app
+
+  # Front em React
+  frontend:
+    build:
+      context: .
+      dockerfile: Dockerfile.frontend
+    ports:
+      - "5173:5173"
+    environment:
+      - VITE_API_URL=http://localhost:8000
+    depends_on:
+      - backend

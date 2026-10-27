@@ -134,7 +134,9 @@ const Header = () => {
             </SheetTrigger>
             <SheetContent side="right" className="w-72">
               <div className="flex flex-col gap-6 pt-6">
-                <Logo />
+                <SheetClose asChild>
+                  <Logo className="self-start" />
+                </SheetClose>
                 <nav className="flex flex-col gap-1">
                   {navItems.map((item) => (
                     <SheetClose asChild key={item.to}>

@@ -30,17 +30,19 @@ import ClinicProfile from "./pages/Clinic/ClinicProfile";
 import ClinicSchedule from "./pages/Clinic/ClinicSchedule";
 import ClinicInpatient from "./pages/Clinic/ClinicInpatient";
 import ProtectedClinicRoute from "./components/ProtectedClinicRoute";
+import { ClinicProvider } from "@/contexts/ClinicContext";
 
 const queryClient = new QueryClient();
 
 const App = () => (
   <QueryClientProvider client={queryClient}>
     <TooltipProvider>
-      <Toaster />
-      <Sonner />
-      <BrowserRouter>
-        <Routes>
-          <Route path="/login" element={<Login />} />
+      <ClinicProvider>
+        <Toaster />
+        <Sonner />
+        <BrowserRouter>
+          <Routes>
+            <Route path="/login" element={<Login />} />
 
           <Route path="/clinica/entrar" element={<ClinicLogin />} />
           <Route element={<ProtectedClinicRoute />}>
@@ -76,6 +78,7 @@ const App = () => (
           </Route>
         </Routes>
       </BrowserRouter>
+      </ClinicProvider>
     </TooltipProvider>
   </QueryClientProvider>
 );
