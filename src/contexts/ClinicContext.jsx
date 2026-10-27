@@ -165,10 +165,11 @@ export const ClinicProvider = ({ children }) => {
       const currentClinic = clinicService.getCurrentClinic();
       activeClinicIdRef.current = currentClinic?.id || null;
 
-      const [clinicRes, apptsRes, patientsRes] = await Promise.allSettled([
+      const [clinicRes, apptsRes, patientsRes, vetsRes] = await Promise.allSettled([
         clinicService.getProfile(),
         clinicService.listAppointments(),
         clinicService.listPatients(),
+        clinicService.listVeterinarians(false),
       ]);
 
       const clinic = clinicRes.status === "fulfilled" && clinicRes.value ? clinicRes.value : currentClinic;
@@ -190,7 +191,17 @@ export const ClinicProvider = ({ children }) => {
         } catch {}
       }
       let teamList = [];
-      if (clinic?.equipe) {
+      if (vetsRes.status === "fulfilled" && Array.isArray(vetsRes.value) && vetsRes.value.length > 0) {
+        teamList = vetsRes.value.map((v) => ({
+          id: v.id,
+          name: v.nome,
+          role: v.especialidade || "Veterinário(a)",
+          crmv: v.crmv,
+          phone: v.telefone || "",
+          email: v.email || "",
+          ativo: v.ativo ?? true,
+        }));
+      } else if (clinic?.equipe) {
         try {
           const parsed = typeof clinic.equipe === "string" ? JSON.parse(clinic.equipe) : clinic.equipe;
           if (Array.isArray(parsed)) teamList = parsed;
@@ -649,6 +660,7 @@ const saveProfile = useCallback((fields) => {
       patients: data.patients,
       beds: data.beds,
       saveProfile,
+      refreshData: loadClinicData,
       addAppointment,
       updateAppointmentStatus,
       updateAppointmentPriority,
@@ -666,6 +678,7 @@ const saveProfile = useCallback((fields) => {
     [
       data,
       saveProfile,
+      loadClinicData,
       addAppointment,
       updateAppointmentStatus,
       updateAppointmentPriority,
@@ -695,6 +708,7 @@ export const useClinic = () => {
       ...createEmptyData(),
       beds: [],
       saveProfile: () => {},
+      refreshData: async () => {},
       addAppointment: () => {},
       updateAppointmentStatus: () => {},
       cancelAppointment: () => {},

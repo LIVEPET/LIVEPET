@@ -99,16 +99,26 @@ export const serviceMeta = (service) =>
     .join(" · ");
 
 export const normalizeMember = (raw) => {
-  if (typeof raw === "string") return { name: raw.trim(), role: "", crmv: "" };
-  if (!raw || typeof raw !== "object") return { name: "", role: "", crmv: "" };
+  if (typeof raw === "string") return { id: null, name: raw.trim(), role: "", crmv: "", phone: "", email: "" };
+  if (!raw || typeof raw !== "object") return { id: null, name: "", role: "", crmv: "", phone: "", email: "" };
   return {
-    name: String(raw.name ?? "").trim(),
-    role: String(raw.role ?? "").trim(),
+    id: raw.id ?? null,
+    name: String(raw.name ?? raw.nome ?? "").trim(),
+    role: String(raw.role ?? raw.especialidade ?? "").trim(),
     crmv: String(raw.crmv ?? "").trim(),
+    phone: String(raw.phone ?? raw.telefone ?? "").trim(),
+    email: String(raw.email ?? "").trim(),
   };
 };
 
-export const memberMeta = (member) => [member.role, member.crmv].filter(Boolean).join(" · ");
+export const memberMeta = (member) => {
+  const crmvLabel = member.crmv
+    ? member.crmv.toUpperCase().startsWith("CRMV")
+      ? member.crmv
+      : `CRMV: ${member.crmv}`
+    : "";
+  return [member.role, crmvLabel].filter(Boolean).join(" · ");
+};
 
 // Nome já usado por outro item da lista? (ignora maiúsculas e o próprio item em edição)
 export const isDuplicateName = (list, name, editing, normalize) => {

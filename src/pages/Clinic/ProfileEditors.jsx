@@ -153,7 +153,7 @@ export const ServiceDialog = ({ open, onOpenChange, service, services, onSave })
   );
 };
 
-const emptyMember = { name: "", role: "", crmv: "" };
+const emptyMember = { name: "", role: "", crmv: "", phone: "", email: "" };
 
 export const TeamDialog = ({ open, onOpenChange, member, team, onSave }) => {
   const [form, setForm] = useState(emptyMember);
@@ -178,12 +178,28 @@ export const TeamDialog = ({ open, onOpenChange, member, team, onSave }) => {
       focusFirst(["member-name"]);
       return;
     }
+    const crmv = form.crmv.trim();
+    if (!crmv) {
+      setErrors({ crmv: "Informe o CRMV do profissional." });
+      focusFirst(["member-crmv"]);
+      return;
+    }
     if (isDuplicateName(team, name, member, normalizeMember)) {
       setErrors({ name: "Já existe um profissional com esse nome." });
       focusFirst(["member-name"]);
       return;
     }
-    onSave({ name, role: form.role.trim(), crmv: form.crmv.trim() }, member);
+    onSave(
+      {
+        id: member?.id ?? null,
+        name,
+        role: form.role.trim(),
+        crmv,
+        phone: form.phone.trim(),
+        email: form.email.trim(),
+      },
+      member
+    );
   };
 
   return (
@@ -199,7 +215,7 @@ export const TeamDialog = ({ open, onOpenChange, member, team, onSave }) => {
         </DialogHeader>
         <form onSubmit={submit} noValidate className="space-y-4">
           <div className="space-y-2">
-            <Label htmlFor="member-name">Nome do profissional</Label>
+            <Label htmlFor="member-name">Nome do profissional *</Label>
             <Input
               {...fieldProps("member-name", errors.name)}
               placeholder="Dra. Marina Alves"
@@ -210,21 +226,43 @@ export const TeamDialog = ({ open, onOpenChange, member, team, onSave }) => {
           </div>
           <div className="grid gap-3 sm:grid-cols-2">
             <div className="space-y-2">
-              <Label htmlFor="member-role">Função</Label>
+              <Label htmlFor="member-role">Especialidade / Função</Label>
               <Input
                 id="member-role"
-                placeholder="Veterinária"
+                placeholder="Ex.: Cirurgia, Clínica Geral"
                 value={form.role}
                 onChange={(e) => update("role", e.target.value)}
               />
             </div>
             <div className="space-y-2">
-              <Label htmlFor="member-crmv">CRMV</Label>
+              <Label htmlFor="member-crmv">CRMV *</Label>
               <Input
-                id="member-crmv"
+                {...fieldProps("member-crmv", errors.crmv)}
                 placeholder="SP-12345"
                 value={form.crmv}
                 onChange={(e) => update("crmv", e.target.value)}
+              />
+              <FieldError id="member-crmv" message={errors.crmv} />
+            </div>
+          </div>
+          <div className="grid gap-3 sm:grid-cols-2">
+            <div className="space-y-2">
+              <Label htmlFor="member-phone">Telefone (opcional)</Label>
+              <Input
+                id="member-phone"
+                placeholder="(11) 98765-4321"
+                value={form.phone}
+                onChange={(e) => update("phone", e.target.value)}
+              />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="member-email">E-mail (opcional)</Label>
+              <Input
+                id="member-email"
+                type="email"
+                placeholder="vet@clinica.com"
+                value={form.email}
+                onChange={(e) => update("email", e.target.value)}
               />
             </div>
           </div>
