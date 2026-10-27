@@ -38,3 +38,13 @@ export const buildHealthSummary = (pet) => {
     note: texto(maisRecente?.descricao) || "Nenhuma consulta registrada ainda.",
   };
 };
+
+/**
+ * Formata a exibição do microchip oficial do animal.
+ * Devolve o valor cadastrado ou "Não informado" quando ausente.
+ */
+export const formatMicrochip = (microchip) => {
+  const limpo = texto(microchip);
+  return limpo.length > 0 ? limpo : "Não informado";
+};
+

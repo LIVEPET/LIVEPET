@@ -148,9 +148,7 @@ const Pedigree = () => {
             sex: p.sexo || "Macho",
             gender: p.sexo || "Macho",
             age: formatAge(p.data_nascimento),
-            microchip: p.token_publico
-              ? p.token_publico.slice(0, 12).toUpperCase()
-              : String(p.id),
+            microchip: p.microchip || "Não informado",
             color: p.cor || "Padrão",
             birth: formatDateBR(p.data_nascimento),
             rawBirth: p.data_nascimento || "",
@@ -1039,8 +1037,8 @@ const DigitalCertificate = ({ dog, certificateUrl }) => {
               <p className="mt-0.5 font-display text-base font-bold text-foreground">{dog.gender || "—"}</p>
             </div>
             <div className="rounded-2xl border border-border/80 bg-card p-3">
-              <p className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">Microchip / Token</p>
-              <p className="mt-0.5 font-mono text-xs font-bold text-foreground truncate">{dog.microchip || "—"}</p>
+              <p className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">Microchip</p>
+              <p className="mt-0.5 font-mono text-xs font-bold text-foreground truncate">{dog.microchip || "Não informado"}</p>
             </div>
             <div className="rounded-2xl border border-border/80 bg-card p-3">
               <p className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">Idade Estimada</p>
@@ -2013,7 +2011,7 @@ const RegistrationForm = ({ pets = [], selectedPet, onSaved }) => {
                   {activePet.name}
                 </p>
                 <p className="text-[11px] text-primary-foreground/70">
-                  {activePet.breed} · Token: {activePet.microchip}
+                  {activePet.breed} · Microchip: {activePet.microchip || "Não informado"}
                 </p>
               </div>
             </div>
