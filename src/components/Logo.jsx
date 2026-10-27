@@ -27,9 +27,9 @@ const Logo = forwardRef(({ variant = "default", className = "", onClick, ...prop
       <img
         src={logoImg}
         alt="Live Pet — cuidando do seu pet"
-        width={160}
-        height={80}
-        className={`h-14 w-auto object-contain sm:h-16 ${isLight ? "brightness-0 invert" : ""}`}
+        width={386}
+        height={192}
+        className={`block h-11 w-auto object-contain lg:h-14 ${isLight ? "brightness-0 invert" : ""}`}
       />
     </Link>
   );
