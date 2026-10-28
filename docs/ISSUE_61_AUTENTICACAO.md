@@ -29,7 +29,7 @@ e depois correta; recarregar; sair pelo desktop e pelo menu móvel; testar logou
 em outra aba e sessão expirada. Conferir a interface em 375 px. A equipe deve
 homologar e revisar o código antes de autorizar qualquer merge.
 
-Validação no Chrome em 375 px: erro de credenciais, entrada na Agenda e logout
+Validação no Chrome em 375 px, com API simulada: erro de credenciais, entrada na Agenda e logout
 pelo menu móvel aprovados; largura do documento igual à viewport, sem rolagem
 horizontal. A suíte completa apresentou as mesmas 5 falhas também reproduzidas
 na `main`, nos testes de perfil/equipe e preview de prescrição. Não são falhas
