@@ -7,6 +7,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Card, CardContent } from "@/components/ui/card";
 import { clinicService } from "@/services/api";
+import { useClinicAuth } from "@/contexts/clinicAuth";
 
 const highlights = [
   { icon: CalendarCheck, title: "Agenda organizada", text: "Confirmações, atendimentos do dia e histórico em um só lugar." },
@@ -19,6 +20,8 @@ const ClinicLogin = () => {
   const location = useLocation();
   const [tab, setTab] = useState("login");
   const [loading, setLoading] = useState(false);
+  const [error, setError] = useState("");
+  const { login, logout } = useClinicAuth();
 
   // Campos de login e cadastro
   const [email, setEmail] = useState("");
@@ -37,16 +40,20 @@ const ClinicLogin = () => {
     }
 
     setLoading(true);
+    setError("");
     try {
-      clinicService.logout();
-      const res = await clinicService.login({ email, senha: password });
+      logout();
+      const res = await login({ email, senha: password });
       toast.success("Bem-vindo de volta!", {
         description: `Painel da ${res.clinica?.nome || "clínica"} liberado.`,
       });
-      const destination = location.state?.from?.pathname || "/clinica";
+      const from = location.state?.from;
+      const destination = from?.pathname?.startsWith("/clinica/") && from.pathname !== "/clinica/entrar"
+        ? `${from.pathname}${from.search || ""}${from.hash || ""}` : "/clinica";
       navigate(destination, { replace: true });
     } catch (err) {
       const msg = err instanceof Error ? err.message : "E-mail ou senha incorretos.";
+      setError(msg);
       toast.error("Falha ao entrar", { description: msg });
     } finally {
       setLoading(false);
@@ -69,8 +76,9 @@ const ClinicLogin = () => {
     }
 
     setLoading(true);
+    setError("");
     try {
-      clinicService.logout();
+      logout();
       await clinicService.register({
         nome: name.trim(),
         email: email.trim(),
@@ -80,13 +88,14 @@ const ClinicLogin = () => {
       });
 
       // Login automático após registro
-      const loginRes = await clinicService.login({ email, senha: password });
+      const loginRes = await login({ email, senha: password });
       toast.success("Clínica cadastrada com sucesso!", {
         description: `Bem-vindo(a) ao LivePet, ${loginRes.clinica?.nome || name}!`,
       });
       navigate("/clinica", { replace: true });
     } catch (err) {
       const msg = err instanceof Error ? err.message : "Erro ao cadastrar clínica.";
+      setError(msg);
       toast.error("Falha no cadastro", { description: msg });
     } finally {
       setLoading(false);
@@ -145,11 +154,13 @@ const ClinicLogin = () => {
               </p>
             </div>
 
+            {error && <p role="alert" className="mb-4 text-sm text-destructive">{error}</p>}
             {/* Alternador de Abas */}
             <div className="mb-6 inline-flex w-full rounded-full bg-muted p-1">
               <button
                 type="button"
-                onClick={() => setTab("login")}
+                disabled={loading}
+                onClick={() => { setError(""); setTab("login"); }}
                 className={`flex-1 rounded-full px-4 py-2 text-sm font-semibold transition-smooth ${
                   tab === "login"
                     ? "bg-card text-foreground shadow-soft"
@@ -160,7 +171,8 @@ const ClinicLogin = () => {
               </button>
               <button
                 type="button"
-                onClick={() => setTab("signup")}
+                disabled={loading}
+                onClick={() => { setError(""); setTab("signup"); }}
                 className={`flex-1 rounded-full px-4 py-2 text-sm font-semibold transition-smooth ${
                   tab === "signup"
                     ? "bg-card text-foreground shadow-soft"

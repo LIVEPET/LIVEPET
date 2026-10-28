@@ -1,7 +1,7 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState } from "react";
 
 import { createDefaultBeds } from "@/data/clinicDemo";
-import { clinicService } from "@/services/api";
+import { clinicService, getClinicAuthToken } from "@/services/api";
 
 const getToday = () => new Date().toISOString().split("T")[0];
 
@@ -160,6 +160,7 @@ export const ClinicProvider = ({ children }) => {
     if (!clinicService.isAuthenticated()) return;
     if (isFetchingRef.current) return;
     isFetchingRef.current = true;
+    const token = getClinicAuthToken();
 
     try {
       const currentClinic = clinicService.getCurrentClinic();
@@ -171,6 +172,7 @@ export const ClinicProvider = ({ children }) => {
         clinicService.listPatients(),
         clinicService.listVeterinarians(false),
       ]);
+      if (getClinicAuthToken() !== token) return;
 
       const clinic = clinicRes.status === "fulfilled" && clinicRes.value ? clinicRes.value : currentClinic;
       const appointments = apptsRes.status === "fulfilled" && Array.isArray(apptsRes.value) ? apptsRes.value : [];
@@ -245,6 +247,7 @@ export const ClinicProvider = ({ children }) => {
       }));
     } finally {
       isFetchingRef.current = false;
+      if (getClinicAuthToken() !== token && clinicService.isAuthenticated()) loadClinicData();
     }
   }, []);
 
@@ -262,9 +265,16 @@ export const ClinicProvider = ({ children }) => {
       }
     };
 
+    const handleStorage = (event) => {
+      if (!event.key || ["livepet_clinic_access_token", "livepet_current_clinic"].includes(event.key)) {
+        handleAuthChange({ detail: { clinic: clinicService.isAuthenticated() ? clinicService.getCurrentClinic() : null } });
+      }
+    };
     window.addEventListener("livepet-clinic-auth-change", handleAuthChange);
+    window.addEventListener("storage", handleStorage);
     return () => {
       window.removeEventListener("livepet-clinic-auth-change", handleAuthChange);
+      window.removeEventListener("storage", handleStorage);
     };
   }, [loadClinicData]);
 
