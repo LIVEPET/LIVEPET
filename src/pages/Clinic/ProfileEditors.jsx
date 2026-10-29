@@ -161,7 +161,7 @@ export const TeamDialog = ({ open, onOpenChange, member, team, onSave }) => {
 
   useEffect(() => {
     if (!open) return;
-    setForm(member ? normalizeMember(member) : emptyMember);
+    setForm(member ? { ...emptyMember, ...normalizeMember(member) } : emptyMember);
     setErrors({});
   }, [open, member]);
 
@@ -178,28 +178,20 @@ export const TeamDialog = ({ open, onOpenChange, member, team, onSave }) => {
       focusFirst(["member-name"]);
       return;
     }
-    const crmv = form.crmv.trim();
-    if (!crmv) {
-      setErrors({ crmv: "Informe o CRMV do profissional." });
-      focusFirst(["member-crmv"]);
-      return;
-    }
     if (isDuplicateName(team, name, member, normalizeMember)) {
       setErrors({ name: "Já existe um profissional com esse nome." });
       focusFirst(["member-name"]);
       return;
     }
-    onSave(
-      {
-        id: member?.id ?? null,
-        name,
-        role: form.role.trim(),
-        crmv,
-        phone: form.phone.trim(),
-        email: form.email.trim(),
-      },
-      member
-    );
+    const nextMember = {
+      name,
+      role: (form.role || "").trim(),
+      crmv: (form.crmv || "").trim(),
+    };
+    if (member?.id != null) nextMember.id = member.id;
+    if (form.phone?.trim()) nextMember.phone = form.phone.trim();
+    if (form.email?.trim()) nextMember.email = form.email.trim();
+    onSave(nextMember, member);
   };
 
   return (
@@ -215,7 +207,7 @@ export const TeamDialog = ({ open, onOpenChange, member, team, onSave }) => {
         </DialogHeader>
         <form onSubmit={submit} noValidate className="space-y-4">
           <div className="space-y-2">
-            <Label htmlFor="member-name">Nome do profissional *</Label>
+            <Label htmlFor="member-name">Nome do profissional</Label>
             <Input
               {...fieldProps("member-name", errors.name)}
               placeholder="Dra. Marina Alves"
@@ -226,7 +218,7 @@ export const TeamDialog = ({ open, onOpenChange, member, team, onSave }) => {
           </div>
           <div className="grid gap-3 sm:grid-cols-2">
             <div className="space-y-2">
-              <Label htmlFor="member-role">Especialidade / Função</Label>
+              <Label htmlFor="member-role">Função</Label>
               <Input
                 id="member-role"
                 placeholder="Ex.: Cirurgia, Clínica Geral"
@@ -235,7 +227,7 @@ export const TeamDialog = ({ open, onOpenChange, member, team, onSave }) => {
               />
             </div>
             <div className="space-y-2">
-              <Label htmlFor="member-crmv">CRMV *</Label>
+              <Label htmlFor="member-crmv">CRMV</Label>
               <Input
                 {...fieldProps("member-crmv", errors.crmv)}
                 placeholder="SP-12345"

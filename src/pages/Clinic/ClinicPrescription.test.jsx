@@ -189,7 +189,7 @@ describe("ClinicPrescription — Construtor de Prescrição & Receituário Timbr
     seedClinic([
       {
         id: "app-rx-2",
-        date: "2026-10-25",
+        date: today,
         time: "14:30",
         petName: "Kiara",
         species: "Gato",

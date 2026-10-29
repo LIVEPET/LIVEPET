@@ -99,26 +99,22 @@ export const serviceMeta = (service) =>
     .join(" · ");
 
 export const normalizeMember = (raw) => {
-  if (typeof raw === "string") return { id: null, name: raw.trim(), role: "", crmv: "", phone: "", email: "" };
-  if (!raw || typeof raw !== "object") return { id: null, name: "", role: "", crmv: "", phone: "", email: "" };
-  return {
-    id: raw.id ?? null,
+  if (typeof raw === "string") return { name: raw.trim(), role: "", crmv: "" };
+  if (!raw || typeof raw !== "object") return { name: "", role: "", crmv: "" };
+  const member = {
     name: String(raw.name ?? raw.nome ?? "").trim(),
     role: String(raw.role ?? raw.especialidade ?? "").trim(),
     crmv: String(raw.crmv ?? "").trim(),
-    phone: String(raw.phone ?? raw.telefone ?? "").trim(),
-    email: String(raw.email ?? "").trim(),
   };
+  if (raw.id != null) member.id = raw.id;
+  const phone = String(raw.phone ?? raw.telefone ?? "").trim();
+  if (phone) member.phone = phone;
+  const email = String(raw.email ?? "").trim();
+  if (email) member.email = email;
+  return member;
 };
 
-export const memberMeta = (member) => {
-  const crmvLabel = member.crmv
-    ? member.crmv.toUpperCase().startsWith("CRMV")
-      ? member.crmv
-      : `CRMV: ${member.crmv}`
-    : "";
-  return [member.role, crmvLabel].filter(Boolean).join(" · ");
-};
+export const memberMeta = (member) => [member.role, member.crmv].filter(Boolean).join(" · ");
 
 // Nome já usado por outro item da lista? (ignora maiúsculas e o próprio item em edição)
 export const isDuplicateName = (list, name, editing, normalize) => {
