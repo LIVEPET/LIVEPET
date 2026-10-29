@@ -115,17 +115,18 @@ const ProfileHeader = ({
         </div>
 
         {/* Linha 2: Estatísticas estilo Instagram */}
+        {/* Contagem null = pets não carregaram: mostra "–" em vez de um 0 falso */}
         <div className="flex justify-center gap-8 text-sm md:justify-start">
           <div>
-            <span className="font-bold text-foreground">{petsCount}</span>{" "}
+            <span className="font-bold text-foreground">{petsCount ?? "–"}</span>{" "}
             <span className="text-muted-foreground">{petsCount === 1 ? "pet" : "pets"}</span>
           </div>
           <div>
-            <span className="font-bold text-foreground">{totalVaccines}</span>{" "}
+            <span className="font-bold text-foreground">{totalVaccines ?? "–"}</span>{" "}
             <span className="text-muted-foreground">vacinas</span>
           </div>
           <div>
-            <span className="font-bold text-foreground">{totalPedigrees}</span>{" "}
+            <span className="font-bold text-foreground">{totalPedigrees ?? "–"}</span>{" "}
             <span className="text-muted-foreground">pedigrees</span>
           </div>
         </div>

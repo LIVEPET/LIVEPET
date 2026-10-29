@@ -50,6 +50,7 @@ const renderizar = () =>
   );
 
 beforeEach(() => {
+  vi.restoreAllMocks();
   vi.clearAllMocks();
   authService.getMe.mockResolvedValue(TUTOR);
   petsService.list.mockResolvedValue(PETS);
@@ -103,6 +104,47 @@ describe("<Profile />", () => {
     );
     expect(toast.success).toHaveBeenCalledWith("Perfil salvo com sucesso!", expect.anything());
     expect(await screen.findByText("Yasmim Lima")).toBeInTheDocument();
+  });
+
+  it("mostra o esqueleto da tela enquanto carrega", async () => {
+    renderizar();
+
+    expect(screen.getByRole("status")).toHaveAttribute("aria-busy", "true");
+    await screen.findByText("Yasmim Souza");
+    expect(screen.queryByRole("status")).not.toBeInTheDocument();
+  });
+
+  it("avisa quando os pets não carregam, sem fingir lista vazia, e tenta de novo", async () => {
+    const user = userEvent.setup();
+    vi.spyOn(console, "error").mockImplementation(() => {});
+    petsService.list.mockRejectedValueOnce(new Error("Falha na rede"));
+    renderizar();
+
+    expect(await screen.findByText("Não foi possível carregar seus pets")).toBeInTheDocument();
+    expect(screen.queryByText("Nenhum pet cadastrado ainda")).not.toBeInTheDocument();
+    expect(screen.getByText("Yasmim Souza")).toBeInTheDocument();
+
+    await user.click(screen.getByRole("button", { name: /Tentar de novo/i }));
+
+    expect(await screen.findByRole("tab", { name: /Meus Pets \(2\)/i })).toBeInTheDocument();
+    expect(screen.queryByText("Não foi possível carregar seus pets")).not.toBeInTheDocument();
+    expect(petsService.list).toHaveBeenCalledTimes(2);
+  });
+
+  it("avisa quando os dados do tutor não carregam e tenta de novo", async () => {
+    const user = userEvent.setup();
+    vi.spyOn(console, "error").mockImplementation(() => {});
+    authService.getMe.mockRejectedValueOnce(new Error("Falha na rede"));
+    authService.getCurrentUser.mockReturnValueOnce(null);
+    renderizar();
+
+    expect(await screen.findByText("Não foi possível carregar seu perfil")).toBeInTheDocument();
+    expect(screen.queryByText("Tutor Responsável")).not.toBeInTheDocument();
+
+    await user.click(screen.getByRole("button", { name: /Tentar de novo/i }));
+
+    expect(await screen.findByText("Yasmim Souza")).toBeInTheDocument();
+    expect(screen.queryByText("Não foi possível carregar seu perfil")).not.toBeInTheDocument();
   });
 
   it("não salva com nome vazio e avisa o tutor", async () => {

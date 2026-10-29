@@ -1,5 +1,5 @@
-import { useEffect, useMemo, useRef, useState } from "react";
-import { CheckCircle2, Copy, Loader2 } from "lucide-react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { CheckCircle2, Copy } from "lucide-react";
 import { toast } from "sonner";
 import { Tabs } from "@/components/ui/tabs";
 import { authService, petsService } from "@/services/api";
@@ -10,6 +10,8 @@ import PetsGridTab from "@/components/profile/PetsGridTab";
 import PedigreesTab from "@/components/profile/PedigreesTab";
 import AboutTab from "@/components/profile/AboutTab";
 import EditProfileDialog from "@/components/profile/EditProfileDialog";
+import ProfileSkeleton from "@/components/profile/ProfileSkeleton";
+import LoadErrorAlert from "@/components/profile/LoadErrorAlert";
 import { uploadProfilePhoto } from "@/components/profile/uploadProfilePhoto";
 import { EMPTY_FORM, buildUpdatePayload, formFromUser } from "@/components/profile/profileUtils";
 
@@ -18,40 +20,45 @@ const Profile = () => {
   const [currentUser, setCurrentUser] = useState(null);
   const [pets, setPets] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [userError, setUserError] = useState(false);
+  const [petsError, setPetsError] = useState(false);
   const [saving, setSaving] = useState(false);
   const [isEditOpen, setIsEditOpen] = useState(false);
   const [activeTab, setActiveTab] = useState("pets");
   const [form, setForm] = useState(EMPTY_FORM);
   const fileInputRef = useRef(null);
+  const isMountedRef = useRef(true);
+
+  // Carrega tutor e pets separadamente: a falha de um não esconde a do outro.
+  const loadProfile = useCallback(async () => {
+    setLoading(true);
+    const [userResult, petsResult] = await Promise.allSettled([
+      authService.getMe().catch(() => authService.getCurrentUser()),
+      petsService.list(),
+    ]);
+    if (!isMountedRef.current) return;
+
+    const userData = userResult.status === "fulfilled" ? userResult.value : null;
+    if (userData) {
+      setCurrentUser(userData);
+      setForm(formFromUser(userData));
+    } else console.error("Erro ao carregar dados do tutor:", userResult.reason);
+    setUserError(!userData);
+
+    const petsOk = petsResult.status === "fulfilled" && Array.isArray(petsResult.value);
+    if (!petsOk) console.error("Erro ao carregar pets do tutor:", petsResult.reason);
+    setPets(petsOk ? petsResult.value : []);
+    setPetsError(!petsOk);
+    setLoading(false);
+  }, []);
 
   useEffect(() => {
-    let isMounted = true;
-
-    const loadData = async () => {
-      try {
-        setLoading(true);
-        const [userData, petsData] = await Promise.all([
-          authService.getMe().catch(() => authService.getCurrentUser()),
-          petsService.list().catch(() => []),
-        ]);
-        if (!isMounted) return;
-        if (userData) {
-          setCurrentUser(userData);
-          setForm(formFromUser(userData));
-        }
-        if (Array.isArray(petsData)) setPets(petsData);
-      } catch (err) {
-        console.error("Erro ao carregar dados do perfil:", err);
-      } finally {
-        if (isMounted) setLoading(false);
-      }
-    };
-
-    loadData();
+    isMountedRef.current = true;
+    loadProfile();
     return () => {
-      isMounted = false;
+      isMountedRef.current = false;
     };
-  }, []);
+  }, [loadProfile]);
 
   const totalVaccines = useMemo(() => pets.reduce((acc, pet) => acc + (pet.vaccines?.length || 0), 0), [pets]);
   const totalPedigrees = useMemo(() => pets.filter((pet) => pet.lineage || pet.raca).length, [pets]);
@@ -91,11 +98,11 @@ const Profile = () => {
     }
   };
 
-  if (loading) {
+  if (loading) return <ProfileSkeleton />;
+  if (userError) {
     return (
-      <div className="flex min-h-[60vh] flex-col items-center justify-center gap-3">
-        <Loader2 className="h-8 w-8 animate-spin text-primary" />
-        <p className="text-sm text-muted-foreground">Carregando seu perfil...</p>
+      <div className="container max-w-4xl py-16">
+        <LoadErrorAlert title="Não foi possível carregar seu perfil" onRetry={loadProfile} />
       </div>
     );
   }
@@ -106,9 +113,9 @@ const Profile = () => {
         <ProfileHeader
           currentUser={currentUser}
           fotoUrl={form.foto_url}
-          petsCount={pets.length}
-          totalVaccines={totalVaccines}
-          totalPedigrees={totalPedigrees}
+          petsCount={petsError ? null : pets.length}
+          totalVaccines={petsError ? null : totalVaccines}
+          totalPedigrees={petsError ? null : totalPedigrees}
           fileInputRef={fileInputRef}
           onPhotoChange={handlePhotoUpload}
           onEdit={() => setIsEditOpen(true)}
@@ -117,9 +124,9 @@ const Profile = () => {
         <PetStories pets={pets} />
 
         <Tabs value={activeTab} onValueChange={setActiveTab} className="mt-2">
-          <ProfileTabsNav petsCount={pets.length} pedigreesCount={totalPedigrees} />
-          <PetsGridTab pets={pets} />
-          <PedigreesTab pets={pets} />
+          <ProfileTabsNav petsCount={petsError ? null : pets.length} pedigreesCount={petsError ? null : totalPedigrees} />
+          <PetsGridTab pets={pets} error={petsError} onRetry={loadProfile} />
+          <PedigreesTab pets={pets} error={petsError} onRetry={loadProfile} />
           <AboutTab currentUser={currentUser} onEdit={() => setIsEditOpen(true)} />
         </Tabs>
       </div>
