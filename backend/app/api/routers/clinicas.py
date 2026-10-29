@@ -27,12 +27,15 @@ from app.schemas.clinic import (
     ClinicUpdate,
 )
 from app.schemas.clinic_appointment import (
+    APPOINTMENT_STATUSES,
     ClinicAppointmentConclusion,
     ClinicAppointmentCreate,
     ClinicAppointmentResponse,
     ClinicAppointmentStatusUpdate,
     ClinicAppointmentUpdate,
     ClinicPatientUpdate,
+    PatientDetailsResponse,
+    RegisteredPatientResponse,
 )
 from app.schemas.clinic_link import (
     ClinicPetLinkCreate,
@@ -45,6 +48,21 @@ from app.schemas.veterinario import (
 )
 
 router = APIRouter(tags=["Clínicas"])
+
+
+def _registered_pet(db, pet_id, clinic_id=None):
+    pet = db.get(Pet, pet_id)
+    if not pet:
+        raise HTTPException(status_code=404, detail="Pet não encontrado.")
+    if clinic_id is not None and not _approved_link(db, clinic_id, pet_id):
+        raise HTTPException(status_code=403, detail="O tutor deve aprovar o vínculo com a clínica.")
+    return pet
+
+
+def _approved_link(db, clinic_id, pet_id):
+    return db.query(ClinicPetLinkRequest).filter_by(
+        clinic_id=clinic_id, pet_id=pet_id, status="aprovado"
+    ).first() is not None
 
 
 
@@ -327,6 +345,7 @@ def get_clinic_species(db: Session = Depends(get_db)):
     return top + remaining
 
 
+@router.get("/agendamentos", response_model=List[ClinicAppointmentResponse])
 @router.get(
     "/atendimentos",
     response_model=List[ClinicAppointmentResponse],
@@ -334,7 +353,7 @@ def get_clinic_species(db: Session = Depends(get_db)):
     response_description="Lista de atendimentos ordenados por data e horário",
 )
 def list_clinic_appointments(
-    data: Optional[str] = Query(None, description="Filtrar por data no formato YYYY-MM-DD"),
+    data: Optional[date_type] = Query(None, description="Filtrar por data no formato YYYY-MM-DD"),
     status: Optional[str] = Query(None, description="Filtrar por status do atendimento"),
     current_clinic: Clinic = Depends(get_current_clinic),
     db: Session = Depends(get_db),
@@ -345,13 +364,16 @@ def list_clinic_appointments(
     """
     query = db.query(ClinicAppointment).filter(ClinicAppointment.clinic_id == current_clinic.id)
     if data:
-        query = query.filter(ClinicAppointment.date == data)
+        query = query.filter(ClinicAppointment.date == data.isoformat())
     if status and status != "Todos":
+        if status not in APPOINTMENT_STATUSES:
+            raise HTTPException(status_code=422, detail="Status de atendimento inválido.")
         query = query.filter(ClinicAppointment.status == status)
 
     return query.order_by(ClinicAppointment.date.asc(), ClinicAppointment.time.asc()).all()
 
 
+@router.post("/agendamentos", response_model=ClinicAppointmentResponse, status_code=201)
 @router.post(
     "/atendimentos",
     response_model=ClinicAppointmentResponse,
@@ -369,6 +391,8 @@ def create_clinic_appointment(
     Se a data não for informada, utiliza a data corrente (hoje).
     """
     appointment_date = appointment_in.date or date_type.today().isoformat()
+    if appointment_in.pet_id is not None:
+        _registered_pet(db, appointment_in.pet_id, current_clinic.id)
     appointment = ClinicAppointment(
         clinic_id=current_clinic.id,
         pet_name=appointment_in.pet_name.strip(),
@@ -383,12 +407,41 @@ def create_clinic_appointment(
         status=appointment_in.status.strip() if appointment_in.status else "Confirmado",
         notes=appointment_in.notes.strip() if appointment_in.notes else None,
     )
+    for field in ("pet_id", "queixa_principal", "temperatura", "peso", "frequencia_cardiaca",
+                  "frequencia_respiratoria", "mucosas", "diagnostico", "prescricao",
+                  "vacina_aplicada", "vacina_lote", "vacina_proxima_dose"):
+        setattr(appointment, field, getattr(appointment_in, field))
     db.add(appointment)
     db.commit()
     db.refresh(appointment)
     return appointment
 
 
+@router.put("/agendamentos/{appointment_id}", response_model=ClinicAppointmentResponse)
+@router.put("/atendimentos/{appointment_id}", response_model=ClinicAppointmentResponse)
+def update_clinic_appointment(
+    appointment_id: int,
+    update: ClinicAppointmentUpdate,
+    current_clinic: Clinic = Depends(get_current_clinic),
+    db: Session = Depends(get_db),
+):
+    appointment = db.query(ClinicAppointment).filter_by(
+        id=appointment_id, clinic_id=current_clinic.id
+    ).first()
+    if not appointment:
+        raise HTTPException(status_code=404, detail="Atendimento não encontrado.")
+    if update.pet_id is not None:
+        _registered_pet(db, update.pet_id, current_clinic.id)
+    for field, value in update.model_dump(exclude_unset=True).items():
+        if field == "date" and value is None:
+            raise HTTPException(status_code=422, detail="Data não pode ser nula.")
+        setattr(appointment, field, value)
+    db.commit()
+    db.refresh(appointment)
+    return appointment
+
+
+@router.patch("/agendamentos/{appointment_id}/status", response_model=ClinicAppointmentResponse)
 @router.patch(
     "/atendimentos/{appointment_id}/status",
     response_model=ClinicAppointmentResponse,
@@ -423,6 +476,7 @@ def update_appointment_status(
     return appointment
 
 
+@router.delete("/agendamentos/{appointment_id}", status_code=204)
 @router.delete(
     "/atendimentos/{appointment_id}",
     status_code=status.HTTP_204_NO_CONTENT,
@@ -461,6 +515,7 @@ def delete_clinic_appointment(
     response_description="Lista de pacientes com histórico e dados cadastrais",
 )
 def list_clinic_patients(
+    cadastrados: bool = Query(False, description="Consultar catálogo de pets oficiais, inclusive sem atendimento"),
     current_clinic: Clinic = Depends(get_current_clinic),
     db: Session = Depends(get_db),
 ):
@@ -468,18 +523,20 @@ def list_clinic_patients(
     Retorna a lista de pacientes únicos atendidos pela clínica com base nos atendimentos registrados,
     sincronizando dados e fotos de pets oficiais quando vinculados.
     """
+    if cadastrados:
+        return [RegisteredPatientResponse.model_validate(pet) for pet in db.query(Pet).order_by(Pet.nome, Pet.id).all()]
     appointments = (
         db.query(ClinicAppointment)
         .filter(ClinicAppointment.clinic_id == current_clinic.id)
         .order_by(ClinicAppointment.date.desc(), ClinicAppointment.time.desc())
         .all()
     )
-    seen = set()
+    seen = {}
     patients = []
     for a in appointments:
-        key = (a.pet_name.strip().lower(), a.tutor.strip().lower())
+        key = ("pet", a.pet_id) if a.pet_id else (a.pet_name.strip().lower(), a.tutor.strip().lower())
         if key not in seen:
-            seen.add(key)
+            seen[key] = len(patients)
 
             # Verifica se há pet oficial vinculado
             official_pet = None
@@ -525,7 +582,48 @@ def list_clinic_patients(
                     }
                 ],
             })
+        else:
+            patients[seen[key]]["history"].append({
+                "date": a.date, "type": a.service, "vet": a.vet,
+                "summary": a.notes or a.diagnostico or f"Atendimento {a.status.lower()}",
+            })
     return patients
+
+
+@router.get("/pacientes/{pet_id}", response_model=PatientDetailsResponse)
+def get_registered_patient(
+    pet_id: int,
+    current_clinic: Clinic = Depends(get_current_clinic),
+    db: Session = Depends(get_db),
+):
+    pet = _registered_pet(db, pet_id)
+    result = RegisteredPatientResponse.model_validate(pet).model_dump()
+    result["medical_records"] = pet.medical_records if _approved_link(db, current_clinic.id, pet_id) else []
+    return result
+
+
+@router.get("/pacientes/{pet_id}/atendimentos", response_model=List[ClinicAppointmentResponse])
+def get_patient_appointments(
+    pet_id: int,
+    current_clinic: Clinic = Depends(get_current_clinic),
+    db: Session = Depends(get_db),
+):
+    _registered_pet(db, pet_id)
+    return db.query(ClinicAppointment).filter_by(
+        pet_id=pet_id, clinic_id=current_clinic.id
+    ).order_by(ClinicAppointment.date.desc(), ClinicAppointment.time.desc(), ClinicAppointment.id.desc()).all()
+
+
+@router.post("/pacientes/{pet_id}/atendimentos", response_model=ClinicAppointmentResponse, status_code=201)
+def create_patient_appointment(
+    pet_id: int,
+    appointment: ClinicAppointmentCreate,
+    current_clinic: Clinic = Depends(get_current_clinic),
+    db: Session = Depends(get_db),
+):
+    if appointment.pet_id is not None and appointment.pet_id != pet_id:
+        raise HTTPException(status_code=422, detail="Pet do corpo difere do paciente da URL.")
+    return create_clinic_appointment(appointment.model_copy(update={"pet_id": pet_id}), current_clinic, db)
 
 
 @router.put(
@@ -677,7 +775,7 @@ def conclude_clinic_appointment(
         appointment.vacina_proxima_dose = conclusion.vacina_proxima_dose
 
     # Sincronização com prontuário do tutor se vinculado
-    if appointment.pet_id:
+    if appointment.pet_id and _approved_link(db, current_clinic.id, appointment.pet_id):
         pet = db.query(Pet).filter(Pet.id == appointment.pet_id).first()
         if pet:
             med_desc = []

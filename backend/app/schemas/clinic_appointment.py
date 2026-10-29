@@ -1,6 +1,46 @@
-from datetime import datetime
+from datetime import date, datetime, time
 from typing import List, Optional
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import BaseModel, ConfigDict, Field, model_validator
+from app.schemas.pet import PetBase
+from app.schemas.medical_record import MedicalRecordResponse
+
+
+APPOINTMENT_STATUSES = {"Confirmado", "Aguardando", "Em atendimento", "Concluído", "Cancelado"}
+
+
+class AppointmentInput(BaseModel):
+    @model_validator(mode="before")
+    @classmethod
+    def validate_schedule(cls, values):
+        if not isinstance(values, dict):
+            raise ValueError("O corpo deve ser um objeto JSON.")
+        values = dict(values)
+        required = {"pet_name", "species", "tutor", "phone", "service", "time", "status"}
+        for key in required & values.keys():
+            if not isinstance(values[key], str) or not values[key].strip():
+                raise ValueError(f"{key} não pode ser vazio.")
+            values[key] = values[key].strip()
+        try:
+            if "date" in values and values["date"] is not None:
+                values["date"] = date.fromisoformat(values["date"]).isoformat()
+            if "time" in values:
+                parsed = time.fromisoformat(values["time"])
+                if len(values["time"]) != 5 or parsed.tzinfo is not None:
+                    raise ValueError("Horário deve usar HH:MM.")
+        except TypeError as exc:
+            raise ValueError("Data e horário devem ser strings ISO.") from exc
+        if "status" in values and values["status"] not in APPOINTMENT_STATUSES:
+            raise ValueError("Status de atendimento inválido.")
+        return values
+
+
+class RegisteredPatientResponse(PetBase):
+    id: int
+    model_config = ConfigDict(from_attributes=True)
+
+
+class PatientDetailsResponse(RegisteredPatientResponse):
+    medical_records: List[MedicalRecordResponse] = Field(default_factory=list)
 
 
 class ClinicAppointmentBase(BaseModel):
@@ -29,11 +69,11 @@ class ClinicAppointmentBase(BaseModel):
     vacina_proxima_dose: Optional[str] = Field(None, description="Próxima dose da vacina")
 
 
-class ClinicAppointmentCreate(ClinicAppointmentBase):
+class ClinicAppointmentCreate(ClinicAppointmentBase, AppointmentInput):
     pass
 
 
-class ClinicAppointmentUpdate(BaseModel):
+class ClinicAppointmentUpdate(AppointmentInput):
     pet_name: Optional[str] = Field(None, min_length=1, max_length=100)
     species: Optional[str] = Field(None, min_length=1, max_length=50)
     breed: Optional[str] = Field(None, max_length=80)
@@ -59,7 +99,7 @@ class ClinicAppointmentUpdate(BaseModel):
     vacina_proxima_dose: Optional[str] = None
 
 
-class ClinicAppointmentStatusUpdate(BaseModel):
+class ClinicAppointmentStatusUpdate(AppointmentInput):
     status: str = Field(..., min_length=2, max_length=30, description="Novo status do atendimento")
 
 
