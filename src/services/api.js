@@ -8,6 +8,7 @@ export const API_BASE_URL =
   (import.meta.env.DEV ? "http://localhost:8000" : "https://livepet.onrender.com");
 
 import { handleBackendDeployId } from "./versionChecker";
+import { clinicTokenExpiry } from "@/lib/clinicSession";
 
 const TOKEN_KEY = "livepet_access_token";
 const USER_KEY = "livepet_current_user";
@@ -218,10 +219,12 @@ async function apiFetch(endpoint, options = {}) {
     }
 
     if (response.status === 401) {
-      clearStoredAuth();
+      if (isClinicEndpoint) {
+        if (getClinicAuthToken() === clinicToken) clearStoredClinicAuth();
+      } else if (getAuthToken() === tutorToken) clearStoredAuth();
     }
 
-    throw new Error(errorDetail);
+    throw Object.assign(new Error(errorDetail), { status: response.status });
   }
 
   // 204 No Content
@@ -678,6 +681,9 @@ export const clinicService = {
       },
     });
 
+    if (!data.clinica?.id || clinicTokenExpiry(data.access_token) <= Date.now()) {
+      throw new Error("Resposta de autenticação da clínica inválida.");
+    }
     setStoredClinicAuth(data.access_token, data.clinica);
     return data;
   },
@@ -714,15 +720,16 @@ export const clinicService = {
    * Verifica se há um token de clínica ativo
    */
   isAuthenticated() {
-    return Boolean(getClinicAuthToken());
+    return clinicTokenExpiry(getClinicAuthToken()) > Date.now();
   },
 
   /**
    * Consulta os dados cadastrais atualizados da clínica autenticada no backend
    */
   async getProfile() {
+    const token = getClinicAuthToken();
     const clinic = await apiFetch("/api/clinicas/perfil");
-    if (clinic && typeof window !== "undefined") {
+    if (clinic && typeof window !== "undefined" && token === getClinicAuthToken()) {
       try {
         storage.set(CLINIC_KEY, JSON.stringify(clinic));
       } catch {}

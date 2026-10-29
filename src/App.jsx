@@ -31,13 +31,14 @@ import ClinicSchedule from "./pages/Clinic/ClinicSchedule";
 import ClinicInpatient from "./pages/Clinic/ClinicInpatient";
 import ProtectedClinicRoute from "./components/ProtectedClinicRoute";
 import { ClinicProvider } from "@/contexts/ClinicContext";
+import { ClinicAuthProvider } from "@/contexts/ClinicAuthProvider";
 
 const queryClient = new QueryClient();
 
 const App = () => (
   <QueryClientProvider client={queryClient}>
     <TooltipProvider>
-      <ClinicProvider>
+      <ClinicAuthProvider><ClinicProvider>
         <Toaster />
         <Sonner />
         <BrowserRouter>
@@ -52,6 +53,7 @@ const App = () => (
               <Route path="internacao" element={<ClinicInpatient />} />
               <Route path="pacientes" element={<ClinicPatients />} />
               <Route path="perfil" element={<ClinicProfile />} />
+              <Route path="*" element={<NotFound />} />
             </Route>
           </Route>
 
@@ -79,7 +81,7 @@ const App = () => (
           </Route>
         </Routes>
       </BrowserRouter>
-      </ClinicProvider>
+      </ClinicProvider></ClinicAuthProvider>
     </TooltipProvider>
   </QueryClientProvider>
 );
