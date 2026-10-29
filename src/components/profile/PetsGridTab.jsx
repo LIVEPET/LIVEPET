@@ -4,11 +4,14 @@ import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { TabsContent } from "@/components/ui/tabs";
 import { getPetPhoto } from "@/lib/petPlaceholder";
+import LoadErrorAlert from "./LoadErrorAlert";
 
 // Aba "Meus Pets": grade de fotos no estilo feed.
-const PetsGridTab = ({ pets }) => (
+const PetsGridTab = ({ pets, error, onRetry }) => (
   <TabsContent value="pets" className="pt-6">
-    {pets.length === 0 ? (
+    {error ? (
+      <LoadErrorAlert title="Não foi possível carregar seus pets" onRetry={onRetry} />
+    ) : pets.length === 0 ? (
       <Card className="py-16 text-center border-dashed">
         <PawPrint className="mx-auto h-12 w-12 text-muted-foreground/50" />
         <h3 className="mt-4 font-display text-lg font-bold text-foreground">

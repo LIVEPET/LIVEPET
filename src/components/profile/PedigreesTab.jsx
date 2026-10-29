@@ -4,9 +4,10 @@ import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { TabsContent } from "@/components/ui/tabs";
 import { getPetPhoto } from "@/lib/petPlaceholder";
+import LoadErrorAlert from "./LoadErrorAlert";
 
 // Aba "Pedigrees": certificados e linhagens de cada pet.
-const PedigreesTab = ({ pets }) => (
+const PedigreesTab = ({ pets, error, onRetry }) => (
   <TabsContent value="pedigrees" className="pt-6">
     <div className="space-y-4">
       <div className="flex items-center justify-between">
@@ -25,6 +26,8 @@ const PedigreesTab = ({ pets }) => (
           </Link>
         </Button>
       </div>
+
+      {error && <LoadErrorAlert title="Não foi possível carregar seus pets" onRetry={onRetry} />}
 
       <div className="grid gap-4 sm:grid-cols-2">
         {pets.map((pet) => {
