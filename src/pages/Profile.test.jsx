@@ -1,4 +1,4 @@
-import { render, screen, within } from "@testing-library/react";
+import { render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { MemoryRouter } from "react-router-dom";
 import { beforeEach, describe, expect, it, vi } from "vitest";
@@ -516,5 +516,36 @@ describe("<Profile />", () => {
     // Tab percorre a tela até chegar no link do primeiro pet
     for (let i = 0; i < 30 && document.activeElement !== cartao; i++) await user.tab();
     expect(cartao).toHaveFocus();
+  });
+  it("perfil completo: mostra a porcentagem e o que falta", async () => {
+    renderizar();
+
+    // TUTOR de teste não tem foto nem bio: 100 - 10 - 10 = 80%
+    expect(await screen.findByText("Perfil 80% completo")).toBeInTheDocument();
+    expect(screen.getByText("Falta: Foto, Bio")).toBeInTheDocument();
+    expect(screen.getByRole("progressbar")).toBeInTheDocument();
+    expect(screen.queryByText("Cadastre um telefone de emergência")).not.toBeInTheDocument();
+  });
+
+  it("perfil completo: sem telefone mostra o alerta e abre a edição no campo telefone", async () => {
+    const user = userEvent.setup();
+    authService.getMe.mockResolvedValue({ ...TUTOR, telefone: "" });
+    renderizar();
+
+    expect(await screen.findByText("Perfil 40% completo")).toBeInTheDocument();
+    expect(screen.getByText("Cadastre um telefone de emergência")).toBeInTheDocument();
+
+    await user.click(screen.getByRole("button", { name: "Adicionar telefone" }));
+    const campoTel = await screen.findByLabelText(/Telefone/i);
+    await waitFor(() => expect(campoTel).toHaveFocus());
+  });
+
+  it("perfil completo: com 100% vira só um selo discreto", async () => {
+    authService.getMe.mockResolvedValue({ ...TUTOR, foto_url: "data:image/jpeg;base64,AAA", bio: "Oi!" });
+    renderizar();
+
+    expect(await screen.findByText("Perfil completo")).toBeInTheDocument();
+    expect(screen.queryByRole("progressbar")).not.toBeInTheDocument();
+    expect(screen.queryByText(/% completo/)).not.toBeInTheDocument();
   });
 });

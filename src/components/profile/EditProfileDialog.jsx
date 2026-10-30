@@ -30,7 +30,7 @@ const SELECT_CLASS =
 
 // Modal de edição do perfil, com React Hook Form + Zod (regras em profileSchema.js).
 // Cancelar descarta na hora; fechar no X, no Esc ou fora do modal pergunta antes se algo mudou.
-const EditProfileDialog = ({ open, user, saving, onSave, onDiscard }) => {
+const EditProfileDialog = ({ open, user, focusField, saving, onSave, onDiscard }) => {
   const [confirmOpen, setConfirmOpen] = useState(false);
   const photoInputRef = useRef(null);
   const form = useForm({
@@ -38,7 +38,7 @@ const EditProfileDialog = ({ open, user, saving, onSave, onDiscard }) => {
     defaultValues: formFromUser(user),
     mode: "onChange",
   });
-  const { reset, setValue, trigger, watch } = form;
+  const { reset, setFocus, setValue, trigger, watch } = form;
   // Lidos durante o render para o React Hook Form acompanhar esses dois estados.
   const { isDirty, isValid } = form.formState;
 
@@ -77,7 +77,15 @@ const EditProfileDialog = ({ open, user, saving, onSave, onDiscard }) => {
   return (
     <>
       <Dialog open={open} onOpenChange={handleOpenChange}>
-        <DialogContent className="max-w-xl max-h-[90vh] overflow-y-auto rounded-3xl p-6">
+        <DialogContent
+          className="max-w-xl max-h-[90vh] overflow-y-auto rounded-3xl p-6"
+          onOpenAutoFocus={(e) => {
+            // Aberto pelo alerta de telefone: o cursor já vai para o campo certo (#158)
+            if (!focusField) return;
+            e.preventDefault();
+            setFocus(focusField);
+          }}
+        >
           <DialogHeader>
             <DialogTitle className="font-display text-xl font-bold flex items-center gap-2">
               <Pencil className="h-4 w-4 text-primary" />

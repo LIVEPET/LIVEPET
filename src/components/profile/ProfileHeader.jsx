@@ -3,6 +3,7 @@ import { Building2, Calendar, Camera, MapPin, Pencil, Phone, Plus } from "lucide
 import { Button } from "@/components/ui/button";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { initialsFrom } from "./profileUtils";
+import ProfileCompleteness from "./ProfileCompleteness";
 
 const ProfileHeader = ({
   currentUser,
@@ -12,6 +13,7 @@ const ProfileHeader = ({
   fileInputRef,
   onPhotoChange,
   onEdit,
+  onCompletePhone,
 }) => {
   const memberSinceYear = currentUser?.criado_em
     ? new Date(currentUser.criado_em).getFullYear()
@@ -161,6 +163,8 @@ const ProfileHeader = ({
               Membro desde {memberSinceYear}
             </span>
           </div>
+
+          <ProfileCompleteness user={currentUser} onEdit={onEdit} onCompletePhone={onCompletePhone} />
         </div>
       </div>
     </header>
