@@ -36,3 +36,20 @@ export const profileSchema = z.object({
   nome_canil: ate(LIMITES.nome_canil, "O nome do canil ou gatil"),
   foto_url: z.string(),
 });
+
+// Troca de senha (#156): mesmas regras do validate_update_password_strength do back-end.
+export const passwordSchema = z
+  .object({
+    senha: z
+      .string()
+      .min(6, "A senha precisa ter pelo menos 6 caracteres")
+      .max(100, "A senha pode ter no máximo 100 caracteres")
+      .refine((valor) => /[A-Za-z]/.test(valor) && /\d/.test(valor), {
+        message: "Use pelo menos uma letra e um número",
+      }),
+    confirmacao: z.string(),
+  })
+  .refine((dados) => dados.senha === dados.confirmacao, {
+    message: "As senhas não conferem",
+    path: ["confirmacao"],
+  });

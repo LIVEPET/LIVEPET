@@ -431,4 +431,65 @@ describe("<Profile />", () => {
     await screen.findByLabelText(/Nome Completo/i);
     expect(screen.queryByText("A foto nova será salva com as alterações.")).not.toBeInTheDocument();
   });
+  const abrirSeguranca = async (user) => {
+    await user.click(await screen.findByRole("tab", { name: /Sobre/i }));
+    return {
+      senha: await screen.findByLabelText(/^Nova senha$/i),
+      confirmacao: screen.getByLabelText(/Confirmar nova senha/i),
+      botao: screen.getByRole("button", { name: /Alterar senha/i }),
+    };
+  };
+
+  it("segurança: avisa senha fraca e não envia", async () => {
+    const user = userEvent.setup();
+    renderizar();
+    const { senha, confirmacao, botao } = await abrirSeguranca(user);
+
+    await user.type(senha, "abc");
+    expect(await screen.findByText("A senha precisa ter pelo menos 6 caracteres")).toBeInTheDocument();
+
+    await user.clear(senha);
+    await user.type(senha, "somenteletras");
+    await user.type(confirmacao, "somenteletras");
+    expect(await screen.findByText("Use pelo menos uma letra e um número")).toBeInTheDocument();
+    expect(botao).toBeDisabled();
+    expect(authService.updateMe).not.toHaveBeenCalled();
+  });
+
+  it("segurança: avisa quando as senhas não conferem", async () => {
+    const user = userEvent.setup();
+    renderizar();
+    const { senha, confirmacao, botao } = await abrirSeguranca(user);
+
+    await user.type(senha, "livepet1");
+    await user.type(confirmacao, "livepet2");
+
+    expect(await screen.findByText("As senhas não conferem")).toBeInTheDocument();
+    expect(botao).toBeDisabled();
+  });
+
+  it("segurança: troca a senha, avisa e limpa os campos", async () => {
+    const user = userEvent.setup();
+    const logs = vi.spyOn(console, "log");
+    authService.updateMe.mockResolvedValue(TUTOR);
+    renderizar();
+    const { senha, confirmacao, botao } = await abrirSeguranca(user);
+
+    expect(senha).toHaveAttribute("type", "password");
+    await user.click(screen.getByRole("button", { name: /Mostrar senha/i }));
+    expect(senha).toHaveAttribute("type", "text");
+
+    await user.type(senha, "livepet1");
+    await user.type(confirmacao, "livepet1");
+    await user.click(botao);
+
+    expect(authService.updateMe).toHaveBeenCalledWith({ senha: "livepet1" });
+    expect(toast.success).toHaveBeenCalledWith("Senha alterada com sucesso!");
+    expect(senha).toHaveValue("");
+    expect(confirmacao).toHaveValue("");
+    expect(senha).toHaveAttribute("type", "password");
+    expect(JSON.stringify(logs.mock.calls)).not.toContain("livepet1");
+    const salvoNoNavegador = Object.keys(window.localStorage).map((k) => window.localStorage.getItem(k));
+    expect(salvoNoNavegador.join(" ")).not.toContain("livepet1");
+  });
 });
