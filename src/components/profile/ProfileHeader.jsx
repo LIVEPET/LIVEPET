@@ -6,7 +6,6 @@ import { initialsFrom } from "./profileUtils";
 
 const ProfileHeader = ({
   currentUser,
-  fotoUrl,
   petsCount,
   totalVaccines,
   totalPedigrees,
@@ -31,7 +30,7 @@ const ProfileHeader = ({
           <div className="h-28 w-28 sm:h-36 sm:w-36 rounded-full p-[3px] bg-gradient-to-tr from-amber-500 via-rose-500 to-primary shadow-glow transition-transform duration-300 group-hover:scale-105">
             <Avatar className="h-full w-full border-2 border-background">
               <AvatarImage
-                src={currentUser?.foto_url || fotoUrl}
+                src={currentUser?.foto_url}
                 alt={currentUser?.nome}
                 className="object-cover"
               />
