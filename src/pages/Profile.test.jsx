@@ -264,18 +264,86 @@ describe("<Profile />", () => {
     expect(screen.queryByLabelText(/Nome Completo/i)).not.toBeInTheDocument();
   });
 
-  it("não salva com nome vazio e avisa o tutor", async () => {
+  it("não salva com nome vazio: mostra o erro no campo e desabilita Salvar", async () => {
     const user = userEvent.setup();
     renderizar();
 
     await user.click(await screen.findByRole("button", { name: /Editar perfil/i }));
     const campoNome = await screen.findByLabelText(/Nome Completo/i);
     await user.clear(campoNome);
-    // Só espaços: passa pelo "required" do navegador e cai na validação da tela
     await user.type(campoNome, "   ");
+
+    expect(await screen.findByText("Informe seu nome completo.")).toBeInTheDocument();
+    expect(campoNome).toHaveAttribute("aria-invalid", "true");
+    expect(screen.getByRole("button", { name: /Salvar Alterações/i })).toBeDisabled();
+    expect(authService.updateMe).not.toHaveBeenCalled();
+  });
+
+  it("aplica a máscara no telefone e avisa quando ele é inválido", async () => {
+    const user = userEvent.setup();
+    renderizar();
+
+    await user.click(await screen.findByRole("button", { name: /Editar perfil/i }));
+    const campoTel = await screen.findByLabelText(/Telefone/i);
+    await user.clear(campoTel);
+    await user.type(campoTel, "6399999");
+
+    expect(campoTel).toHaveValue("(63) 9999-9");
+    expect(await screen.findByText(/Telefone inválido/i)).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: /Salvar Alterações/i })).toBeDisabled();
+
+    await user.type(campoTel, "0000");
+    expect(campoTel).toHaveValue("(63) 99999-0000");
+    expect(screen.queryByText(/Telefone inválido/i)).not.toBeInTheDocument();
+    expect(screen.getByRole("button", { name: /Salvar Alterações/i })).toBeEnabled();
+  });
+
+  it("UF é escolhida numa lista com as 27 opções e é salva", async () => {
+    const user = userEvent.setup();
+    authService.updateMe.mockResolvedValue({ ...TUTOR, estado: "TO" });
+    renderizar();
+
+    await user.click(await screen.findByRole("button", { name: /Editar perfil/i }));
+    const campoUf = await screen.findByLabelText(/Estado \(UF\)/i);
+    expect(campoUf.tagName).toBe("SELECT");
+    expect(within(campoUf).getAllByRole("option")).toHaveLength(28); // "Selecione" + 27 UFs
+    expect(within(campoUf).queryByRole("option", { name: "ZZ" })).not.toBeInTheDocument();
+
+    await user.selectOptions(campoUf, "TO");
     await user.click(screen.getByRole("button", { name: /Salvar Alterações/i }));
 
-    expect(toast.error).toHaveBeenCalledWith("Informe seu nome completo.");
-    expect(authService.updateMe).not.toHaveBeenCalled();
+    expect(authService.updateMe).toHaveBeenCalledWith(
+      expect.objectContaining({ estado: "TO", telefone: "(62) 99999-0000" }),
+    );
+  });
+
+  it("UF antiga fora da lista aparece com erro até o tutor corrigir", async () => {
+    const user = userEvent.setup();
+    authService.getMe.mockResolvedValue({ ...TUTOR, estado: "Goiás" });
+    renderizar();
+
+    await user.click(await screen.findByRole("button", { name: /Editar perfil/i }));
+    expect(await screen.findByText("Escolha uma UF da lista.")).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: /Salvar Alterações/i })).toBeDisabled();
+
+    await user.selectOptions(screen.getByLabelText(/Estado \(UF\)/i), "GO");
+    expect(screen.queryByText("Escolha uma UF da lista.")).not.toBeInTheDocument();
+    expect(screen.getByRole("button", { name: /Salvar Alterações/i })).toBeEnabled();
+  });
+
+  it("mostra o contador da bio e bloqueia acima de 500 caracteres", async () => {
+    const user = userEvent.setup();
+    renderizar();
+
+    await user.click(await screen.findByRole("button", { name: /Editar perfil/i }));
+    const campoBio = await screen.findByLabelText(/Bio/i);
+    expect(screen.getByText("0/500")).toBeInTheDocument();
+
+    await user.click(campoBio);
+    await user.paste("a".repeat(501));
+
+    expect(screen.getByText("501/500")).toBeInTheDocument();
+    expect(await screen.findByText("A bio pode ter no máximo 500 caracteres.")).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: /Salvar Alterações/i })).toBeDisabled();
   });
 });

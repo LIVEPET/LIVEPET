@@ -13,10 +13,11 @@ import EditProfileDialog from "@/components/profile/EditProfileDialog";
 import ProfileSkeleton from "@/components/profile/ProfileSkeleton";
 import LoadErrorAlert from "@/components/profile/LoadErrorAlert";
 import { uploadProfilePhoto } from "@/components/profile/uploadProfilePhoto";
-import { EMPTY_FORM, buildUpdatePayload, formFromUser, isFormDirty } from "@/components/profile/profileUtils";
+import { buildUpdatePayload } from "@/components/profile/profileUtils";
 import { hasLineage } from "@/lib/petBadges";
 
-// Página /perfil: guarda o estado (tutor, pets, formulário) e repassa para os componentes por props.
+// Página /perfil: guarda o estado (tutor e pets) e repassa para os componentes por props.
+// O formulário de edição (React Hook Form) vive dentro do EditProfileDialog.
 const Profile = () => {
   const [currentUser, setCurrentUser] = useState(null);
   const [pets, setPets] = useState([]);
@@ -26,7 +27,6 @@ const Profile = () => {
   const [saving, setSaving] = useState(false);
   const [isEditOpen, setIsEditOpen] = useState(false);
   const [activeTab, setActiveTab] = useState("pets");
-  const [form, setForm] = useState(EMPTY_FORM);
   const fileInputRef = useRef(null);
   const isMountedRef = useRef(true);
 
@@ -40,10 +40,8 @@ const Profile = () => {
     if (!isMountedRef.current) return;
 
     const userData = userResult.status === "fulfilled" ? userResult.value : null;
-    if (userData) {
-      setCurrentUser(userData);
-      setForm(formFromUser(userData));
-    } else console.error("Erro ao carregar dados do tutor:", userResult.reason);
+    if (userData) setCurrentUser(userData);
+    else console.error("Erro ao carregar dados do tutor:", userResult.reason);
     setUserError(!userData);
 
     const petsOk = petsResult.status === "fulfilled" && Array.isArray(petsResult.value);
@@ -64,36 +62,21 @@ const Profile = () => {
   const totalVaccines = useMemo(() => pets.reduce((acc, pet) => acc + (pet.vaccines?.length || 0), 0), [pets]);
   const totalPedigrees = useMemo(() => pets.filter(hasLineage).length, [pets]);
 
-  // O modal sempre abre com os dados salvos, nunca com um rascunho antigo.
-  const openEdit = () => {
-    setForm(formFromUser(currentUser));
-    setIsEditOpen(true);
-  };
-
-  // Cancelar (ou confirmar "Descartar") volta o formulário para os dados salvos.
-  const discardEdit = () => {
-    setForm(formFromUser(currentUser));
-    setIsEditOpen(false);
-  };
+  // O modal reseta o formulário para os dados salvos sempre que abre (ver EditProfileDialog).
+  const openEdit = () => setIsEditOpen(true);
+  const discardEdit = () => setIsEditOpen(false);
 
   const handlePhotoUpload = async (e) => {
-    const updated = await uploadProfilePhoto(e.target.files?.[0], (foto_url) =>
-      setForm((prev) => ({ ...prev, foto_url })),
-    );
+    const updated = await uploadProfilePhoto(e.target.files?.[0]);
     e.target.value = "";
     if (updated) setCurrentUser(updated);
   };
 
-  const handleSubmit = async (e) => {
-    e.preventDefault();
-    if (!form.nome.trim()) {
-      toast.error("Informe seu nome completo.");
-      return;
-    }
-
+  // Só é chamado com os dados já validados pelo Zod (profileSchema.js).
+  const handleSave = async (values) => {
     setSaving(true);
     try {
-      const updated = await authService.updateMe(buildUpdatePayload(form));
+      const updated = await authService.updateMe(buildUpdatePayload(values));
       setCurrentUser(updated);
       setIsEditOpen(false);
       toast.success("Perfil salvo com sucesso!", { icon: <CheckCircle2 className="h-4 w-4" /> });
@@ -120,7 +103,6 @@ const Profile = () => {
       <div className="container max-w-4xl pt-8 sm:pt-12">
         <ProfileHeader
           currentUser={currentUser}
-          fotoUrl={form.foto_url}
           petsCount={petsError ? null : pets.length}
           totalVaccines={petsError ? null : totalVaccines}
           totalPedigrees={petsError ? null : totalPedigrees}
@@ -140,12 +122,10 @@ const Profile = () => {
 
       <EditProfileDialog
         open={isEditOpen}
-        isDirty={isFormDirty(form, currentUser)}
-        onDiscard={discardEdit}
-        form={form}
-        setForm={setForm}
+        user={currentUser}
         saving={saving}
-        onSubmit={handleSubmit}
+        onSave={handleSave}
+        onDiscard={discardEdit}
         onPickPhoto={() => fileInputRef.current?.click()}
       />
     </div>

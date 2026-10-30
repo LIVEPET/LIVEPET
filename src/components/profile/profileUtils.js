@@ -1,4 +1,5 @@
 // Funções e constantes compartilhadas pelos componentes da tela de perfil.
+import { formatPhone, isValidPhone, onlyDigits } from "@/lib/phone";
 
 export const initialsFrom = (nameOrEmail) => {
   if (!nameOrEmail) return "LP";
@@ -22,21 +23,20 @@ export const EMPTY_FORM = {
 };
 
 // Monta o formulário de edição a partir dos dados do tutor vindos da API.
-export const formFromUser = (user) =>
-  Object.fromEntries(Object.keys(EMPTY_FORM).map((key) => [key, user?.[key] || ""]));
-
-// True quando o formulário tem algo diferente do que está salvo para o tutor.
-export const isFormDirty = (form, user) => {
-  const salvo = formFromUser(user);
-  return Object.keys(EMPTY_FORM).some((key) => (form?.[key] || "") !== salvo[key]);
+// Telefone válido já chega com máscara; um valor antigo fora do padrão fica como está para o tutor corrigir.
+export const formFromUser = (user) => {
+  const form = Object.fromEntries(Object.keys(EMPTY_FORM).map((key) => [key, user?.[key] || ""]));
+  if (isValidPhone(form.telefone)) form.telefone = formatPhone(form.telefone);
+  return form;
 };
 
 // Monta o corpo enviado para authService.updateMe. Campos opcionais vazios viram null.
+// O telefone vai no formato da máscara, ex.: "(63) 99999-0000" (cabe nos 20 caracteres do back-end).
 export const buildUpdatePayload = (form) => {
   const opcional = (valor) => valor.trim() || null;
   return {
     nome: form.nome.trim(),
-    telefone: opcional(form.telefone),
+    telefone: onlyDigits(form.telefone) ? formatPhone(form.telefone) : null,
     cidade: opcional(form.cidade),
     estado: opcional(form.estado),
     nome_canil: opcional(form.nome_canil),
