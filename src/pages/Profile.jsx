@@ -13,7 +13,7 @@ import EditProfileDialog from "@/components/profile/EditProfileDialog";
 import ProfileSkeleton from "@/components/profile/ProfileSkeleton";
 import LoadErrorAlert from "@/components/profile/LoadErrorAlert";
 import { uploadProfilePhoto } from "@/components/profile/uploadProfilePhoto";
-import { EMPTY_FORM, buildUpdatePayload, formFromUser } from "@/components/profile/profileUtils";
+import { EMPTY_FORM, buildUpdatePayload, formFromUser, isFormDirty } from "@/components/profile/profileUtils";
 import { hasLineage } from "@/lib/petBadges";
 
 // Página /perfil: guarda o estado (tutor, pets, formulário) e repassa para os componentes por props.
@@ -63,6 +63,18 @@ const Profile = () => {
 
   const totalVaccines = useMemo(() => pets.reduce((acc, pet) => acc + (pet.vaccines?.length || 0), 0), [pets]);
   const totalPedigrees = useMemo(() => pets.filter(hasLineage).length, [pets]);
+
+  // O modal sempre abre com os dados salvos, nunca com um rascunho antigo.
+  const openEdit = () => {
+    setForm(formFromUser(currentUser));
+    setIsEditOpen(true);
+  };
+
+  // Cancelar (ou confirmar "Descartar") volta o formulário para os dados salvos.
+  const discardEdit = () => {
+    setForm(formFromUser(currentUser));
+    setIsEditOpen(false);
+  };
 
   const handlePhotoUpload = async (e) => {
     const updated = await uploadProfilePhoto(e.target.files?.[0], (foto_url) =>
@@ -114,7 +126,7 @@ const Profile = () => {
           totalPedigrees={petsError ? null : totalPedigrees}
           fileInputRef={fileInputRef}
           onPhotoChange={handlePhotoUpload}
-          onEdit={() => setIsEditOpen(true)}
+          onEdit={openEdit}
         />
         <PetStories pets={pets} />
 
@@ -122,13 +134,14 @@ const Profile = () => {
           <ProfileTabsNav petsCount={petsError ? null : pets.length} pedigreesCount={petsError ? null : totalPedigrees} />
           <PetsGridTab pets={pets} error={petsError} onRetry={loadProfile} />
           <PedigreesTab pets={pets} error={petsError} onRetry={loadProfile} />
-          <AboutTab currentUser={currentUser} onEdit={() => setIsEditOpen(true)} />
+          <AboutTab currentUser={currentUser} onEdit={openEdit} />
         </Tabs>
       </div>
 
       <EditProfileDialog
         open={isEditOpen}
-        onOpenChange={setIsEditOpen}
+        isDirty={isFormDirty(form, currentUser)}
+        onDiscard={discardEdit}
         form={form}
         setForm={setForm}
         saving={saving}
