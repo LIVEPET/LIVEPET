@@ -2,6 +2,7 @@ import { Building2, Pencil } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { TabsContent } from "@/components/ui/tabs";
+import SecurityCard from "./SecurityCard";
 
 const InfoItem = ({ label, value }) => (
   <div className="rounded-xl border border-border/60 bg-muted/30 p-3.5">
@@ -12,7 +13,7 @@ const InfoItem = ({ label, value }) => (
 
 // Aba "Sobre": dados de contato e emergência do tutor.
 const AboutTab = ({ currentUser, onEdit }) => (
-  <TabsContent value="sobre" className="pt-6">
+  <TabsContent value="sobre" className="pt-6 space-y-6">
     <Card className="p-6 border-border/60 shadow-soft space-y-6">
       <div>
         <h3 className="font-display text-lg font-bold text-foreground">
@@ -50,6 +51,8 @@ const AboutTab = ({ currentUser, onEdit }) => (
         </Button>
       </div>
     </Card>
+
+    <SecurityCard />
   </TabsContent>
 );
 

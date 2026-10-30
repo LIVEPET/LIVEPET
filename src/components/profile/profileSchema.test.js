@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { UFS, profileSchema } from "./profileSchema";
+import { UFS, passwordSchema, profileSchema } from "./profileSchema";
 
 const VALIDO = {
   nome: "Yasmim Souza",
@@ -50,5 +50,29 @@ describe("profileSchema", () => {
     expect(erroDe({ bio: "a".repeat(501) }, "bio")).toMatch(/no máximo 500/);
     expect(erroDe({ bio: "a".repeat(500) }, "bio")).toBeUndefined();
     expect(erroDe({ nome_canil: "a".repeat(151) }, "nome_canil")).toMatch(/no máximo 150/);
+  });
+});
+
+describe("passwordSchema", () => {
+  const erroSenha = (senha, confirmacao = senha) => {
+    const resultado = passwordSchema.safeParse({ senha, confirmacao });
+    if (resultado.success) return undefined;
+    const erros = resultado.error.flatten().fieldErrors;
+    return erros.senha?.[0] ?? erros.confirmacao?.[0];
+  };
+
+  it("aceita senha com letra, número e 6 a 100 caracteres", () => {
+    expect(erroSenha("livepet1")).toBeUndefined();
+  });
+
+  it("aplica as regras do back-end", () => {
+    expect(erroSenha("ab1")).toBe("A senha precisa ter pelo menos 6 caracteres");
+    expect(erroSenha(`a1${"x".repeat(99)}`)).toBe("A senha pode ter no máximo 100 caracteres");
+    expect(erroSenha("somenteletras")).toBe("Use pelo menos uma letra e um número");
+    expect(erroSenha("12345678")).toBe("Use pelo menos uma letra e um número");
+  });
+
+  it("exige confirmação igual", () => {
+    expect(erroSenha("livepet1", "livepet2")).toBe("As senhas não conferem");
   });
 });
