@@ -12,7 +12,8 @@ import AboutTab from "@/components/profile/AboutTab";
 import EditProfileDialog from "@/components/profile/EditProfileDialog";
 import ProfileSkeleton from "@/components/profile/ProfileSkeleton";
 import LoadErrorAlert from "@/components/profile/LoadErrorAlert";
-import { uploadProfilePhoto } from "@/components/profile/uploadProfilePhoto";
+import PhotoPreviewDialog from "@/components/profile/PhotoPreviewDialog";
+import { preparePhoto } from "@/components/profile/profilePhoto";
 import { buildUpdatePayload } from "@/components/profile/profileUtils";
 import { hasLineage } from "@/lib/petBadges";
 
@@ -27,6 +28,8 @@ const Profile = () => {
   const [saving, setSaving] = useState(false);
   const [isEditOpen, setIsEditOpen] = useState(false);
   const [activeTab, setActiveTab] = useState("pets");
+  const [photoPreview, setPhotoPreview] = useState(null);
+  const [savingPhoto, setSavingPhoto] = useState(false);
   const fileInputRef = useRef(null);
   const isMountedRef = useRef(true);
 
@@ -66,10 +69,28 @@ const Profile = () => {
   const openEdit = () => setIsEditOpen(true);
   const discardEdit = () => setIsEditOpen(false);
 
-  const handlePhotoUpload = async (e) => {
-    const updated = await uploadProfilePhoto(e.target.files?.[0]);
-    e.target.value = "";
-    if (updated) setCurrentUser(updated);
+  // Foto escolhida no cabeçalho: primeiro mostra a prévia; só salva em "Salvar foto".
+  const handlePhotoPick = async (e) => {
+    const file = e.target.files?.[0];
+    e.target.value = ""; // permite escolher o mesmo arquivo de novo depois de cancelar
+    const preview = await preparePhoto(file);
+    if (preview && isMountedRef.current) setPhotoPreview(preview);
+  };
+
+  const confirmPhoto = async () => {
+    setSavingPhoto(true);
+    try {
+      // updateMe também atualiza o usuário guardado, então o avatar do menu do topo muda junto.
+      const updated = await authService.updateMe({ foto_url: photoPreview });
+      setCurrentUser(updated);
+      setPhotoPreview(null);
+      toast.success("Foto de perfil atualizada!");
+    } catch (err) {
+      console.error("Erro ao salvar a foto:", err);
+      toast.error("Não foi possível salvar a foto.", { description: "Tente de novo em instantes." });
+    } finally {
+      setSavingPhoto(false);
+    }
   };
 
   // Só é chamado com os dados já validados pelo Zod (profileSchema.js).
@@ -107,7 +128,7 @@ const Profile = () => {
           totalVaccines={petsError ? null : totalVaccines}
           totalPedigrees={petsError ? null : totalPedigrees}
           fileInputRef={fileInputRef}
-          onPhotoChange={handlePhotoUpload}
+          onPhotoChange={handlePhotoPick}
           onEdit={openEdit}
         />
         <PetStories pets={pets} />
@@ -126,7 +147,14 @@ const Profile = () => {
         saving={saving}
         onSave={handleSave}
         onDiscard={discardEdit}
-        onPickPhoto={() => fileInputRef.current?.click()}
+      />
+
+      <PhotoPreviewDialog
+        photo={photoPreview}
+        nome={currentUser?.nome}
+        saving={savingPhoto}
+        onConfirm={confirmPhoto}
+        onCancel={() => setPhotoPreview(null)}
       />
     </div>
   );
