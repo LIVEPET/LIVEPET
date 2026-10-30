@@ -197,6 +197,73 @@ describe("<Profile />", () => {
     expect(within(painel).queryByText(/emitidos junto à CBKC/i)).not.toBeInTheDocument();
   });
 
+  it("Cancelar descarta o que foi digitado e o modal reabre com os dados salvos", async () => {
+    const user = userEvent.setup();
+    renderizar();
+
+    // Passo a passo do erro da #153: editar, trocar o nome, cancelar e abrir de novo
+    await user.click(await screen.findByRole("button", { name: /Editar perfil/i }));
+    const campoNome = await screen.findByLabelText(/Nome Completo/i);
+    await user.clear(campoNome);
+    await user.type(campoNome, "Nome que desisti");
+    await user.click(screen.getByRole("button", { name: /^Cancelar$/i }));
+
+    expect(screen.queryByRole("alertdialog")).not.toBeInTheDocument();
+    expect(screen.queryByLabelText(/Nome Completo/i)).not.toBeInTheDocument();
+
+    await user.click(screen.getByRole("button", { name: /Editar perfil/i }));
+    expect(await screen.findByLabelText(/Nome Completo/i)).toHaveValue("Yasmim Souza");
+    expect(authService.updateMe).not.toHaveBeenCalled();
+  });
+
+  it("fechar com alterações pede confirmação e Continuar editando mantém o texto", async () => {
+    const user = userEvent.setup();
+    renderizar();
+
+    await user.click(await screen.findByRole("button", { name: /Editar perfil/i }));
+    const campoCidade = await screen.findByLabelText(/Cidade/i);
+    await user.clear(campoCidade);
+    await user.type(campoCidade, "Palmas");
+    await user.keyboard("{Escape}");
+
+    const confirmacao = await screen.findByRole("alertdialog");
+    expect(within(confirmacao).getByText("Descartar alterações?")).toBeInTheDocument();
+
+    await user.click(within(confirmacao).getByRole("button", { name: /Continuar editando/i }));
+    expect(screen.queryByRole("alertdialog")).not.toBeInTheDocument();
+    expect(screen.getByLabelText(/Cidade/i)).toHaveValue("Palmas");
+  });
+
+  it("fechar com alterações e escolher Descartar volta aos dados salvos", async () => {
+    const user = userEvent.setup();
+    renderizar();
+
+    await user.click(await screen.findByRole("button", { name: /Editar perfil/i }));
+    const campoCidade = await screen.findByLabelText(/Cidade/i);
+    await user.clear(campoCidade);
+    await user.type(campoCidade, "Palmas");
+    await user.click(screen.getByRole("button", { name: /Close/i }));
+
+    const confirmacao = await screen.findByRole("alertdialog");
+    await user.click(within(confirmacao).getByRole("button", { name: /^Descartar$/i }));
+
+    expect(screen.queryByLabelText(/Cidade/i)).not.toBeInTheDocument();
+    await user.click(screen.getByRole("button", { name: /Editar perfil/i }));
+    expect(await screen.findByLabelText(/Cidade/i)).toHaveValue("Goiânia");
+  });
+
+  it("fechar sem alterações não pede confirmação", async () => {
+    const user = userEvent.setup();
+    renderizar();
+
+    await user.click(await screen.findByRole("button", { name: /Editar perfil/i }));
+    await screen.findByLabelText(/Nome Completo/i);
+    await user.keyboard("{Escape}");
+
+    expect(screen.queryByRole("alertdialog")).not.toBeInTheDocument();
+    expect(screen.queryByLabelText(/Nome Completo/i)).not.toBeInTheDocument();
+  });
+
   it("não salva com nome vazio e avisa o tutor", async () => {
     const user = userEvent.setup();
     renderizar();

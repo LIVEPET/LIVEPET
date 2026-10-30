@@ -25,6 +25,12 @@ export const EMPTY_FORM = {
 export const formFromUser = (user) =>
   Object.fromEntries(Object.keys(EMPTY_FORM).map((key) => [key, user?.[key] || ""]));
 
+// True quando o formulário tem algo diferente do que está salvo para o tutor.
+export const isFormDirty = (form, user) => {
+  const salvo = formFromUser(user);
+  return Object.keys(EMPTY_FORM).some((key) => (form?.[key] || "") !== salvo[key]);
+};
+
 // Monta o corpo enviado para authService.updateMe. Campos opcionais vazios viram null.
 export const buildUpdatePayload = (form) => {
   const opcional = (valor) => valor.trim() || null;
