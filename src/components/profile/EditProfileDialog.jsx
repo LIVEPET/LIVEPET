@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { Building2, Camera, CheckCircle2, Loader2, Pencil } from "lucide-react";
@@ -22,6 +22,7 @@ import { formatPhone } from "@/lib/phone";
 import { cn } from "@/lib/utils";
 import { FIELD_LABEL_CLASS, formFromUser, initialsFrom } from "./profileUtils";
 import { LIMITES, UFS, profileSchema } from "./profileSchema";
+import { preparePhoto } from "./profilePhoto";
 
 // Mesmo visual do <Input>, para o <select> nativo de UF (no celular abre a lista do próprio sistema).
 const SELECT_CLASS =
@@ -29,8 +30,9 @@ const SELECT_CLASS =
 
 // Modal de edição do perfil, com React Hook Form + Zod (regras em profileSchema.js).
 // Cancelar descarta na hora; fechar no X, no Esc ou fora do modal pergunta antes se algo mudou.
-const EditProfileDialog = ({ open, user, saving, onSave, onDiscard, onPickPhoto }) => {
+const EditProfileDialog = ({ open, user, saving, onSave, onDiscard }) => {
   const [confirmOpen, setConfirmOpen] = useState(false);
+  const photoInputRef = useRef(null);
   const form = useForm({
     resolver: zodResolver(profileSchema),
     defaultValues: formFromUser(user),
@@ -50,11 +52,14 @@ const EditProfileDialog = ({ open, user, saving, onSave, onDiscard, onPickPhoto 
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [open]);
 
-  // A foto escolhida pelo botão "Carregar nova foto" já é salva na hora; aqui só atualiza a prévia.
-  const fotoSalva = user?.foto_url || "";
-  useEffect(() => {
-    if (open) setValue("foto_url", fotoSalva, { shouldDirty: false });
-  }, [open, fotoSalva, setValue]);
+  // Foto escolhida aqui dentro só vai para o formulário: é salva junto com "Salvar Alterações"
+  // e some se o tutor cancelar (#155).
+  const handlePhotoPick = async (e) => {
+    const file = e.target.files?.[0];
+    e.target.value = "";
+    const preview = await preparePhoto(file);
+    if (preview) setValue("foto_url", preview, { shouldDirty: true });
+  };
 
   const handleOpenChange = (nextOpen) => {
     if (nextOpen) return;
@@ -96,10 +101,27 @@ const EditProfileDialog = ({ open, user, saving, onSave, onDiscard, onPickPhoto 
 
                 <div className="space-y-1">
                   <p className={FIELD_LABEL_CLASS}>Foto de Perfil</p>
-                  <Button type="button" size="sm" variant="outline" onClick={onPickPhoto} className="rounded-full text-xs">
+                  <Button
+                    type="button"
+                    size="sm"
+                    variant="outline"
+                    onClick={() => photoInputRef.current?.click()}
+                    className="rounded-full text-xs"
+                  >
                     <Camera className="mr-1.5 h-3.5 w-3.5" />
                     Carregar nova foto
                   </Button>
+                  <input
+                    ref={photoInputRef}
+                    type="file"
+                    accept="image/*"
+                    className="hidden"
+                    onChange={handlePhotoPick}
+                    data-testid="foto-modal-input"
+                  />
+                  {fotoUrl !== (user?.foto_url || "") && (
+                    <p className="text-[11px] text-muted-foreground">A foto nova será salva com as alterações.</p>
+                  )}
                 </div>
               </div>
 

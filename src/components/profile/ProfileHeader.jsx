@@ -56,6 +56,7 @@ const ProfileHeader = ({
             accept="image/*"
             className="hidden"
             onChange={onPhotoChange}
+            data-testid="foto-cabecalho-input"
           />
         </div>
       </div>

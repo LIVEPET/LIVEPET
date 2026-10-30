@@ -15,6 +15,10 @@ vi.mock("@/services/api", () => ({
   petsService: { list: vi.fn() },
 }));
 
+vi.mock("@/lib/image", () => ({
+  compressImage: vi.fn(async () => "data:image/jpeg;base64,FOTO_NOVA"),
+}));
+
 vi.mock("sonner", () => ({
   toast: {
     error: vi.fn(),
@@ -345,5 +349,86 @@ describe("<Profile />", () => {
     expect(screen.getByText("501/500")).toBeInTheDocument();
     expect(await screen.findByText("A bio pode ter no máximo 500 caracteres.")).toBeInTheDocument();
     expect(screen.getByRole("button", { name: /Salvar Alterações/i })).toBeDisabled();
+  });
+  const imagem = (nome = "gato.jpg", tamanho = 1024) =>
+    new File([new Uint8Array(tamanho)], nome, { type: "image/jpeg" });
+
+  it("foto escolhida no cabeçalho só é salva depois de confirmar", async () => {
+    const user = userEvent.setup();
+    authService.updateMe.mockResolvedValue({ ...TUTOR, foto_url: "data:image/jpeg;base64,FOTO_NOVA" });
+    renderizar();
+
+    await user.upload(await screen.findByTestId("foto-cabecalho-input"), imagem());
+
+    const previa = await screen.findByRole("dialog", { name: /Nova foto de perfil/i });
+    // (o <img> do Avatar só aparece depois que a imagem carrega, o que não acontece no jsdom)
+    expect(within(previa).getByText("Veja como ela vai aparecer no seu perfil.")).toBeInTheDocument();
+    expect(authService.updateMe).not.toHaveBeenCalled();
+
+    await user.click(within(previa).getByRole("button", { name: /Salvar foto/i }));
+
+    expect(authService.updateMe).toHaveBeenCalledWith({ foto_url: "data:image/jpeg;base64,FOTO_NOVA" });
+    expect(toast.success).toHaveBeenCalledWith("Foto de perfil atualizada!");
+    expect(screen.queryByRole("dialog", { name: /Nova foto de perfil/i })).not.toBeInTheDocument();
+  });
+
+  it("cancelar a prévia do cabeçalho não salva a foto", async () => {
+    const user = userEvent.setup();
+    renderizar();
+
+    await user.upload(await screen.findByTestId("foto-cabecalho-input"), imagem());
+    const previa = await screen.findByRole("dialog", { name: /Nova foto de perfil/i });
+    await user.click(within(previa).getByRole("button", { name: /^Cancelar$/i }));
+
+    expect(screen.queryByRole("dialog", { name: /Nova foto de perfil/i })).not.toBeInTheDocument();
+    expect(authService.updateMe).not.toHaveBeenCalled();
+  });
+
+  it("recusa imagem acima de 5 MB e arquivo que não é imagem", async () => {
+    const user = userEvent.setup({ applyAccept: false });
+    renderizar();
+    const input = await screen.findByTestId("foto-cabecalho-input");
+
+    await user.upload(input, imagem("grande.jpg", 6 * 1024 * 1024));
+    expect(toast.error).toHaveBeenCalledWith("A imagem tem 6,0 MB.", expect.anything());
+
+    await user.upload(input, new File(["oi"], "nota.txt", { type: "text/plain" }));
+    expect(toast.error).toHaveBeenCalledWith("Esse arquivo não é uma imagem.", expect.anything());
+
+    expect(screen.queryByRole("dialog", { name: /Nova foto de perfil/i })).not.toBeInTheDocument();
+    expect(authService.updateMe).not.toHaveBeenCalled();
+  });
+
+  it("foto escolhida no modal só é salva com Salvar Alterações", async () => {
+    const user = userEvent.setup();
+    authService.updateMe.mockResolvedValue({ ...TUTOR, foto_url: "data:image/jpeg;base64,FOTO_NOVA" });
+    renderizar();
+
+    await user.click(await screen.findByRole("button", { name: /Editar perfil/i }));
+    await user.upload(await screen.findByTestId("foto-modal-input"), imagem());
+
+    expect(await screen.findByText("A foto nova será salva com as alterações.")).toBeInTheDocument();
+    expect(authService.updateMe).not.toHaveBeenCalled();
+
+    await user.click(screen.getByRole("button", { name: /Salvar Alterações/i }));
+    expect(authService.updateMe).toHaveBeenCalledTimes(1);
+    expect(authService.updateMe).toHaveBeenCalledWith(
+      expect.objectContaining({ nome: "Yasmim Souza", foto_url: "data:image/jpeg;base64,FOTO_NOVA" }),
+    );
+  });
+
+  it("foto escolhida no modal é descartada ao cancelar", async () => {
+    const user = userEvent.setup();
+    renderizar();
+
+    await user.click(await screen.findByRole("button", { name: /Editar perfil/i }));
+    await user.upload(await screen.findByTestId("foto-modal-input"), imagem());
+    await screen.findByText("A foto nova será salva com as alterações.");
+    await user.click(screen.getByRole("button", { name: /^Cancelar$/i }));
+
+    expect(authService.updateMe).not.toHaveBeenCalled();
+    await user.click(screen.getByRole("button", { name: /Editar perfil/i }));
+    await screen.findByLabelText(/Nome Completo/i);
+    expect(screen.queryByText("A foto nova será salva com as alterações.")).not.toBeInTheDocument();
   });
 });
