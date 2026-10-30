@@ -7,18 +7,19 @@ import { TAB_TRIGGER_CLASS } from "./profileUtils";
 const contagem = (n) => (n === null ? "" : ` (${n})`);
 
 const ProfileTabsNav = ({ petsCount, pedigreesCount }) => (
-  <div className="flex justify-center border-b border-border/60">
-    <TabsList className="bg-transparent gap-8 h-12">
+  // Em 375 px as 3 abas cabem com gap menor; se não couberem, a barra rola sem empurrar a página (#157).
+  <div className="-mx-4 overflow-x-auto border-b border-border/60 px-4 sm:mx-0 sm:px-0">
+    <TabsList className="flex h-12 w-max min-w-full justify-center gap-1 bg-transparent sm:gap-8">
       <TabsTrigger value="pets" className={TAB_TRIGGER_CLASS}>
-        <Grid3X3 className="h-4 w-4" />
+        <Grid3X3 className="hidden h-4 w-4 sm:block" aria-hidden="true" />
         Meus Pets{contagem(petsCount)}
       </TabsTrigger>
       <TabsTrigger value="pedigrees" className={TAB_TRIGGER_CLASS}>
-        <Award className="h-4 w-4" />
+        <Award className="hidden h-4 w-4 sm:block" aria-hidden="true" />
         Pedigrees{contagem(pedigreesCount)}
       </TabsTrigger>
       <TabsTrigger value="sobre" className={TAB_TRIGGER_CLASS}>
-        <User className="h-4 w-4" />
+        <User className="hidden h-4 w-4 sm:block" aria-hidden="true" />
         Sobre
       </TabsTrigger>
     </TabsList>

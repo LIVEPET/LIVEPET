@@ -31,7 +31,7 @@ const PetsGridTab = ({ pets, error, onRetry }) => (
         {pets.map((pet) => (
           <article
             key={pet.id}
-            className="group relative aspect-square overflow-hidden rounded-2xl border border-border/60 bg-muted cursor-pointer shadow-soft transition-all duration-300 hover:shadow-glow"
+            className="group relative aspect-square overflow-hidden rounded-2xl border border-border/60 bg-muted shadow-soft transition-all duration-300 hover:shadow-glow focus-within:ring-2 focus-within:ring-ring focus-within:ring-offset-2"
           >
             <img
               src={getPetPhoto(pet.foto_url)}
@@ -40,20 +40,20 @@ const PetsGridTab = ({ pets, error, onRetry }) => (
               className="h-full w-full object-cover transition-transform duration-500 group-hover:scale-105"
             />
 
-            {/* Overlay estilo Instagram ao passar o mouse */}
-            <div className="absolute inset-0 bg-black/60 opacity-0 group-hover:opacity-100 transition-opacity duration-300 flex flex-col justify-between p-3 sm:p-4 text-white">
+            {/* Ações do pet: sempre visíveis em tela de toque; com mouse aparecem no hover ou ao focar com Tab (#157) */}
+            <div className="absolute inset-0 flex flex-col justify-between bg-gradient-to-t from-black/85 via-black/40 to-black/20 p-3 text-white transition-opacity duration-300 sm:p-4 [@media(hover:hover)]:opacity-0 [@media(hover:hover)]:group-hover:opacity-100 [@media(hover:hover)]:group-focus-within:opacity-100">
               <div className="flex justify-between items-start">
                 <span className="rounded-full bg-white/20 backdrop-blur px-2 py-0.5 text-[10px] font-bold uppercase">
                   {pet.especie}
                 </span>
-                <span className="font-mono text-[10px] font-bold text-primary-foreground/80">
+                <span className="font-mono text-[10px] font-bold text-white">
                   #{pet.id}
                 </span>
               </div>
 
               <div className="text-center">
                 <p className="font-display text-base sm:text-lg font-bold">{pet.nome}</p>
-                <p className="text-[11px] text-white/80 truncate">
+                <p className="text-[11px] text-white/90 truncate">
                   {pet.raca || "SRD"} {pet.porte ? `· ${pet.porte}` : ""}
                 </p>
               </div>
@@ -61,15 +61,19 @@ const PetsGridTab = ({ pets, error, onRetry }) => (
               {/* Ações rápidas */}
               <div className="flex items-center justify-center gap-2 pt-1">
                 <Button asChild size="sm" className="h-7 rounded-lg text-xs bg-white text-black hover:bg-white/90">
-                  <Link to={`/cartao?id=${pet.id}`}>Cartão</Link>
+                  <Link to={`/cartao?id=${pet.id}`} aria-label={`Cartão de ${pet.nome}`}>
+                    Cartão
+                  </Link>
                 </Button>
                 <Button
                   asChild
                   size="sm"
                   variant="outline"
-                  className="h-7 rounded-lg text-xs border-white/40 text-white hover:bg-white/20"
+                  className="h-7 rounded-lg text-xs border-white/60 bg-black/30 text-white hover:bg-white/20"
                 >
-                  <Link to={`/saude?petId=${pet.id}`}>Saúde</Link>
+                  <Link to={`/saude?petId=${pet.id}`} aria-label={`Saúde de ${pet.nome}`}>
+                    Saúde
+                  </Link>
                 </Button>
               </div>
             </div>

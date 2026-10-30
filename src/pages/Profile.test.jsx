@@ -492,4 +492,29 @@ describe("<Profile />", () => {
     const salvoNoNavegador = Object.keys(window.localStorage).map((k) => window.localStorage.getItem(k));
     expect(salvoNoNavegador.join(" ")).not.toContain("livepet1");
   });
+  it("acessibilidade: a foto do cabeçalho é um botão com rótulo e abre o seletor de arquivo", async () => {
+    const user = userEvent.setup();
+    renderizar();
+
+    const botaoFoto = await screen.findByRole("button", { name: "Trocar foto de perfil" });
+    expect(botaoFoto.tagName).toBe("BUTTON");
+    const clique = vi.spyOn(screen.getByTestId("foto-cabecalho-input"), "click");
+
+    botaoFoto.focus();
+    await user.keyboard("{Enter}");
+    expect(clique).toHaveBeenCalled();
+  });
+
+  it("acessibilidade: Cartão e Saúde de cada pet têm nome próprio e são alcançáveis pelo Tab", async () => {
+    const user = userEvent.setup();
+    renderizar();
+
+    const cartao = await screen.findByRole("link", { name: "Cartão de Thor" });
+    expect(cartao).toHaveAttribute("href", "/cartao?id=10");
+    expect(screen.getByRole("link", { name: "Saúde de Mia" })).toHaveAttribute("href", "/saude?petId=11");
+
+    // Tab percorre a tela até chegar no link do primeiro pet
+    for (let i = 0; i < 30 && document.activeElement !== cartao; i++) await user.tab();
+    expect(cartao).toHaveFocus();
+  });
 });

@@ -26,28 +26,35 @@ const ProfileHeader = ({
     <header className="flex flex-col gap-6 md:flex-row md:items-start md:gap-12 pb-8 border-b border-border/60">
       {/* Avatar com borda Gradiente de Stories */}
       <div className="flex justify-center md:justify-start">
-        <div className="relative group cursor-pointer" onClick={() => fileInputRef.current?.click()}>
-          <div className="h-28 w-28 sm:h-36 sm:w-36 rounded-full p-[3px] bg-gradient-to-tr from-amber-500 via-rose-500 to-primary shadow-glow transition-transform duration-300 group-hover:scale-105">
-            <Avatar className="h-full w-full border-2 border-background">
-              <AvatarImage
-                src={currentUser?.foto_url}
-                alt={currentUser?.nome}
-                className="object-cover"
-              />
-              <AvatarFallback className="bg-primary-soft text-3xl font-bold text-primary">
-                {initialsFrom(currentUser?.nome || currentUser?.email)}
-              </AvatarFallback>
-            </Avatar>
-          </div>
-
-          {/* Botão de câmera sobre o avatar */}
+        {/* Um único botão (e não uma div clicável): funciona com Tab + Enter e é lido pelo leitor de tela (#157) */}
+        <div className="relative">
           <button
             type="button"
-            className="absolute bottom-1 right-1 flex h-8 w-8 items-center justify-center rounded-full bg-primary text-primary-foreground shadow-md transition-all duration-300 hover:scale-110"
-            title="Trocar foto de perfil"
+            onClick={() => fileInputRef.current?.click()}
             aria-label="Trocar foto de perfil"
+            title="Trocar foto de perfil"
+            className="group relative block rounded-full focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-ring focus-visible:ring-offset-4 focus-visible:ring-offset-background"
           >
-            <Camera className="h-3.5 w-3.5" />
+            <span className="block h-28 w-28 sm:h-36 sm:w-36 rounded-full p-[3px] bg-gradient-to-tr from-amber-500 via-rose-500 to-primary shadow-glow transition-transform duration-300 group-hover:scale-105">
+              <Avatar className="h-full w-full border-2 border-background">
+                <AvatarImage
+                  src={currentUser?.foto_url}
+                  alt={currentUser?.nome}
+                  className="object-cover"
+                />
+                <AvatarFallback className="bg-primary-soft text-3xl font-bold text-primary">
+                  {initialsFrom(currentUser?.nome || currentUser?.email)}
+                </AvatarFallback>
+              </Avatar>
+            </span>
+
+            {/* Ícone de câmera sobre o avatar (decorativo: o rótulo está no botão) */}
+            <span
+              aria-hidden="true"
+              className="absolute bottom-1 right-1 flex h-8 w-8 items-center justify-center rounded-full bg-primary text-primary-foreground shadow-md transition-all duration-300 group-hover:scale-110"
+            >
+              <Camera className="h-3.5 w-3.5" />
+            </span>
           </button>
 
           <input

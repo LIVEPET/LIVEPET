@@ -59,7 +59,7 @@ const PedigreesTab = ({ pets, error, onRetry }) => {
                     <span
                       className={
                         hasApprovedPedigree(pet)
-                          ? "rounded-full bg-warm/20 text-warm px-2 py-0.5 text-[10px] font-bold"
+                          ? "rounded-full bg-warm/20 text-orange-800 dark:text-orange-200 px-2 py-0.5 text-[10px] font-bold"
                           : "rounded-full bg-secondary text-muted-foreground px-2 py-0.5 text-[10px] font-semibold"
                       }
                     >

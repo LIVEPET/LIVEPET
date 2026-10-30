@@ -47,7 +47,7 @@ export const buildUpdatePayload = (form) => {
 
 // Classes das 3 abas (antes repetidas em cada TabsTrigger).
 export const TAB_TRIGGER_CLASS =
-  "flex items-center gap-2 uppercase tracking-widest text-xs font-bold data-[state=active]:border-t-2 data-[state=active]:border-foreground data-[state=active]:shadow-none rounded-none bg-transparent";
+  "flex shrink-0 items-center gap-1.5 px-2 uppercase tracking-normal sm:gap-2 sm:px-3 sm:tracking-widest text-xs font-bold data-[state=active]:border-t-2 data-[state=active]:border-foreground data-[state=active]:shadow-none rounded-none bg-transparent";
 
 // Classe dos rótulos dos campos do modal de edição (antes repetida em cada Label).
 export const FIELD_LABEL_CLASS = "text-xs font-bold uppercase tracking-wider text-muted-foreground";
