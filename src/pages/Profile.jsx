@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { CheckCircle2, Copy } from "lucide-react";
+import { CheckCircle2 } from "lucide-react";
 import { toast } from "sonner";
 import { Tabs } from "@/components/ui/tabs";
 import { authService, petsService } from "@/services/api";
@@ -14,6 +14,7 @@ import ProfileSkeleton from "@/components/profile/ProfileSkeleton";
 import LoadErrorAlert from "@/components/profile/LoadErrorAlert";
 import { uploadProfilePhoto } from "@/components/profile/uploadProfilePhoto";
 import { EMPTY_FORM, buildUpdatePayload, formFromUser } from "@/components/profile/profileUtils";
+import { hasLineage } from "@/lib/petBadges";
 
 // Página /perfil: guarda o estado (tutor, pets, formulário) e repassa para os componentes por props.
 const Profile = () => {
@@ -61,7 +62,7 @@ const Profile = () => {
   }, [loadProfile]);
 
   const totalVaccines = useMemo(() => pets.reduce((acc, pet) => acc + (pet.vaccines?.length || 0), 0), [pets]);
-  const totalPedigrees = useMemo(() => pets.filter((pet) => pet.lineage || pet.raca).length, [pets]);
+  const totalPedigrees = useMemo(() => pets.filter(hasLineage).length, [pets]);
 
   const handlePhotoUpload = async (e) => {
     const updated = await uploadProfilePhoto(e.target.files?.[0], (foto_url) =>
@@ -69,11 +70,6 @@ const Profile = () => {
     );
     e.target.value = "";
     if (updated) setCurrentUser(updated);
-  };
-
-  const handleShareProfile = () => {
-    navigator.clipboard?.writeText(window.location.href);
-    toast.success("Link do perfil copiado para a área de transferência!", { icon: <Copy className="h-4 w-4" /> });
   };
 
   const handleSubmit = async (e) => {
@@ -119,7 +115,6 @@ const Profile = () => {
           fileInputRef={fileInputRef}
           onPhotoChange={handlePhotoUpload}
           onEdit={() => setIsEditOpen(true)}
-          onShare={handleShareProfile}
         />
         <PetStories pets={pets} />
 

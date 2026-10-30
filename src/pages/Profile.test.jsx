@@ -147,6 +147,56 @@ describe("<Profile />", () => {
     expect(screen.queryByText("Não foi possível carregar seu perfil")).not.toBeInTheDocument();
   });
 
+  it("não mostra selo Oficial nem botão Compartilhar no cabeçalho", async () => {
+    renderizar();
+
+    await screen.findByText("Yasmim Souza");
+    expect(screen.queryByText("Oficial")).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: /Compartilhar perfil/i })).not.toBeInTheDocument();
+  });
+
+  it("pet com raça e sem linhagem não conta como pedigree", async () => {
+    const user = userEvent.setup();
+    renderizar();
+
+    const aba = await screen.findByRole("tab", { name: /Pedigrees/i });
+    expect(aba).not.toHaveTextContent("(1)");
+    expect(aba).toHaveTextContent("(0)");
+
+    await user.click(aba);
+    expect(await screen.findByText("Nenhum pedigree cadastrado ainda")).toBeInTheDocument();
+    expect(screen.queryByText(/CBKC/)).not.toBeInTheDocument();
+  });
+
+  it("lista só pets com linhagem, com o registro e o status reais", async () => {
+    const user = userEvent.setup();
+    petsService.list.mockResolvedValue([
+      ...PETS,
+      {
+        id: 12,
+        nome: "Luna",
+        especie: "Cachorro",
+        raca: "Border Collie",
+        lineage: { registro: "CBKC 4521987", status_verificacao: "aprovado" },
+      },
+      { id: 13, nome: "Bob", especie: "Cachorro", raca: "Beagle", lineage: { status_verificacao: "declaratorio" } },
+    ]);
+    renderizar();
+
+    const aba = await screen.findByRole("tab", { name: /Pedigrees \(2\)/i });
+    await user.click(aba);
+
+    const painel = await screen.findByRole("tabpanel");
+    expect(within(painel).getByText("Luna")).toBeInTheDocument();
+    expect(within(painel).getByText("Bob")).toBeInTheDocument();
+    expect(within(painel).queryByText("Thor")).not.toBeInTheDocument();
+    expect(within(painel).getByText("Registro: CBKC 4521987")).toBeInTheDocument();
+    expect(within(painel).getAllByText(/^Registro:/)).toHaveLength(1);
+    expect(within(painel).getByText("Verificado")).toBeInTheDocument();
+    expect(within(painel).getByText("Declarado pelo tutor")).toBeInTheDocument();
+    expect(within(painel).queryByText(/emitidos junto à CBKC/i)).not.toBeInTheDocument();
+  });
+
   it("não salva com nome vazio e avisa o tutor", async () => {
     const user = userEvent.setup();
     renderizar();

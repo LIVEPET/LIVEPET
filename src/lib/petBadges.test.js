@@ -1,5 +1,38 @@
 import { describe, expect, it } from "vitest";
-import { formatTutorCity, hasApprovedPedigree, hasVetRecord } from "./petBadges";
+import {
+  formatTutorCity,
+  hasApprovedPedigree,
+  hasLineage,
+  hasVetRecord,
+  lineageStatusLabel,
+} from "./petBadges";
+
+describe("hasLineage", () => {
+  it("conta como pedigree só quando o pet tem linhagem", () => {
+    expect(hasLineage({ lineage: { status_verificacao: "declaratorio" } })).toBe(true);
+  });
+
+  it("não conta pet só com raça", () => {
+    expect(hasLineage({ raca: "Golden Retriever", lineage: null })).toBe(false);
+    expect(hasLineage({ raca: "Golden Retriever" })).toBe(false);
+    expect(hasLineage(undefined)).toBe(false);
+  });
+});
+
+describe("lineageStatusLabel", () => {
+  it("traduz o status real da linhagem", () => {
+    expect(lineageStatusLabel({ lineage: { status_verificacao: "aprovado" } })).toBe("Verificado");
+    expect(lineageStatusLabel({ lineage: { status_verificacao: "pendente" } })).toBe("Em análise");
+    expect(lineageStatusLabel({ lineage: { status_verificacao: "declaratorio" } })).toBe(
+      "Declarado pelo tutor",
+    );
+  });
+
+  it("status desconhecido vira declarado e sem linhagem fica vazio", () => {
+    expect(lineageStatusLabel({ lineage: {} })).toBe("Declarado pelo tutor");
+    expect(lineageStatusLabel({ raca: "Poodle" })).toBe("");
+  });
+});
 
 describe("hasApprovedPedigree", () => {
   it("mostra o selo apenas para pedigree aprovado", () => {
