@@ -1,5 +1,5 @@
 import { Link } from "react-router-dom";
-import { Building2, Calendar, Camera, MapPin, Pencil, Phone, Plus, Share2, ShieldCheck } from "lucide-react";
+import { Building2, Calendar, Camera, MapPin, Pencil, Phone, Plus } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { initialsFrom } from "./profileUtils";
@@ -13,7 +13,6 @@ const ProfileHeader = ({
   fileInputRef,
   onPhotoChange,
   onEdit,
-  onShare,
 }) => {
   const memberSinceYear = currentUser?.criado_em
     ? new Date(currentUser.criado_em).getFullYear()
@@ -70,15 +69,8 @@ const ProfileHeader = ({
             @{usernameHandle}
           </h1>
 
-          <span
-            className="inline-flex items-center gap-1 rounded-full bg-primary/10 px-2.5 py-0.5 text-xs font-bold text-primary"
-            title="Tutor Oficial Verificado LivePet"
-          >
-            <ShieldCheck className="h-4 w-4" />
-            Oficial
-          </span>
-
           {/* Botões de Ação */}
+          {/* Sem selo "Oficial" e sem "Compartilhar": não existe verificação de tutor nem perfil público ainda (#152) */}
           <div className="flex items-center gap-2 mt-2 sm:mt-0">
             <Button
               onClick={onEdit}
@@ -88,17 +80,6 @@ const ProfileHeader = ({
             >
               <Pencil className="mr-1.5 h-3.5 w-3.5 text-muted-foreground" />
               Editar perfil
-            </Button>
-
-            <Button
-              onClick={onShare}
-              size="icon"
-              variant="outline"
-              className="h-9 w-9 rounded-xl border-border bg-card shadow-soft hover:bg-muted"
-              title="Compartilhar perfil"
-              aria-label="Compartilhar perfil"
-            >
-              <Share2 className="h-4 w-4 text-muted-foreground" />
             </Button>
 
             <Button
