@@ -14,7 +14,7 @@ const PedigreesTab = ({ pets, error, onRetry }) => {
   return (
     <TabsContent value="pedigrees" className="pt-6">
       <div className="space-y-4">
-        <div className="flex items-center justify-between">
+        <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
           <div>
             <h3 className="font-display text-lg font-bold text-foreground">
               Certificados e Linhagens Genealógicas
@@ -23,7 +23,7 @@ const PedigreesTab = ({ pets, error, onRetry }) => {
               Linhagens cadastradas para os seus pets no LivePet.
             </p>
           </div>
-          <Button asChild size="sm" variant="outline" className="rounded-full">
+          <Button asChild size="sm" variant="outline" className="self-start rounded-full sm:self-auto">
             <Link to="/pedigree">
               <Sparkles className="mr-1.5 h-3.5 w-3.5 text-warm" />
               Acessar aba Pedigree
@@ -42,24 +42,25 @@ const PedigreesTab = ({ pets, error, onRetry }) => {
           </div>
         )}
 
-        <div className="grid gap-4 sm:grid-cols-2">
+        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
           {petsComLinhagem.map((pet) => {
             const registro = pet.lineage.registro?.trim();
 
             return (
-              <Card key={pet.id} className="p-4 flex items-center gap-4 border-border/60 shadow-soft">
+              <Card key={pet.id} className="p-3 sm:p-4 flex items-center gap-3 sm:gap-4 border-border/60 shadow-soft">
                 <img
                   src={getPetPhoto(pet.foto_url)}
                   alt={pet.nome}
-                  className="h-16 w-16 rounded-xl object-cover ring-1 ring-border/60"
+                  className="h-14 w-14 shrink-0 rounded-xl object-cover ring-1 ring-border/60 sm:h-16 sm:w-16"
                 />
                 <div className="min-w-0 flex-1">
-                  <div className="flex items-center gap-2">
-                    <p className="font-display text-base font-bold text-foreground truncate">{pet.nome}</p>
+                  {/* flex-wrap: em 375 px o selo desce para a linha de baixo em vez de esconder o nome (#157) */}
+                  <div className="flex flex-wrap items-center gap-x-2 gap-y-1">
+                    <p className="min-w-0 max-w-full truncate font-display text-base font-bold text-foreground">{pet.nome}</p>
                     <span
                       className={
                         hasApprovedPedigree(pet)
-                          ? "rounded-full bg-warm/20 text-warm px-2 py-0.5 text-[10px] font-bold"
+                          ? "rounded-full bg-warm/20 text-orange-800 dark:text-orange-200 px-2 py-0.5 text-[10px] font-bold"
                           : "rounded-full bg-secondary text-muted-foreground px-2 py-0.5 text-[10px] font-semibold"
                       }
                     >
@@ -70,11 +71,11 @@ const PedigreesTab = ({ pets, error, onRetry }) => {
                     {pet.raca || "Raça SRD"} · {pet.especie}
                   </p>
                   {registro && (
-                    <p className="text-[11px] text-primary font-mono mt-0.5">Registro: {registro}</p>
+                    <p className="mt-0.5 break-words font-mono text-[11px] text-primary">Registro: {registro}</p>
                   )}
                 </div>
-                <Button asChild size="sm" variant="ghost" className="rounded-full text-xs">
-                  <Link to={`/pedigree?petId=${pet.id}`}>
+                <Button asChild size="sm" variant="ghost" className="shrink-0 rounded-full px-2 text-xs sm:px-3">
+                  <Link to={`/pedigree?petId=${pet.id}`} aria-label={`Ver árvore de ${pet.nome}`}>
                     Ver Árvore
                     <ExternalLink className="ml-1 h-3 w-3" />
                   </Link>
