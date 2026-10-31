@@ -541,7 +541,7 @@ const MedicalHistory = () => {
             </p>
           </div>
 
-          <div className="flex items-center gap-2">
+          <div className="flex flex-wrap items-center gap-2">
             <Button
               asChild
               variant="outline"
@@ -684,7 +684,7 @@ const MedicalHistory = () => {
               <Card key={pet.id} className="overflow-hidden">
                 {/* Pet row header */}
                 <div
-                  className={`flex items-center justify-between gap-4 bg-gradient-to-r ${pet.color} p-4 text-white`}
+                  className={`flex flex-wrap items-center justify-between gap-3 sm:gap-4 bg-gradient-to-r ${pet.color} p-4 text-white`}
                 >
                   <div className="flex items-center gap-3">
                     <div className="h-12 w-12 overflow-hidden rounded-full ring-2 ring-white/60">
@@ -703,7 +703,7 @@ const MedicalHistory = () => {
                       </div>
                     </div>
                   </div>
-                  <div className="flex items-center gap-2">
+                  <div className="flex flex-wrap items-center gap-2">
                     <Button
                       asChild
                       variant="secondary"
@@ -724,7 +724,8 @@ const MedicalHistory = () => {
                 </div>
 
                 {/* Weekly timeline */}
-                <div className="grid grid-cols-7 divide-x divide-border">
+                <div className="overflow-x-auto">
+                <div className="grid min-w-[640px] grid-cols-7 divide-x divide-border md:min-w-0">
                   {weekDays.map((day) => {
                     const key = day.toISOString().slice(0, 10);
                     const dayEvents = eventsByPetDay[pet.id]?.[key] ?? [];
@@ -795,6 +796,7 @@ const MedicalHistory = () => {
                       </div>
                     );
                   })}
+                </div>
                 </div>
               </Card>
             ))}

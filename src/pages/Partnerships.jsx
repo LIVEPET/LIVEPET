@@ -393,7 +393,7 @@ export default function Partnerships() {
                         )}
 
                         {/* Ações inferiores */}
-                        <div className="mt-auto flex items-center gap-2 border-t border-border/60 pt-4">
+                        <div className="mt-auto flex flex-wrap items-center gap-2 border-t border-border/60 pt-4">
                           {waUrl ? (
                             <a
                               href={waUrl}
@@ -421,7 +421,7 @@ export default function Partnerships() {
                           <Button
                             variant="outline"
                             onClick={() => setActiveClinic(clinic)}
-                            className="rounded-full shrink-0"
+                            className="w-full rounded-full sm:w-auto sm:shrink-0"
                           >
                             Ver Detalhes
                           </Button>

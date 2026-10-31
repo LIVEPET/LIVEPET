@@ -366,7 +366,7 @@ const PetRegister = () => {
 
         <form
           onSubmit={handleSubmit}
-          className="grid gap-6 lg:grid-cols-[320px_1fr]"
+          className="grid grid-cols-1 gap-6 lg:grid-cols-[320px_minmax(0,1fr)]"
         >
           {/* PHOTO CARD */}
           <Card className="border-border/60 p-6 shadow-card">
