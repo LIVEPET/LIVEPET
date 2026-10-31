@@ -27,6 +27,7 @@ const Profile = () => {
   const [petsError, setPetsError] = useState(false);
   const [saving, setSaving] = useState(false);
   const [isEditOpen, setIsEditOpen] = useState(false);
+  const [editFocus, setEditFocus] = useState(null);
   const [activeTab, setActiveTab] = useState("pets");
   const [photoPreview, setPhotoPreview] = useState(null);
   const [savingPhoto, setSavingPhoto] = useState(false);
@@ -66,7 +67,11 @@ const Profile = () => {
   const totalPedigrees = useMemo(() => pets.filter(hasLineage).length, [pets]);
 
   // O modal reseta o formulário para os dados salvos sempre que abre (ver EditProfileDialog).
-  const openEdit = () => setIsEditOpen(true);
+  // `campo` abre o modal já com o cursor nele (ex.: "telefone", pelo alerta da #158).
+  const openEdit = (campo = null) => {
+    setEditFocus(typeof campo === "string" ? campo : null);
+    setIsEditOpen(true);
+  };
   const discardEdit = () => setIsEditOpen(false);
 
   // Foto escolhida no cabeçalho: primeiro mostra a prévia; só salva em "Salvar foto".
@@ -129,7 +134,8 @@ const Profile = () => {
           totalPedigrees={petsError ? null : totalPedigrees}
           fileInputRef={fileInputRef}
           onPhotoChange={handlePhotoPick}
-          onEdit={openEdit}
+          onEdit={() => openEdit()}
+          onCompletePhone={() => openEdit("telefone")}
         />
         <PetStories pets={pets} />
 
@@ -137,13 +143,14 @@ const Profile = () => {
           <ProfileTabsNav petsCount={petsError ? null : pets.length} pedigreesCount={petsError ? null : totalPedigrees} />
           <PetsGridTab pets={pets} error={petsError} onRetry={loadProfile} />
           <PedigreesTab pets={pets} error={petsError} onRetry={loadProfile} />
-          <AboutTab currentUser={currentUser} onEdit={openEdit} />
+          <AboutTab currentUser={currentUser} onEdit={() => openEdit()} />
         </Tabs>
       </div>
 
       <EditProfileDialog
         open={isEditOpen}
         user={currentUser}
+        focusField={editFocus}
         saving={saving}
         onSave={handleSave}
         onDiscard={discardEdit}
