@@ -343,7 +343,7 @@ const Pedigree = () => {
       </section>
 
       <section className="container py-12">
-        <div className="grid gap-8 lg:grid-cols-[320px_1fr]">
+        <div className="grid grid-cols-1 gap-8 lg:grid-cols-[320px_minmax(0,1fr)]">
           {/* Filters */}
           <aside className="space-y-6 lg:sticky lg:top-24 lg:self-start">
             <Card className="overflow-hidden border-border/60 p-0 shadow-card">
@@ -439,18 +439,20 @@ const Pedigree = () => {
               className="space-y-6"
             >
               <div className="flex flex-wrap items-center justify-between gap-3">
-                <TabsList className="rounded-full bg-muted p-1">
-                  <TabsTrigger value="catalogo" className="rounded-full px-5">
+                {/* No celular a barra de abas rola na horizontal em vez de empurrar a página */}
+                <div className="-mx-1 max-w-full overflow-x-auto px-1">
+                <TabsList className="w-max rounded-full bg-muted p-1">
+                  <TabsTrigger value="catalogo" className="rounded-full px-3 text-xs sm:px-5 sm:text-sm">
                     <Sparkles className="mr-2 h-3.5 w-3.5" />
                     Catálogo Pedigree
                   </TabsTrigger>
-                  <TabsTrigger value="cadastro" className="rounded-full px-5">
+                  <TabsTrigger value="cadastro" className="rounded-full px-3 text-xs sm:px-5 sm:text-sm">
                     <FileCheck2 className="mr-2 h-3.5 w-3.5" />
                     Cadastrar / Editar
                   </TabsTrigger>
                   <TabsTrigger
                     value="solicitacoes"
-                    className="relative rounded-full px-5"
+                    className="relative rounded-full px-3 text-xs sm:px-5 sm:text-sm"
                   >
                     <GitBranch className="mr-2 h-3.5 w-3.5" />
                     Solicitações
@@ -464,6 +466,7 @@ const Pedigree = () => {
                     )}
                   </TabsTrigger>
                 </TabsList>
+                </div>
               </div>
 
               {/* Notification banner for pending requests */}
@@ -970,7 +973,7 @@ const DigitalCertificate = ({ dog, certificateUrl }) => {
       {/* decorative top stripe */}
       <div className="h-2 bg-gradient-to-r from-primary via-warm to-primary" />
 
-      <div className="relative grid gap-0 p-6 md:grid-cols-[1fr_280px] md:p-8">
+      <div className="relative grid gap-0 p-6 md:grid-cols-[minmax(0,1fr)_280px] md:p-8">
         <div className="space-y-5">
           {/* Header */}
           <div className="flex items-start justify-between gap-4 border-b-2 border-dashed border-border pb-5">

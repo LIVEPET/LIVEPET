@@ -1097,7 +1097,7 @@ const PetCard = () => {
           </Card>
 
           {/* GRID DE INFORMAÇÕES REAIS DO BANCO DE DADOS */}
-          <div className="mx-auto grid w-full max-w-5xl gap-6 md:grid-cols-2 lg:grid-cols-3">
+          <div className="mx-auto grid w-full max-w-5xl grid-cols-1 gap-6 md:grid-cols-2 lg:grid-cols-3">
             {/* 1. VACINAS VINCULADAS AO BANCO */}
             <InfoCard
               icon={<Syringe className="h-5 w-5" />}
@@ -1565,7 +1565,7 @@ const PetCard = () => {
             </TabsList>
 
             <TabsContent value="tree" className="pt-4">
-              <div className="grid gap-5 lg:grid-cols-[1fr_280px]">
+              <div className="grid grid-cols-1 gap-5 lg:grid-cols-[minmax(0,1fr)_280px]">
                 <div className="relative overflow-x-auto rounded-2xl border bg-gradient-to-b from-muted/30 to-background p-5">
                   <div className="relative mx-auto min-w-[640px]">
                     <div className="relative grid grid-cols-4 gap-3">
@@ -1895,7 +1895,7 @@ const PetCard = () => {
                   title="Dados Gerais"
                   icon={<User className="h-4 w-4" />}
                 >
-                  <div className="grid gap-3 sm:grid-cols-2">
+                  <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
                     <Field label="Telefone" value={selectedContact.phone} />
                     <Field label="Função" value={selectedContact.role} />
                     <Field
