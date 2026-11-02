@@ -9,6 +9,7 @@ import {
   CheckCircle2,
   Clock,
   Columns3,
+  FileBadge,
   FileText,
   Heart,
   LayoutList,
@@ -50,6 +51,7 @@ import { useClinic } from "@/contexts/ClinicContext";
 import { clinicService } from "@/services/api";
 import { formatPhone, isValidPhone } from "@/lib/phone";
 import { ComplementaryExamsSelector } from "./ClinicExams";
+import { ClinicalDocumentsDialog } from "./ClinicDocuments";
 import {
   hasPrescription,
   PrescriptionBuilder,
@@ -211,6 +213,7 @@ const ClinicSchedule = () => {
   const [examOpen, setExamOpen] = useState(false);
   const [activeExamApp, setActiveExamApp] = useState(null);
   const [prescriptionPreviewApp, setPrescriptionPreviewApp] = useState(null);
+  const [documentModalApp, setDocumentModalApp] = useState(null);
   const [examForm, setExamForm] = useState({
     priority: "Rotina",
     queixa_principal: "",
@@ -729,6 +732,15 @@ const ClinicSchedule = () => {
                   </div>
                   <div className="flex flex-wrap items-center gap-2">
                     <Badge className={`${statusStyles[a.status]} hover:opacity-90`}>{a.status}</Badge>
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      data-testid={`open-documents-${a.id}`}
+                      className="rounded-full gap-1.5 text-xs font-medium"
+                      onClick={() => setDocumentModalApp(a)}
+                    >
+                      <FileBadge className="h-3.5 w-3.5" /> Emitir Documento
+                    </Button>
                     {hasPrescription(a) && (
                       <Button
                         size="sm"
@@ -1203,6 +1215,25 @@ const ClinicSchedule = () => {
                 </div>
 
                 <div className="flex flex-col-reverse justify-end gap-2 pt-2 sm:flex-row">
+                  <Button
+                    type="button"
+                    variant="outline"
+                    className="gap-1.5"
+                    onClick={() =>
+                      setDocumentModalApp({
+                        ...activeExamApp,
+                        temperatura: examForm.temperatura || activeExamApp.temperatura,
+                        peso: examForm.peso || activeExamApp.peso,
+                        frequencia_cardiaca: examForm.frequencia_cardiaca || activeExamApp.frequencia_cardiaca,
+                        frequencia_respiratoria:
+                          examForm.frequencia_respiratoria || activeExamApp.frequencia_respiratoria,
+                        mucosas: examForm.mucosas || activeExamApp.mucosas,
+                        diagnostico: examForm.diagnostico || activeExamApp.diagnostico,
+                      })
+                    }
+                  >
+                    <FileBadge className="h-4 w-4 text-primary" /> Emitir Atestado / Termo / Declaração
+                  </Button>
                   <Button type="button" variant="outline" onClick={() => setExamOpen(false)}>
                     Fechar
                   </Button>
@@ -1217,6 +1248,13 @@ const ClinicSchedule = () => {
       </Dialog>
 
       {/* Modal de Pré-visualização de Receituário Veterinário Timbrado */}
+      <ClinicalDocumentsDialog
+        open={Boolean(documentModalApp)}
+        onOpenChange={(o) => !o && setDocumentModalApp(null)}
+        appointment={documentModalApp}
+        appointments={list}
+        profile={profile}
+      />
       <PrescriptionSheetDialog
         open={Boolean(prescriptionPreviewApp)}
         onOpenChange={(o) => !o && setPrescriptionPreviewApp(null)}

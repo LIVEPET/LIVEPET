@@ -4,6 +4,7 @@ import {
   AlertTriangle,
   CheckCircle2,
   Edit3,
+  FileBadge,
   FileText,
   Link2,
   PawPrint,
@@ -48,6 +49,7 @@ import { useClinic } from "@/contexts/ClinicContext";
 import { clinicService } from "@/services/api";
 import { ECC_OPTIONS, buildVitals, normalizeEcc } from "@/lib/clinicVitals";
 import { PatientExamsSection } from "./ClinicExams";
+import { ClinicalDocumentsDialog } from "./ClinicDocuments";
 import {
   AlertsBanner,
   BodyConditionScale,
@@ -73,7 +75,8 @@ const PatientPhoto = ({ patient, className, iconClassName }) =>
 
 const ClinicPatients = () => {
   const navigate = useNavigate();
-  const { patients, appointments, updatePatient, deletePatient, linkPatientWithLivePet, updateAppointmentExam } = useClinic();
+  const { patients, appointments, profile, updatePatient, deletePatient, linkPatientWithLivePet, updateAppointmentExam } = useClinic();
+  const [documentPatient, setDocumentPatient] = useState(null);
   const [query, setQuery] = useState("");
   const [species, setSpecies] = useState("Todos");
   const [breed, setBreed] = useState("Todas");
@@ -512,6 +515,16 @@ const ClinicPatients = () => {
                 </Tabs>
 
                 <Button
+                  type="button"
+                  variant="outline"
+                  data-testid="open-patient-documents-btn"
+                  onClick={() => setDocumentPatient(selected)}
+                  className="w-full rounded-full gap-2 border-primary/40 text-primary hover:bg-primary-soft"
+                >
+                  <FileBadge className="h-4 w-4" /> Emitir Atestado / Termo / Declaração
+                </Button>
+
+                <Button
                   onClick={() => {
                     navigate("/clinica/agenda", {
                       state: {
@@ -537,6 +550,13 @@ const ClinicPatients = () => {
       </Sheet>
 
       {/* Modal de Edição de Dados do Paciente e Tutor */}
+      <ClinicalDocumentsDialog
+        open={Boolean(documentPatient)}
+        onOpenChange={(o) => !o && setDocumentPatient(null)}
+        patient={documentPatient}
+        appointments={appointments}
+        profile={profile}
+      />
       <Dialog open={editOpen} onOpenChange={setEditOpen}>
         <DialogContent className="max-h-[90vh] max-w-lg overflow-y-auto">
           <DialogHeader>
