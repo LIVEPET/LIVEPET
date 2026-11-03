@@ -72,6 +72,7 @@ const sanitizePatient = (patient) => ({
   ...patient,
   alerts: asArray(patient.alerts),
   history: asArray(patient.history),
+  vaccines: asArray(patient.vaccines),
 });
 
 const isDemoOccupant = (occ) =>
@@ -141,6 +142,7 @@ const patientFromAppointment = (appointment) => ({
   photo: null,
   alerts: [],
   vaccinesUpToDate: null,
+  vaccines: [],
   lastVisit: "—",
   history: [],
 });
@@ -504,12 +506,26 @@ const saveProfile = useCallback((fields) => {
           "Atendimento concluído",
       };
 
+      const appliedVaccineEntry = conclusion.vacina_aplicada
+        ? {
+            id: newId(),
+            nome: conclusion.vacina_aplicada,
+            lote: conclusion.vacina_lote || "—",
+            data_aplicacao: app.date || getToday(),
+            proxima_dose: conclusion.vacina_proxima_dose || null,
+            veterinario: app.vet || "Clínica",
+            tipo: "atendimento",
+          }
+        : null;
+
       const updatedPatients = current.patients.map((p) => {
         if (isSamePatient(p, app)) {
+          const existingVaccines = asArray(p.vaccines);
           return {
             ...p,
             weight: conclusion.peso ? `${conclusion.peso} kg` : p.weight,
             vaccinesUpToDate: conclusion.vacina_aplicada ? true : p.vaccinesUpToDate,
+            vaccines: appliedVaccineEntry ? [appliedVaccineEntry, ...existingVaccines] : existingVaccines,
             history: [historyItem, ...p.history.filter((h) => !(h.date === app.date && h.type === app.service))],
           };
         }
@@ -530,6 +546,37 @@ const saveProfile = useCallback((fields) => {
     } catch {
       // Modo offline
     }
+  }, []);
+
+  const addPatientVaccine = useCallback((patientId, vaccine) => {
+    setData((current) => {
+      const target = current.patients.find((p) => String(p.id) === String(patientId));
+      if (!target) return current;
+
+      const newEntry = {
+        id: newId(),
+        nome: String(vaccine.nome || vaccine.name || "").trim(),
+        lote: String(vaccine.lote || vaccine.lot || "").trim() || "—",
+        data_aplicacao: vaccine.data_aplicacao || getToday(),
+        proxima_dose: vaccine.proxima_dose || null,
+        veterinario: String(vaccine.veterinario || vaccine.vet || "").trim() || "Histórico Pregresso",
+        tipo: "pregressa",
+      };
+
+      const updatedVaccines = [newEntry, ...asArray(target.vaccines)];
+      const updatedPatient = {
+        ...target,
+        vaccines: updatedVaccines,
+        vaccinesUpToDate: true,
+      };
+
+      return {
+        ...current,
+        patients: current.patients.map((p) =>
+          String(p.id) === String(patientId) ? updatedPatient : p,
+        ),
+      };
+    });
   }, []);
 
   const linkPatientWithLivePet = useCallback(async (patientId, petIdentifier, message) => {
@@ -678,6 +725,7 @@ const saveProfile = useCallback((fields) => {
       updatePatient,
       deletePatient,
       concludeAppointment,
+      addPatientVaccine,
       linkPatientWithLivePet,
       admitPatientToBed,
       addBedEvolution,
@@ -696,6 +744,7 @@ const saveProfile = useCallback((fields) => {
       updatePatient,
       deletePatient,
       concludeAppointment,
+      addPatientVaccine,
       linkPatientWithLivePet,
       admitPatientToBed,
       addBedEvolution,
@@ -725,6 +774,7 @@ export const useClinic = () => {
       addPatient: () => {},
       updatePatient: () => {},
       deletePatient: () => {},
+      addPatientVaccine: () => {},
       updateBed: () => {},
     };
   }
