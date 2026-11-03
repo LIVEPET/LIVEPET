@@ -57,6 +57,15 @@ import {
   PrescriptionBuilder,
   PrescriptionSheetDialog,
 } from "./ClinicPrescription";
+import { AppointmentBillingSection } from "./AppointmentBillingSection";
+import { ClinicReceiptDialog } from "./ClinicReceiptDialog";
+import {
+  PAYMENT_STATUS,
+  calculateAppointmentTotal,
+  findServicePrice,
+  formatCurrency,
+} from "@/lib/clinicBilling";
+import { Receipt } from "lucide-react";
 
 const filters = ["Todos", "Confirmado", "Aguardando", "Em atendimento", "Concluído", "Cancelado"];
 const DEFAULT_SPECIES = ["Cão", "Gato", "Ave", "Roedor", "Réptil", "Outro"];
@@ -213,6 +222,7 @@ const ClinicSchedule = () => {
   const [examOpen, setExamOpen] = useState(false);
   const [activeExamApp, setActiveExamApp] = useState(null);
   const [prescriptionPreviewApp, setPrescriptionPreviewApp] = useState(null);
+  const [receiptApp, setReceiptApp] = useState(null);
   const [documentModalApp, setDocumentModalApp] = useState(null);
   const [examForm, setExamForm] = useState({
     priority: "Rotina",
@@ -304,6 +314,11 @@ const ClinicSchedule = () => {
       vacina_aplicada: a.vacina_aplicada || "",
       vacina_lote: a.vacina_lote || "",
       vacina_proxima_dose: a.vacina_proxima_dose || "",
+      valor_servico: a.valor_servico != null ? Number(a.valor_servico) : (findServicePrice(a.service, profile.services) || 0),
+      itens_adicionais: Array.isArray(a.itens_adicionais) ? a.itens_adicionais : [],
+      desconto: a.desconto != null ? Number(a.desconto) : 0,
+      status_pagamento: a.status_pagamento || PAYMENT_STATUS.PAID,
+      forma_pagamento: a.forma_pagamento || "PIX",
     });
 
     if (a.status === "Confirmado" || a.status === "Aguardando") {
@@ -355,6 +370,16 @@ const ClinicSchedule = () => {
       vacina_aplicada: examForm.applyVaccine && examForm.vacina_aplicada.trim() ? examForm.vacina_aplicada.trim() : null,
       vacina_lote: examForm.applyVaccine && examForm.vacina_lote.trim() ? examForm.vacina_lote.trim() : null,
       vacina_proxima_dose: examForm.applyVaccine && examForm.vacina_proxima_dose ? examForm.vacina_proxima_dose : null,
+      valor_servico: Number(examForm.valor_servico) || 0,
+      itens_adicionais: Array.isArray(examForm.itens_adicionais) ? examForm.itens_adicionais : [],
+      desconto: Number(examForm.desconto) || 0,
+      valor_total: calculateAppointmentTotal({
+        basePrice: examForm.valor_servico,
+        extraItems: examForm.itens_adicionais,
+        discount: examForm.desconto,
+      }),
+      status_pagamento: examForm.status_pagamento || PAYMENT_STATUS.PAID,
+      forma_pagamento: examForm.forma_pagamento || "PIX",
     };
 
     concludeAppointment(activeExamApp.id, payload);
@@ -406,6 +431,10 @@ const ClinicSchedule = () => {
       tutor: form.tutor.trim(),
       phone: formatPhone(form.phone),
       service: form.service.trim(),
+      valor_servico: findServicePrice(form.service, profile.services) || 0,
+      valor_total: findServicePrice(form.service, profile.services) || 0,
+      status_pagamento: PAYMENT_STATUS.PENDING,
+      forma_pagamento: "PIX",
       vet: form.vet || DEFAULT_VET,
       priority: form.priority || "Rotina",
       notes: form.notes.trim() || "",
@@ -731,7 +760,33 @@ const ClinicSchedule = () => {
                     </p>
                   </div>
                   <div className="flex flex-wrap items-center gap-2">
+                    {(a.valor_total != null || a.valor_servico != null) && (
+                      <Badge variant="outline" className="text-xs font-semibold text-primary border-primary/30">
+                        {formatCurrency(a.valor_total ?? a.valor_servico)}
+                      </Badge>
+                    )}
+                    {a.status_pagamento && (
+                      <Badge
+                        variant="outline"
+                        className={`text-xs ${
+                          a.status_pagamento === "Pago"
+                            ? "bg-emerald-500/10 text-emerald-700 dark:text-emerald-400 border-emerald-500/30"
+                            : "bg-amber-500/10 text-amber-700 dark:text-amber-400 border-amber-500/30"
+                        }`}
+                      >
+                        {a.status_pagamento === "Pago" ? "Pago" : "Pendente"}
+                      </Badge>
+                    )}
                     <Badge className={`${statusStyles[a.status]} hover:opacity-90`}>{a.status}</Badge>
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      data-testid={`btn-receipt-${a.id}`}
+                      className="rounded-full gap-1.5 text-xs font-medium border-primary/30 text-primary hover:bg-primary-soft"
+                      onClick={() => setReceiptApp(a)}
+                    >
+                      <Receipt className="h-3.5 w-3.5" /> Recibo
+                    </Button>
                     <Button
                       size="sm"
                       variant="outline"
@@ -887,6 +942,24 @@ const ClinicSchedule = () => {
                             </p>
                           )}
 
+                          {(a.valor_total != null || a.valor_servico != null) && (
+                            <div className="flex items-center justify-between text-xs py-1 border-t border-border/40">
+                              <span className="font-semibold text-foreground">
+                                {formatCurrency(a.valor_total ?? a.valor_servico)}
+                              </span>
+                              <Badge
+                                variant="outline"
+                                className={`text-[10px] px-1.5 py-0 h-4 ${
+                                  a.status_pagamento === "Pago"
+                                    ? "bg-emerald-500/10 text-emerald-700 dark:text-emerald-400 border-emerald-500/30"
+                                    : "bg-amber-500/10 text-amber-700 dark:text-amber-400 border-amber-500/30"
+                                }`}
+                              >
+                                {a.status_pagamento === "Pago" ? "Pago" : "Pendente"}
+                              </Badge>
+                            </div>
+                          )}
+
                           <div className="flex flex-wrap items-center justify-between gap-2 border-t border-border/60 pt-2.5">
                             {hasPrescription(a) && (
                               <Button
@@ -940,14 +1013,25 @@ const ClinicSchedule = () => {
                             )}
 
                             {col.id === "done" && (
-                              <Button
-                                size="sm"
-                                variant="outline"
-                                className="h-8 w-full rounded-full gap-1 text-xs"
-                                onClick={() => handleOpenExam(a)}
-                              >
-                                <Stethoscope className="h-3 w-3" /> Ver Prontuário
-                              </Button>
+                              <div className="flex gap-1.5 w-full">
+                                <Button
+                                  size="sm"
+                                  variant="outline"
+                                  className="h-8 flex-1 rounded-full gap-1 text-xs"
+                                  onClick={() => handleOpenExam(a)}
+                                >
+                                  <Stethoscope className="h-3 w-3" /> Prontuário
+                                </Button>
+                                <Button
+                                  size="sm"
+                                  variant="outline"
+                                  data-testid={`btn-receipt-kanban-${a.id}`}
+                                  className="h-8 flex-1 rounded-full gap-1 text-xs border-primary/30 text-primary hover:bg-primary-soft"
+                                  onClick={() => setReceiptApp(a)}
+                                >
+                                  <Receipt className="h-3 w-3" /> Recibo
+                                </Button>
+                              </div>
                             )}
                           </div>
                         </CardContent>
@@ -1214,6 +1298,21 @@ const ClinicSchedule = () => {
                   )}
                 </div>
 
+                {/* 5. Orçamento, Procedimentos Extras & Pagamento (Issue #133) */}
+                <AppointmentBillingSection
+                  serviceName={activeExamApp.service}
+                  basePrice={examForm.valor_servico}
+                  onChangeBasePrice={(v) => setExamForm((f) => ({ ...f, valor_servico: v }))}
+                  extraItems={examForm.itens_adicionais}
+                  onChangeExtraItems={(items) => setExamForm((f) => ({ ...f, itens_adicionais: items }))}
+                  discount={examForm.desconto}
+                  onChangeDiscount={(d) => setExamForm((f) => ({ ...f, desconto: d }))}
+                  paymentStatus={examForm.status_pagamento}
+                  onChangePaymentStatus={(st) => setExamForm((f) => ({ ...f, status_pagamento: st }))}
+                  paymentMethod={examForm.forma_pagamento}
+                  onChangePaymentMethod={(m) => setExamForm((f) => ({ ...f, forma_pagamento: m }))}
+                />
+
                 <div className="flex flex-col-reverse justify-end gap-2 pt-2 sm:flex-row">
                   <Button
                     type="button"
@@ -1259,6 +1358,12 @@ const ClinicSchedule = () => {
         open={Boolean(prescriptionPreviewApp)}
         onOpenChange={(o) => !o && setPrescriptionPreviewApp(null)}
         appointment={prescriptionPreviewApp}
+        profile={profile}
+      />
+      <ClinicReceiptDialog
+        open={Boolean(receiptApp)}
+        onOpenChange={(o) => !o && setReceiptApp(null)}
+        appointment={receiptApp}
         profile={profile}
       />
     </div>
