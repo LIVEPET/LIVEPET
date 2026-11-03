@@ -419,6 +419,15 @@ const saveProfile = useCallback((fields) => {
     }));
   }, []);
 
+  const updateAppointmentPayment = useCallback((id, paymentData) => {
+    setData((current) => ({
+      ...current,
+      appointments: current.appointments.map((a) =>
+        a.id === id ? { ...a, ...paymentData } : a,
+      ),
+    }));
+  }, []);
+
   const updatePatient = useCallback((patientId, fields) => {
     setData((current) => {
       const target = current.patients.find((p) => String(p.id) === String(patientId));
@@ -674,6 +683,7 @@ const saveProfile = useCallback((fields) => {
       addAppointment,
       updateAppointmentStatus,
       updateAppointmentPriority,
+      updateAppointmentPayment,
       updateAppointmentExam,
       updatePatient,
       deletePatient,
@@ -692,6 +702,7 @@ const saveProfile = useCallback((fields) => {
       addAppointment,
       updateAppointmentStatus,
       updateAppointmentPriority,
+      updateAppointmentPayment,
       updateAppointmentExam,
       updatePatient,
       deletePatient,
@@ -721,6 +732,7 @@ export const useClinic = () => {
       refreshData: async () => {},
       addAppointment: () => {},
       updateAppointmentStatus: () => {},
+      updateAppointmentPayment: () => {},
       cancelAppointment: () => {},
       addPatient: () => {},
       updatePatient: () => {},

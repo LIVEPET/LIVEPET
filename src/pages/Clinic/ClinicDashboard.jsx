@@ -6,12 +6,14 @@ import {
   BarChart3,
   CalendarDays,
   CheckCircle2,
+  CircleDollarSign,
   Clock,
   PawPrint,
   PieChart as PieChartIcon,
   Syringe,
   TrendingUp,
 } from "lucide-react";
+import { computeClinicRevenue, formatCurrency } from "@/lib/clinicBilling";
 import {
   Bar,
   BarChart,
@@ -245,6 +247,9 @@ export const computeDashboardMetrics = (appointments = [], patients = []) => {
     byWeekday,
     bySpecies,
     byService,
+    totalRevenue: computeClinicRevenue(appointments).totalRevenue,
+    paidCount: computeClinicRevenue(appointments).paidCount,
+    pendingCount: computeClinicRevenue(appointments).pendingCount,
   };
 };
 
@@ -259,6 +264,13 @@ const ClinicDashboard = () => {
   );
 
   const kpis = [
+    {
+      testId: "kpi-revenue",
+      label: "Receita acumulada",
+      value: formatCurrency(metrics.totalRevenue),
+      icon: CircleDollarSign,
+      hint: `${metrics.paidCount} atendimento(s) quitado(s)`,
+    },
     {
       testId: "kpi-appointments",
       label: "Atendimentos hoje",
@@ -332,7 +344,7 @@ const ClinicDashboard = () => {
       </div>
 
       {/* KPIs Dinâmicos do Topo */}
-      <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5">
         {kpis.map(({ testId, label, value, icon: Icon, hint }) => (
           <Card
             key={label}
