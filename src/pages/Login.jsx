@@ -59,7 +59,8 @@ const Login = () => {
     }
     const parsed = credSchema.safeParse({ email, password });
     if (!parsed.success) {
-      toast.error(parsed.error.errors[0].message);
+      // zod 4: `error.errors` foi removido e virou `error.issues`.
+      toast.error(parsed.error.issues[0].message);
       return;
     }
     setLoading(true);
