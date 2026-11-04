@@ -173,3 +173,60 @@ def test_exige_login(client, mel, thor):
         json={"pet_destino_id": thor.id, "acao": "like"},
     )
     assert res.status_code == 401
+
+
+def test_desfazer_remove_a_acao_e_o_match(
+    client, db_session, tutor_ana, tutor_bruno, mel, thor
+):
+    swipe(client, tutor_ana, mel, thor.id, "like")
+
+    res = client.delete(
+        f"/api/v1/pets/{mel.id}/swipes/{thor.id}", headers=auth(tutor_ana)
+    )
+    assert res.status_code == 204
+
+    linhas = db_session.query(PetSwipe).filter(PetSwipe.pet_origem_id == mel.id).all()
+    assert linhas == []
+
+    # Sem a curtida da Mel, o Thor curtir a Mel não gera match
+    res = swipe(client, tutor_bruno, thor, mel.id, "like")
+    assert res.json()["match"] is False
+
+
+def test_desfazer_acao_inexistente(client, tutor_ana, mel, thor):
+    res = client.delete(
+        f"/api/v1/pets/{mel.id}/swipes/{thor.id}", headers=auth(tutor_ana)
+    )
+    assert res.status_code == 404
+
+
+def test_desfazer_exige_pet_do_usuario(client, tutor_ana, tutor_bruno, mel, thor):
+    swipe(client, tutor_ana, mel, thor.id, "like")
+
+    # O Bruno tenta desfazer usando a Mel, que é da Ana
+    res = client.delete(
+        f"/api/v1/pets/{mel.id}/swipes/{thor.id}", headers=auth(tutor_bruno)
+    )
+    assert res.status_code == 403
+
+
+def test_reiniciar_apaga_so_o_historico_do_pet(
+    client, db_session, tutor_ana, mel, mel_2, thor
+):
+    swipe(client, tutor_ana, mel, thor.id, "like")
+    swipe(client, tutor_ana, mel_2, thor.id, "like")
+
+    res = client.delete(f"/api/v1/pets/{mel.id}/swipes", headers=auth(tutor_ana))
+    assert res.status_code == 204
+
+    da_mel = db_session.query(PetSwipe).filter(PetSwipe.pet_origem_id == mel.id).all()
+    da_luna = (
+        db_session.query(PetSwipe).filter(PetSwipe.pet_origem_id == mel_2.id).all()
+    )
+    assert da_mel == []
+    assert len(da_luna) == 1
+
+
+def test_reiniciar_exige_pet_do_usuario(client, tutor_bruno, mel):
+    res = client.delete(f"/api/v1/pets/{mel.id}/swipes", headers=auth(tutor_bruno))
+    assert res.status_code == 403

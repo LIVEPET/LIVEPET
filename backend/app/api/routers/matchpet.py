@@ -105,3 +105,54 @@ def registrar_swipe(
         match=houve_match,
         criado_em=swipe.criado_em,
     )
+
+
+@router.delete(
+    "/pets/{pet_id}/swipes/{pet_destino_id}",
+    status_code=status.HTTP_204_NO_CONTENT,
+    summary="Desfazer a ação de um pet sobre outro",
+)
+def desfazer_swipe(
+    pet_id: int,
+    pet_destino_id: int,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    """Remove a ação (like, super_like ou pass) do pet sobre o pet de destino."""
+    pet_origem = get_pet_do_usuario(db, pet_id, current_user)
+
+    swipe = (
+        db.query(PetSwipe)
+        .filter(
+            PetSwipe.pet_origem_id == pet_origem.id,
+            PetSwipe.pet_destino_id == pet_destino_id,
+        )
+        .first()
+    )
+    if not swipe:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Nenhuma ação registrada sobre esse pet.",
+        )
+
+    db.delete(swipe)
+    db.commit()
+
+
+@router.delete(
+    "/pets/{pet_id}/swipes",
+    status_code=status.HTTP_204_NO_CONTENT,
+    summary="Reiniciar o histórico de ações de um pet",
+)
+def reiniciar_historico(
+    pet_id: int,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    """Apaga todas as ações feitas por esse pet (não afeta as de outros pets)."""
+    pet_origem = get_pet_do_usuario(db, pet_id, current_user)
+
+    db.query(PetSwipe).filter(PetSwipe.pet_origem_id == pet_origem.id).delete(
+        synchronize_session=False
+    )
+    db.commit()
