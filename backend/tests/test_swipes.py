@@ -230,3 +230,71 @@ def test_reiniciar_apaga_so_o_historico_do_pet(
 def test_reiniciar_exige_pet_do_usuario(client, tutor_bruno, mel):
     res = client.delete(f"/api/v1/pets/{mel.id}/swipes", headers=auth(tutor_bruno))
     assert res.status_code == 403
+
+
+def test_listar_vistos(client, db_session, tutor_ana, tutor_bruno, mel, thor):
+    rex = criar_pet(db_session, tutor_bruno, "Rex")
+    swipe(client, tutor_ana, mel, thor.id, "like")
+    swipe(client, tutor_ana, mel, rex.id, "pass")
+
+    res = client.get(f"/api/v1/pets/{mel.id}/swipes", headers=auth(tutor_ana))
+    assert res.status_code == 200
+    vistos = {item["pet_destino_id"]: item["acao"] for item in res.json()}
+    assert vistos == {thor.id: "like", rex.id: "pass"}
+
+
+def test_listar_vistos_vazio(client, tutor_ana, mel):
+    res = client.get(f"/api/v1/pets/{mel.id}/swipes", headers=auth(tutor_ana))
+    assert res.status_code == 200
+    assert res.json() == []
+
+
+def test_listar_vistos_exige_pet_do_usuario(client, tutor_bruno, mel):
+    res = client.get(f"/api/v1/pets/{mel.id}/swipes", headers=auth(tutor_bruno))
+    assert res.status_code == 403
+
+
+def test_listar_matches_com_contato_do_tutor(
+    client, db_session, tutor_ana, tutor_bruno, mel, thor
+):
+    tutor_bruno.telefone = "11999999999"
+    db_session.commit()
+
+    swipe(client, tutor_ana, mel, thor.id, "like")
+    swipe(client, tutor_bruno, thor, mel.id, "super_like")
+
+    res = client.get(f"/api/v1/pets/{mel.id}/matches", headers=auth(tutor_ana))
+    assert res.status_code == 200
+    dados = res.json()
+    assert len(dados) == 1
+    assert dados[0]["pet_id"] == thor.id
+    assert dados[0]["nome"] == "Thor"
+    assert dados[0]["tutor_nome"] == "Bruno"
+    assert dados[0]["tutor_telefone"] == "11999999999"
+
+    # O match também aparece do outro lado
+    res = client.get(f"/api/v1/pets/{thor.id}/matches", headers=auth(tutor_bruno))
+    assert [m["pet_id"] for m in res.json()] == [mel.id]
+
+
+def test_curtida_sem_retorno_nao_e_match(client, tutor_ana, mel, thor):
+    swipe(client, tutor_ana, mel, thor.id, "like")
+
+    res = client.get(f"/api/v1/pets/{mel.id}/matches", headers=auth(tutor_ana))
+    assert res.status_code == 200
+    assert res.json() == []
+
+
+def test_passar_nao_gera_match_na_lista(
+    client, tutor_ana, tutor_bruno, mel, thor
+):
+    swipe(client, tutor_ana, mel, thor.id, "like")
+    swipe(client, tutor_bruno, thor, mel.id, "pass")
+
+    res = client.get(f"/api/v1/pets/{mel.id}/matches", headers=auth(tutor_ana))
+    assert res.json() == []
+
+
+def test_listar_matches_exige_pet_do_usuario(client, tutor_bruno, mel):
+    res = client.get(f"/api/v1/pets/{mel.id}/matches", headers=auth(tutor_bruno))
+    assert res.status_code == 403

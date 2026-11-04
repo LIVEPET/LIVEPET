@@ -1,5 +1,6 @@
 from datetime import datetime
-from pydantic import BaseModel, Field
+from typing import Optional
+from pydantic import BaseModel, ConfigDict, Field
 
 
 class SwipeCreate(BaseModel):
@@ -19,3 +20,25 @@ class SwipeResponse(BaseModel):
     acao: str
     match: bool
     criado_em: datetime
+
+
+class SwipeItem(BaseModel):
+    """Item da lista de pets já vistos por um pet."""
+    pet_destino_id: int
+    acao: str
+    criado_em: datetime
+
+    model_config = ConfigDict(from_attributes=True)
+
+
+class MatchResponse(BaseModel):
+    """Pet com match mútuo, com os dados de contato do tutor."""
+    pet_id: int
+    nome: str
+    especie: str
+    raca: Optional[str] = None
+    foto_url: Optional[str] = None
+    tutor_id: int
+    tutor_nome: str
+    tutor_cidade: Optional[str] = None
+    tutor_telefone: Optional[str] = None

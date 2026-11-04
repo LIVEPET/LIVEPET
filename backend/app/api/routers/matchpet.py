@@ -1,3 +1,4 @@
+from typing import List
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.orm import Session
 
@@ -6,7 +7,7 @@ from app.core.database import get_db
 from app.models.pet import Pet
 from app.models.pet_swipe import PetSwipe
 from app.models.user import User
-from app.schemas.pet_swipe import SwipeCreate, SwipeResponse
+from app.schemas.pet_swipe import MatchResponse, SwipeCreate, SwipeItem, SwipeResponse
 
 
 router = APIRouter(tags=["MatchPet"])
@@ -156,3 +157,78 @@ def reiniciar_historico(
         synchronize_session=False
     )
     db.commit()
+
+
+@router.get(
+    "/pets/{pet_id}/swipes",
+    response_model=List[SwipeItem],
+    summary="Listar os pets já vistos por um pet",
+)
+def listar_swipes(
+    pet_id: int,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    """Lista as ações do pet, da mais recente à mais antiga."""
+    pet_origem = get_pet_do_usuario(db, pet_id, current_user)
+
+    return (
+        db.query(PetSwipe)
+        .filter(PetSwipe.pet_origem_id == pet_origem.id)
+        .order_by(PetSwipe.criado_em.desc(), PetSwipe.id.desc())
+        .all()
+    )
+
+
+@router.get(
+    "/pets/{pet_id}/matches",
+    response_model=List[MatchResponse],
+    summary="Listar os pets com match",
+)
+def listar_matches(
+    pet_id: int,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    """
+    Lista os pets com match: os que o pet curtiu e que também o curtiram.
+    Os dados de contato do tutor só aparecem aqui, para pets com match.
+    """
+    pet = get_pet_do_usuario(db, pet_id, current_user)
+
+    ids_que_curti = [
+        linha.pet_destino_id
+        for linha in db.query(PetSwipe.pet_destino_id).filter(
+            PetSwipe.pet_origem_id == pet.id,
+            PetSwipe.acao.in_(ACOES_POSITIVAS),
+        )
+    ]
+    if not ids_que_curti:
+        return []
+
+    pets_com_match = (
+        db.query(Pet)
+        .join(PetSwipe, PetSwipe.pet_origem_id == Pet.id)
+        .filter(
+            PetSwipe.pet_destino_id == pet.id,
+            PetSwipe.acao.in_(ACOES_POSITIVAS),
+            Pet.id.in_(ids_que_curti),
+        )
+        .order_by(Pet.id)
+        .all()
+    )
+
+    return [
+        MatchResponse(
+            pet_id=p.id,
+            nome=p.nome,
+            especie=p.especie,
+            raca=p.raca,
+            foto_url=p.foto_url,
+            tutor_id=p.tutor.id,
+            tutor_nome=p.tutor.nome,
+            tutor_cidade=p.tutor.cidade,
+            tutor_telefone=p.tutor.telefone,
+        )
+        for p in pets_com_match
+    ]
