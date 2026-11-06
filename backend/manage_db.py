@@ -83,6 +83,46 @@ def execute_sql_file(file_path: str):
 from app.core.database import SessionLocal
 from app.core.security import get_password_hash
 from app.models.clinic import Clinic
+from app.models.user import User
+
+
+_FICTITIOUS_USER_EMAILS = (
+    "usuarioteste@livepet.com.br",
+    "professor.artur@livepet.com.br",
+    "joao.victor@livepet.com.br",
+)
+_FICTITIOUS_CLINIC_EMAIL = "clinica@livepet.com.br"
+
+
+def limpar_ficticios(session_factory=None):
+    """Remove contas fictícias e seus registros dependentes do banco configurado."""
+    db = (session_factory or SessionLocal)()
+    try:
+        users = db.query(User).filter(User.email.in_(_FICTITIOUS_USER_EMAILS)).all()
+        clinics = db.query(Clinic).filter(
+            Clinic.email == _FICTITIOUS_CLINIC_EMAIL
+        ).all()
+        deleted_counts = {
+            "tutores": len(users),
+            "pets": sum(len(user.pets) for user in users),
+            "clinicas": len(clinics),
+        }
+
+        for user in users:
+            db.delete(user)
+        for clinic in clinics:
+            db.delete(clinic)
+        db.commit()
+    except Exception:
+        db.rollback()
+        raise
+    finally:
+        db.close()
+
+    print(f"Tutores removidos: {deleted_counts['tutores']}")
+    print(f"Pets removidos em cascata: {deleted_counts['pets']}")
+    print(f"Clínicas removidas: {deleted_counts['clinicas']}")
+    return deleted_counts
 
 
 def seed_test_clinic(
@@ -165,7 +205,7 @@ def sync_db_schema():
     list_tables()
 
 
-if __name__ == "__main__":
+def main():
     if len(sys.argv) < 2:
         print("Uso:")
         print("  python manage_db.py test           - Testa a conexão com o banco (Neon/SQLite)")
@@ -173,6 +213,7 @@ if __name__ == "__main__":
         print("  python manage_db.py sync           - Sincroniza tabelas e novas colunas com o ORM")
         print("  python manage_db.py create         - Cria tabelas novas via SQLAlchemy ORM")
         print("  python manage_db.py seed           - Cria usuário de teste para clínica")
+        print("  python manage_db.py limpar-ficticios - Remove contas e dados fictícios")
         print("  python manage_db.py run-sql <file> - Executa um arquivo .sql")
         sys.exit(0)
 
@@ -187,6 +228,8 @@ if __name__ == "__main__":
         create_all_tables()
     elif cmd == "seed":
         seed_test_clinic()
+    elif cmd == "limpar-ficticios":
+        limpar_ficticios()
     elif cmd == "run-sql":
         if len(sys.argv) < 3:
             print("❌ Informe o caminho do arquivo .sql")
@@ -195,3 +238,6 @@ if __name__ == "__main__":
     else:
         print(f"❌ Comando desconhecido: {cmd}")
 
+
+if __name__ == "__main__":
+    main()
