@@ -66,13 +66,14 @@ beforeAll(stubRadixForJsdom);
 beforeEach(() => localStorage.clear());
 
 describe("prontuário do paciente", () => {
-  it("organiza o prontuário em três abas", async () => {
+  it("organiza o prontuário em quatro abas", async () => {
     seed({ patients: [patient()], appointments: THOR_APPOINTMENTS });
     const sheet = await openRecord();
 
-    expect(within(sheet).getByRole("tab", { name: /Resumo & Sinais Vitais/ })).toHaveAttribute("aria-selected", "true");
-    expect(within(sheet).getByRole("tab", { name: "Evolução de Peso" })).toBeTruthy();
-    expect(within(sheet).getByRole("tab", { name: "Histórico Clínico" })).toBeTruthy();
+    expect(within(sheet).getByRole("tab", { name: "Resumo" })).toHaveAttribute("aria-selected", "true");
+    expect(within(sheet).getByRole("tab", { name: "Vacinas" })).toBeTruthy();
+    expect(within(sheet).getByRole("tab", { name: "Peso" })).toBeTruthy();
+    expect(within(sheet).getByRole("tab", { name: "Histórico" })).toBeTruthy();
   });
 
   it("destaca alergias e alertas no topo, em banner de atenção", async () => {
@@ -155,7 +156,7 @@ describe("prontuário do paciente", () => {
     seed({ patients: [patient()], appointments: THOR_APPOINTMENTS });
     const sheet = await openRecord();
 
-    await userEvent.click(within(sheet).getByRole("tab", { name: "Evolução de Peso" }));
+    await userEvent.click(within(sheet).getByRole("tab", { name: "Peso" }));
 
     expect(
       await within(sheet).findByRole("img", {
@@ -174,7 +175,7 @@ describe("prontuário do paciente", () => {
     seed({ patients: [patient()], appointments: [THOR_APPOINTMENTS[0]] });
     const sheet = await openRecord();
 
-    await userEvent.click(within(sheet).getByRole("tab", { name: "Evolução de Peso" }));
+    await userEvent.click(within(sheet).getByRole("tab", { name: "Peso" }));
     expect(await within(sheet).findByText(/ao menos duas pesagens/)).toBeTruthy();
     expect(within(sheet).getByRole("table")).toBeTruthy();
   });
@@ -183,7 +184,7 @@ describe("prontuário do paciente", () => {
     seed({ patients: [patient({ weight: "—" })] });
     const sheet = await openRecord();
 
-    await userEvent.click(within(sheet).getByRole("tab", { name: "Evolução de Peso" }));
+    await userEvent.click(within(sheet).getByRole("tab", { name: "Peso" }));
     expect(await within(sheet).findByText(/Nenhuma pesagem registrada/)).toBeTruthy();
     expect(within(sheet).queryByRole("table")).toBeNull();
   });
@@ -192,7 +193,7 @@ describe("prontuário do paciente", () => {
     seed({ patients: [patient()] });
     const sheet = await openRecord();
 
-    await userEvent.click(within(sheet).getByRole("tab", { name: "Histórico Clínico" }));
+    await userEvent.click(within(sheet).getByRole("tab", { name: "Histórico" }));
     expect(await within(sheet).findByText("Controle de rotina")).toBeTruthy();
   });
 
@@ -202,7 +203,7 @@ describe("prontuário do paciente", () => {
 
     expect(within(sheet).getByText("Tutor responsável")).toBeTruthy();
     expect(within(sheet).getByText("Vínculo LivePet")).toBeTruthy();
-    expect(within(sheet).getByText("Carteira de vacinas em dia")).toBeTruthy();
+    expect(within(sheet).getByText("Situação vacinal")).toBeTruthy();
     expect(within(sheet).getByRole("button", { name: "Registrar novo atendimento" })).toBeTruthy();
   });
 });

@@ -179,6 +179,7 @@ export const AppointmentBillingSection = ({
               step="0.01"
               min="0"
               placeholder="0,00"
+              aria-label="Valor do procedimento extra"
               value={newVal}
               onChange={(e) => setNewVal(e.target.value)}
               className="pl-8 text-xs"

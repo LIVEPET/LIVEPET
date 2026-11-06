@@ -65,7 +65,7 @@ describe("Clinic Billing & Receipt Feature (Issue #133)", () => {
       );
 
       const descInput = screen.getByPlaceholderText(/Descrição/i);
-      const valInput = screen.getByPlaceholderText("0,00");
+      const valInput = screen.getByLabelText("Valor do procedimento extra");
       const addBtn = screen.getByRole("button", { name: /Adicionar/i });
 
       fireEvent.change(descInput, { target: { value: "Exame de Urina" } });
@@ -120,7 +120,7 @@ describe("Clinic Billing & Receipt Feature (Issue #133)", () => {
       expect(screen.getByText("Clínica PetVida")).toBeInTheDocument();
       expect(screen.getByText("Pipoca")).toBeInTheDocument();
       expect(screen.getByText("Mariana Costa")).toBeInTheDocument();
-      expect(screen.getByText("Anti-inflamatório")).toBeInTheDocument();
+      expect(screen.getByText(/Anti-inflamatório/)).toBeInTheDocument();
       expect(screen.getByTestId("btn-download-receipt-pdf")).toBeInTheDocument();
     });
   });

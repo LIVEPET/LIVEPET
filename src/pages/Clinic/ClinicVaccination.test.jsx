@@ -56,7 +56,7 @@ describe("Clinic Vaccination Management (Issue #131)", () => {
       expect(screen.getByText("Antirrábica")).toBeInTheDocument();
       expect(screen.getByText("LOTE-998")).toBeInTheDocument();
       expect(screen.getByText("LOTE-RAIV-2026")).toBeInTheDocument();
-      expect(screen.getByText("Dra. Paula")).toBeInTheDocument();
+      expect(screen.getByText(/Dra\. Paula/)).toBeInTheDocument();
     });
 
     it("calcula e exibe badges de status corretos para doses", () => {
