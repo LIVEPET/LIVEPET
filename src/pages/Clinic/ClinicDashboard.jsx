@@ -34,6 +34,7 @@ import { Progress } from "@/components/ui/progress";
 import EmptyState from "@/components/EmptyState";
 import { statusStyles } from "@/data/clinicDemo";
 import { useClinic } from "@/contexts/ClinicContext";
+import ClinicDataStatus from "./ClinicDataStatus";
 
 const DAILY_SLOT_CAPACITY = 10;
 const MONTHLY_GOALS_TARGETS = {
@@ -384,6 +385,8 @@ const ClinicDashboard = () => {
           </Link>
         </Button>
       </div>
+
+      <ClinicDataStatus hasData={appointments.length > 0 || patients.length > 0} rows={2} />
 
       {/* KPIs Dinâmicos do Topo */}
       <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5">
