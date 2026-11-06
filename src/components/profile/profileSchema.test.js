@@ -54,11 +54,11 @@ describe("profileSchema", () => {
 });
 
 describe("passwordSchema", () => {
-  const erroSenha = (senha, confirmacao = senha) => {
-    const resultado = passwordSchema.safeParse({ senha, confirmacao });
+  const erroSenha = (senha, confirmacao = senha, senhaAtual = "antiga1") => {
+    const resultado = passwordSchema.safeParse({ senhaAtual, senha, confirmacao });
     if (resultado.success) return undefined;
     const erros = resultado.error.flatten().fieldErrors;
-    return erros.senha?.[0] ?? erros.confirmacao?.[0];
+    return erros.senhaAtual?.[0] ?? erros.senha?.[0] ?? erros.confirmacao?.[0];
   };
 
   it("aceita senha com letra, número e 6 a 100 caracteres", () => {
@@ -74,5 +74,11 @@ describe("passwordSchema", () => {
 
   it("exige confirmação igual", () => {
     expect(erroSenha("livepet1", "livepet2")).toBe("As senhas não conferem");
+  });
+
+  it("exige a senha atual e que a nova seja diferente dela (#176)", () => {
+    expect(erroSenha("livepet1", "livepet1", "")).toBe("Informe sua senha atual");
+    expect(erroSenha("livepet1", "livepet1", "livepet1")).toBe("A nova senha precisa ser diferente da atual");
+    expect(erroSenha("livepet2", "livepet2", "livepet1")).toBeUndefined();
   });
 });

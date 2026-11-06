@@ -52,7 +52,7 @@ const AboutTab = ({ currentUser, onEdit }) => (
       </div>
     </Card>
 
-    <SecurityCard />
+    <SecurityCard email={currentUser?.email ?? ""} />
   </TabsContent>
 );
 

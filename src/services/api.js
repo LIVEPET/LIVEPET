@@ -218,7 +218,9 @@ async function apiFetch(endpoint, options = {}) {
       // Ignora erro de parsing JSON
     }
 
-    if (response.status === 401) {
+    // Senha errada no login não é sessão expirada: não derruba quem já está logado (#176).
+    const isLoginEndpoint = endpoint.endsWith("/auth/login");
+    if (response.status === 401 && !isLoginEndpoint) {
       if (isClinicEndpoint) {
         if (getClinicAuthToken() === clinicToken) clearStoredClinicAuth();
       } else if (getAuthToken() === tutorToken) clearStoredAuth();
@@ -278,6 +280,25 @@ export const authService = {
 
     setStoredAuth(data.access_token, data.user);
     return data;
+  },
+
+  /**
+   * Confere se a senha informada é a senha atual do tutor (#176).
+   * Usa o login só para validar: não grava token nem mexe na sessão.
+   * @param {{ email: string, senha: string }} credentials
+   * @returns {Promise<boolean>} true se a senha confere, false se estiver errada
+   */
+  async verifyPassword({ email, senha }) {
+    try {
+      await apiFetch("/api/v1/auth/login", {
+        method: "POST",
+        body: { email: email.trim().toLowerCase(), senha },
+      });
+      return true;
+    } catch (err) {
+      if (err?.status === 401) return false;
+      throw err;
+    }
   },
 
   /**
