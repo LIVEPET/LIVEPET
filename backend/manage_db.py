@@ -81,7 +81,6 @@ def execute_sql_file(file_path: str):
 
 
 from app.core.database import SessionLocal
-from app.core.security import get_password_hash
 from app.models.clinic import Clinic
 from app.models.user import User
 
@@ -123,47 +122,6 @@ def limpar_ficticios(session_factory=None):
     print(f"Pets removidos em cascata: {deleted_counts['pets']}")
     print(f"Clínicas removidas: {deleted_counts['clinicas']}")
     return deleted_counts
-
-
-def seed_test_clinic(
-    email: str = "clinica@livepet.com.br",
-    senha: str = "Clinica123",
-    nome: str = "Clínica Veterinária LivePet Teste",
-):
-    """Cria ou atualiza uma clínica de testes no banco para acesso rápido."""
-    # Garante que todas as tabelas existam no banco
-    Base.metadata.create_all(bind=engine)
-    db = SessionLocal()
-    try:
-        clinic = db.query(Clinic).filter(Clinic.email == email.lower()).first()
-        if not clinic:
-            clinic = Clinic(
-                nome=nome,
-                email=email.lower(),
-                senha_hash=get_password_hash(senha),
-                crmv="CRMV-SP 12345",
-                cnpj="12.345.678/0001-90",
-                telefone="(11) 3200-1122",
-                whatsapp="(11) 98888-2233",
-                endereco="Av. Paulista, 1000 - Bela Vista, São Paulo - SP",
-                sobre="Clínica modelo para testes de atendimento, prontuários e agendamentos LivePet.",
-            )
-            db.add(clinic)
-            db.commit()
-            db.refresh(clinic)
-            print("✅ Clínica de teste criada com sucesso!")
-        else:
-            clinic.senha_hash = get_password_hash(senha)
-            clinic.nome = nome
-            db.commit()
-            print("✅ Clínica de teste atualizada com sucesso!")
-
-        print(f"   📧 E-mail: {email}")
-        print(f"   🔑 Senha:  {senha}")
-        print(f"   🏥 Nome:   {clinic.nome}")
-        return clinic
-    finally:
-        db.close()
 
 
 def sync_db_schema():
@@ -212,7 +170,6 @@ def main():
         print("  python manage_db.py tables         - Lista tabelas e colunas existentes")
         print("  python manage_db.py sync           - Sincroniza tabelas e novas colunas com o ORM")
         print("  python manage_db.py create         - Cria tabelas novas via SQLAlchemy ORM")
-        print("  python manage_db.py seed           - Cria usuário de teste para clínica")
         print("  python manage_db.py limpar-ficticios - Remove contas e dados fictícios")
         print("  python manage_db.py run-sql <file> - Executa um arquivo .sql")
         sys.exit(0)
@@ -226,8 +183,6 @@ def main():
         sync_db_schema()
     elif cmd == "create":
         create_all_tables()
-    elif cmd == "seed":
-        seed_test_clinic()
     elif cmd == "limpar-ficticios":
         limpar_ficticios()
     elif cmd == "run-sql":
