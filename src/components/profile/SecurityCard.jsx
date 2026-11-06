@@ -11,18 +11,24 @@ import { authService } from "@/services/api";
 import { FIELD_LABEL_CLASS } from "./profileUtils";
 import { passwordSchema } from "./profileSchema";
 
-const VAZIO = { senha: "", confirmacao: "" };
+const VAZIO = { senhaAtual: "", senha: "", confirmacao: "" };
 
 // Bloco "Segurança" da aba Sobre: troca de senha pelo PUT /api/v1/auth/me (#156).
-// A senha só existe no estado do formulário: não vai para console, localStorage nem URL.
-const SecurityCard = () => {
+// Antes de salvar, a senha atual é conferida na API (#176): só quem a conhece troca a senha.
+// As senhas só existem no estado do formulário: não vão para console, localStorage nem URL.
+const SecurityCard = ({ email }) => {
   const [mostrar, setMostrar] = useState(false);
   const [salvando, setSalvando] = useState(false);
   const form = useForm({ resolver: zodResolver(passwordSchema), defaultValues: VAZIO, mode: "onChange" });
 
-  const onSubmit = async ({ senha }) => {
+  const onSubmit = async ({ senhaAtual, senha }) => {
     setSalvando(true);
     try {
+      const confere = await authService.verifyPassword({ email, senha: senhaAtual });
+      if (!confere) {
+        form.setError("senhaAtual", { type: "manual", message: "Senha atual incorreta" });
+        return;
+      }
       await authService.updateMe({ senha });
       form.reset(VAZIO);
       setMostrar(false);
@@ -46,12 +52,25 @@ const SecurityCard = () => {
           Segurança
         </h3>
         <p className="text-xs text-muted-foreground">
-          Troque sua senha de acesso. Use pelo menos 6 caracteres, com letra e número.
+          Para trocar a senha, confirme a atual. A nova precisa de pelo menos 6 caracteres, com letra e número.
         </p>
       </div>
 
       <Form {...form}>
         <form onSubmit={form.handleSubmit(onSubmit)} noValidate className="space-y-3">
+          <FormField
+            control={form.control}
+            name="senhaAtual"
+            render={({ field }) => (
+              <FormItem className="space-y-1.5 sm:max-w-[calc(50%-0.375rem)]">
+                <FormLabel className={FIELD_LABEL_CLASS}>Senha atual</FormLabel>
+                <FormControl>
+                  <Input {...field} type={tipo} autoComplete="current-password" maxLength={100} />
+                </FormControl>
+                <FormMessage />
+              </FormItem>
+            )}
+          />
           <div className="grid gap-3 sm:grid-cols-2">
             <FormField
               control={form.control}
@@ -91,7 +110,7 @@ const SecurityCard = () => {
               className="rounded-full text-xs"
             >
               {mostrar ? <EyeOff className="mr-1.5 h-3.5 w-3.5" /> : <Eye className="mr-1.5 h-3.5 w-3.5" />}
-              {mostrar ? "Esconder senha" : "Mostrar senha"}
+              {mostrar ? "Esconder senhas" : "Mostrar senhas"}
             </Button>
             <Button
               type="submit"

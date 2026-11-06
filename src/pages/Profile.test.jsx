@@ -11,6 +11,7 @@ vi.mock("@/services/api", () => ({
     getMe: vi.fn(),
     getCurrentUser: vi.fn(),
     updateMe: vi.fn(),
+    verifyPassword: vi.fn(),
   },
   petsService: { list: vi.fn() },
 }));
@@ -434,7 +435,8 @@ describe("<Profile />", () => {
   const abrirSeguranca = async (user) => {
     await user.click(await screen.findByRole("tab", { name: /Sobre/i }));
     return {
-      senha: await screen.findByLabelText(/^Nova senha$/i),
+      senhaAtual: await screen.findByLabelText(/^Senha atual$/i),
+      senha: screen.getByLabelText(/^Nova senha$/i),
       confirmacao: screen.getByLabelText(/Confirmar nova senha/i),
       botao: screen.getByRole("button", { name: /Alterar senha/i }),
     };
@@ -468,29 +470,84 @@ describe("<Profile />", () => {
     expect(botao).toBeDisabled();
   });
 
-  it("segurança: troca a senha, avisa e limpa os campos", async () => {
+  it("segurança: com a senha atual certa, troca a senha, avisa e limpa os campos", async () => {
     const user = userEvent.setup();
     const logs = vi.spyOn(console, "log");
+    authService.verifyPassword.mockResolvedValue(true);
     authService.updateMe.mockResolvedValue(TUTOR);
     renderizar();
-    const { senha, confirmacao, botao } = await abrirSeguranca(user);
+    const { senhaAtual, senha, confirmacao, botao } = await abrirSeguranca(user);
 
+    expect(senhaAtual).toHaveAttribute("type", "password");
     expect(senha).toHaveAttribute("type", "password");
     await user.click(screen.getByRole("button", { name: /Mostrar senha/i }));
+    expect(senhaAtual).toHaveAttribute("type", "text");
     expect(senha).toHaveAttribute("type", "text");
+    expect(confirmacao).toHaveAttribute("type", "text");
 
+    await user.type(senhaAtual, "antiga1");
     await user.type(senha, "livepet1");
     await user.type(confirmacao, "livepet1");
     await user.click(botao);
 
-    expect(authService.updateMe).toHaveBeenCalledWith({ senha: "livepet1" });
+    await waitFor(() => expect(authService.updateMe).toHaveBeenCalledWith({ senha: "livepet1" }));
+    expect(authService.verifyPassword).toHaveBeenCalledWith({ email: TUTOR.email, senha: "antiga1" });
     expect(toast.success).toHaveBeenCalledWith("Senha alterada com sucesso!");
+    expect(senhaAtual).toHaveValue("");
     expect(senha).toHaveValue("");
     expect(confirmacao).toHaveValue("");
     expect(senha).toHaveAttribute("type", "password");
     expect(JSON.stringify(logs.mock.calls)).not.toContain("livepet1");
+    expect(JSON.stringify(logs.mock.calls)).not.toContain("antiga1");
     const salvoNoNavegador = Object.keys(window.localStorage).map((k) => window.localStorage.getItem(k));
     expect(salvoNoNavegador.join(" ")).not.toContain("livepet1");
+    expect(salvoNoNavegador.join(" ")).not.toContain("antiga1");
+    expect(window.location.href).not.toContain("antiga1");
+  });
+
+  it("segurança: senha atual errada avisa no campo e não salva nada", async () => {
+    const user = userEvent.setup();
+    authService.verifyPassword.mockResolvedValue(false);
+    renderizar();
+    const { senhaAtual, senha, confirmacao, botao } = await abrirSeguranca(user);
+
+    await user.type(senhaAtual, "errada1");
+    await user.type(senha, "livepet1");
+    await user.type(confirmacao, "livepet1");
+    await user.click(botao);
+
+    expect(await screen.findByText("Senha atual incorreta")).toBeInTheDocument();
+    expect(authService.updateMe).not.toHaveBeenCalled();
+    expect(toast.success).not.toHaveBeenCalled();
+    // Os campos continuam preenchidos para a tutora corrigir só a senha atual
+    expect(senha).toHaveValue("livepet1");
+  });
+
+  it("segurança: nova senha igual à atual mostra aviso e não envia", async () => {
+    const user = userEvent.setup();
+    renderizar();
+    const { senhaAtual, senha, confirmacao, botao } = await abrirSeguranca(user);
+
+    await user.type(senhaAtual, "livepet1");
+    await user.type(senha, "livepet1");
+    await user.type(confirmacao, "livepet1");
+
+    expect(await screen.findByText("A nova senha precisa ser diferente da atual")).toBeInTheDocument();
+    expect(botao).toBeDisabled();
+    expect(authService.verifyPassword).not.toHaveBeenCalled();
+    expect(authService.updateMe).not.toHaveBeenCalled();
+  });
+
+  it("segurança: sem a senha atual o botão fica desabilitado", async () => {
+    const user = userEvent.setup();
+    renderizar();
+    const { senha, confirmacao, botao } = await abrirSeguranca(user);
+
+    await user.type(senha, "livepet1");
+    await user.type(confirmacao, "livepet1");
+
+    expect(botao).toBeDisabled();
+    expect(authService.updateMe).not.toHaveBeenCalled();
   });
   it("acessibilidade: a foto do cabeçalho é um botão com rótulo e abre o seletor de arquivo", async () => {
     const user = userEvent.setup();

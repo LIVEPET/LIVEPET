@@ -38,8 +38,10 @@ export const profileSchema = z.object({
 });
 
 // Troca de senha (#156): mesmas regras do validate_update_password_strength do back-end.
+// A senha atual (#176) é conferida na API antes de salvar; aqui só exigimos que seja informada.
 export const passwordSchema = z
   .object({
+    senhaAtual: z.string().min(1, "Informe sua senha atual"),
     senha: z
       .string()
       .min(6, "A senha precisa ter pelo menos 6 caracteres")
@@ -48,6 +50,10 @@ export const passwordSchema = z
         message: "Use pelo menos uma letra e um número",
       }),
     confirmacao: z.string(),
+  })
+  .refine((dados) => dados.senha === "" || dados.senha !== dados.senhaAtual, {
+    message: "A nova senha precisa ser diferente da atual",
+    path: ["senha"],
   })
   .refine((dados) => dados.senha === dados.confirmacao, {
     message: "As senhas não conferem",
