@@ -1,11 +1,11 @@
 import { useMemo, useState } from "react";
 import {
   Activity,
-  AlertTriangle,
   BedDouble,
   CheckCircle2,
   ClipboardList,
   Clock,
+  FileCheck2,
   HeartPulse,
   PawPrint,
   Pill,
@@ -13,7 +13,6 @@ import {
   Sparkles,
   Stethoscope,
   Thermometer,
-  User,
   Utensils,
 } from "lucide-react";
 import { toast } from "sonner";
@@ -41,6 +40,11 @@ import {
 } from "@/components/ui/select";
 import { BED_SECTORS, bedStatusStyles } from "@/data/clinicDemo";
 import { useClinic } from "@/contexts/ClinicContext";
+import {
+  BedMedicationScheduleSection,
+  computeMedicationStats,
+  InpatientDischargeDialog,
+} from "./InpatientDischargeBulletin";
 
 const DEFAULT_SPECIES = ["Cão", "Gato", "Ave", "Roedor", "Réptil", "Outro"];
 const DEFAULT_VET = "Equipe da clínica";
@@ -78,6 +82,9 @@ const ClinicInpatient = () => {
     profile,
     admitPatientToBed,
     addBedEvolution,
+    addBedMedicationItem,
+    toggleBedMedicationStatus,
+    removeBedMedicationItem,
     dischargePatientFromBed,
     releaseBedFromCleaning,
     setBedCleaning,
@@ -87,6 +94,7 @@ const ClinicInpatient = () => {
   const [selectedBedId, setSelectedBedId] = useState(null);
   const [admitOpen, setAdmitOpen] = useState(false);
   const [manageOpen, setManageOpen] = useState(false);
+  const [bulletinSnapshot, setBulletinSnapshot] = useState(null);
   const [admitForm, setAdmitForm] = useState(emptyAdmissionForm);
   const [admitError, setAdmitError] = useState("");
   const [evolutionForm, setEvolutionForm] = useState(emptyEvolutionForm);
@@ -153,6 +161,7 @@ const ClinicInpatient = () => {
     }
 
     admitPatientToBed(selectedBed.id, {
+      patientId: admitForm.patientId || null,
       petName: admitForm.petName.trim(),
       species: admitForm.species || "Cão",
       breed: admitForm.breed.trim() || "—",
@@ -203,14 +212,28 @@ const ClinicInpatient = () => {
     toast.success(`Evolução clínica registrada para ${selectedBed.occupant.petName}.`);
   };
 
-  const handleDischarge = () => {
-    if (!selectedBed || !selectedBed.occupant) return;
-    const petName = selectedBed.occupant.petName;
-    const bedName = selectedBed.name;
-    dischargePatientFromBed(selectedBed.id, evolutionForm.dischargeNote);
+  const handleDischarge = (customNote) => {
+    const targetBed = selectedBed || bulletinSnapshot?.bed;
+    const targetOcc = selectedBed?.occupant || bulletinSnapshot?.occupant;
+    if (!targetBed || !targetOcc) return;
+
+    const noteToSave =
+      typeof customNote === "string" ? customNote : evolutionForm.dischargeNote;
+    const petName = targetOcc.petName;
+    const bedName = targetBed.name;
+    dischargePatientFromBed(targetBed.id, noteToSave);
     setManageOpen(false);
     toast.success(`Alta médica registrada para ${petName}!`, {
       description: `${bedName} agora está Em Higienização.`,
+    });
+  };
+
+  const handleOpenDischargeBulletin = () => {
+    if (!selectedBed || !selectedBed.occupant) return;
+    setBulletinSnapshot({
+      bed: selectedBed,
+      occupant: selectedBed.occupant,
+      dischargeNote: evolutionForm.dischargeNote,
     });
   };
 
@@ -345,6 +368,7 @@ const ClinicInpatient = () => {
         {visibleBeds.map((bed) => {
           const style = bedStatusStyles[bed.status] || bedStatusStyles.Livre;
           const occ = bed.occupant;
+          const medStats = occ ? computeMedicationStats(occ.medicationSchedule) : null;
 
           return (
             <Card
@@ -427,6 +451,21 @@ const ClinicInpatient = () => {
                         </span>
                         <span className="font-bold">{occ.nextMedicationTime || "—"}</span>
                       </div>
+
+                      {/* Indicador de Doses Pendentes vs. Administradas no Turno */}
+                      {medStats && medStats.total > 0 && (
+                        <div
+                          data-testid={`bed-med-progress-${bed.id}`}
+                          className="flex items-center justify-between rounded-xl border border-primary/25 bg-primary-soft/60 px-2.5 py-1.5 text-[11px]"
+                        >
+                          <span className="font-semibold text-primary">
+                            Aprazamento: {medStats.administered}/{medStats.total} administrada(s)
+                          </span>
+                          <span className="font-bold text-amber-800 dark:text-amber-300">
+                            {medStats.pending} pendente(s)
+                          </span>
+                        </div>
+                      )}
                     </div>
 
                     <div className="flex items-center justify-between gap-2 pt-1">
@@ -690,7 +729,7 @@ const ClinicInpatient = () => {
         </DialogContent>
       </Dialog>
 
-      {/* Modal 2: Gerenciar Baia Ocupada (Evolução Clínica e Alta Médica) */}
+      {/* Modal 2: Gerenciar Baia Ocupada (Aprazamento, Evolução Clínica e Alta Médica) */}
       <Dialog open={manageOpen} onOpenChange={setManageOpen}>
         <DialogContent className="max-h-[92vh] max-w-2xl overflow-y-auto">
           {selectedBed && selectedBed.occupant && (
@@ -734,6 +773,15 @@ const ClinicInpatient = () => {
                     </p>
                   </div>
                 </div>
+
+                {/* Mapa de Aprazamento de Medicações e Cuidados no Leito */}
+                <BedMedicationScheduleSection
+                  bedId={selectedBed.id}
+                  occupant={selectedBed.occupant}
+                  onAddMedication={addBedMedicationItem}
+                  onToggleMedication={toggleBedMedicationStatus}
+                  onRemoveMedication={removeBedMedicationItem}
+                />
 
                 {/* Formulário de Nova Evolução */}
                 <form
@@ -872,7 +920,23 @@ const ClinicInpatient = () => {
                   )}
                 </div>
 
-                {/* Rodapé com botão de Alta Médica */}
+                {/* Recomendações de Alta Médica (Opcional) */}
+                <div className="space-y-1.5 rounded-2xl border border-border/80 bg-muted/20 p-4">
+                  <Label htmlFor="evo-dischargeNote" className="text-xs font-semibold">
+                    Recomendações de Alta Hospitalar <span className="font-normal text-muted-foreground">(registradas no prontuário e no Boletim de Alta)</span>
+                  </Label>
+                  <Textarea
+                    id="evo-dischargeNote"
+                    rows={2}
+                    placeholder="Ex.: Manter dipirona oral por 3 dias, dieta gastrointestinal e retorno em 7 dias..."
+                    value={evolutionForm.dischargeNote}
+                    onChange={(e) =>
+                      setEvolutionForm((f) => ({ ...f, dischargeNote: e.target.value }))
+                    }
+                  />
+                </div>
+
+                {/* Rodapé com Boletim de Alta e botão de Alta Médica */}
                 <div className="flex flex-col-reverse items-center justify-between gap-3 border-t border-border pt-4 sm:flex-row">
                   <Button
                     type="button"
@@ -881,21 +945,51 @@ const ClinicInpatient = () => {
                   >
                     Fechar
                   </Button>
-                  <Button
-                    type="button"
-                    data-testid="btn-discharge-patient"
-                    className="w-full rounded-full bg-emerald-600 text-white hover:bg-emerald-700 sm:w-auto"
-                    onClick={handleDischarge}
-                  >
-                    <CheckCircle2 className="mr-1.5 h-4 w-4" />
-                    Dar Alta Médica
-                  </Button>
+                  <div className="flex w-full flex-col gap-2 sm:w-auto sm:flex-row">
+                    <Button
+                      type="button"
+                      variant="outline"
+                      data-testid="btn-open-discharge-bulletin"
+                      className="w-full rounded-full gap-1.5 border-primary/40 text-primary hover:bg-primary-soft sm:w-auto"
+                      onClick={handleOpenDischargeBulletin}
+                    >
+                      <FileCheck2 className="h-4 w-4" />
+                      Boletim de Alta Hospitalar
+                    </Button>
+                    <Button
+                      type="button"
+                      data-testid="btn-discharge-patient"
+                      className="w-full rounded-full bg-emerald-600 text-white hover:bg-emerald-700 sm:w-auto"
+                      onClick={() => handleDischarge(evolutionForm.dischargeNote)}
+                    >
+                      <CheckCircle2 className="mr-1.5 h-4 w-4" />
+                      Dar Alta Médica
+                    </Button>
+                  </div>
                 </div>
               </div>
             </>
           )}
         </DialogContent>
       </Dialog>
+
+      {/* Modal 3: Boletim de Alta Hospitalar Timbrado */}
+      <InpatientDischargeDialog
+        open={Boolean(bulletinSnapshot)}
+        onOpenChange={(o) => !o && setBulletinSnapshot(null)}
+        bed={bulletinSnapshot?.bed}
+        occupant={
+          selectedBed && selectedBed.id === bulletinSnapshot?.bed?.id && selectedBed.occupant
+            ? selectedBed.occupant
+            : bulletinSnapshot?.occupant
+        }
+        profile={profile}
+        initialDischargeNote={bulletinSnapshot?.dischargeNote || evolutionForm.dischargeNote}
+        onConfirmDischarge={(finalNote) => {
+          handleDischarge(finalNote);
+          setBulletinSnapshot(null);
+        }}
+      />
     </div>
   );
 };
