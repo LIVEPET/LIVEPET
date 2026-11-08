@@ -4,7 +4,6 @@ import {
   Activity,
   AlertTriangle,
   ArrowRight,
-  Calendar,
   CalendarDays,
   CheckCircle2,
   Clock,
@@ -15,6 +14,7 @@ import {
   LayoutList,
   Phone,
   Plus,
+  Receipt,
   Search,
   Stethoscope,
   Syringe,
@@ -60,12 +60,19 @@ import {
 import { AppointmentBillingSection } from "./AppointmentBillingSection";
 import { ClinicReceiptDialog } from "./ClinicReceiptDialog";
 import {
+  addDaysToIsoDate,
+  formatIsoDateBR,
+  isReturnAppointmentItem,
+  ReturnAppointmentBadge,
+  ReturnSchedulingSection,
+  WhatsAppActionButton,
+} from "./ClinicReturnAndWhatsapp";
+import {
   PAYMENT_STATUS,
   calculateAppointmentTotal,
   findServicePrice,
   formatCurrency,
 } from "@/lib/clinicBilling";
-import { Receipt } from "lucide-react";
 
 const filters = ["Todos", "Confirmado", "Aguardando", "Em atendimento", "Concluído", "Cancelado"];
 const DEFAULT_SPECIES = ["Cão", "Gato", "Ave", "Roedor", "Réptil", "Outro"];
@@ -240,6 +247,10 @@ const ClinicSchedule = () => {
     vacina_aplicada: "",
     vacina_lote: "",
     vacina_proxima_dose: "",
+    scheduleReturn: false,
+    returnDate: addDaysToIsoDate(getToday(), 7),
+    returnTime: "10:00",
+    returnReason: "",
   });
 
   const services = useMemo(() => uniqueNames(profile.services), [profile.services]);
@@ -287,6 +298,7 @@ const ClinicSchedule = () => {
           viewMode === "kanban" ? true : filter === "Todos" || a.status === filter;
         const matchesDate =
           dateFilter === "Todas as datas" ||
+          (dateFilter === "Retornos" && isReturnAppointmentItem(a)) ||
           (dateFilter === "Hoje" && (a.date === getToday() || !a.date));
         const matchesQuery = `${a.petName} ${a.tutor} ${a.service} ${a.priority || ""} ${a.notes || ""}`
           .toLowerCase()
@@ -319,6 +331,10 @@ const ClinicSchedule = () => {
       desconto: a.desconto != null ? Number(a.desconto) : 0,
       status_pagamento: a.status_pagamento || PAYMENT_STATUS.PAID,
       forma_pagamento: a.forma_pagamento || "PIX",
+      scheduleReturn: false,
+      returnDate: addDaysToIsoDate(a.date || getToday(), 7),
+      returnTime: a.time || "10:00",
+      returnReason: "",
     });
 
     if (a.status === "Confirmado" || a.status === "Aguardando") {
@@ -383,6 +399,36 @@ const ClinicSchedule = () => {
     };
 
     concludeAppointment(activeExamApp.id, payload);
+
+    if (examForm.scheduleReturn && examForm.returnDate) {
+      const returnServiceName = "Retorno Clínico";
+      const returnPrice = findServicePrice(returnServiceName, profile.services) || 0;
+      addAppointment({
+        patientId: activeExamApp.patientId || null,
+        date: examForm.returnDate,
+        time: examForm.returnTime || activeExamApp.time || "10:00",
+        petName: activeExamApp.petName,
+        species: activeExamApp.species || "Cão",
+        breed: activeExamApp.breed || "—",
+        tutor: activeExamApp.tutor,
+        phone: activeExamApp.phone || "—",
+        service: returnServiceName,
+        isReturn: true,
+        valor_servico: returnPrice,
+        valor_total: returnPrice,
+        status_pagamento: PAYMENT_STATUS.PENDING,
+        forma_pagamento: "PIX",
+        vet: activeExamApp.vet || DEFAULT_VET,
+        priority: "Rotina",
+        notes:
+          examForm.returnReason.trim() ||
+          `Retorno referente ao atendimento de ${activeExamApp.service}`,
+      });
+      toast.success(
+        `Retorno clínico de ${activeExamApp.petName} agendado para ${formatIsoDateBR(examForm.returnDate)} às ${examForm.returnTime || "10:00"}!`,
+      );
+    }
+
     setExamOpen(false);
     toast.success(`Atendimento de ${activeExamApp.petName} concluído com sucesso! Prontuário registrado.`);
   };
@@ -467,10 +513,23 @@ const ClinicSchedule = () => {
               >
                 Todas as datas
               </Button>
+              <Button
+                variant={dateFilter === "Retornos" ? "secondary" : "ghost"}
+                size="sm"
+                data-testid="filter-returns-btn"
+                className="h-6 rounded-full px-2.5 text-xs font-semibold"
+                onClick={() => setDateFilter("Retornos")}
+              >
+                Retornos
+              </Button>
             </div>
           </div>
           <h1 className="font-display text-3xl font-bold">
-            {dateFilter === "Hoje" ? "Atendimentos de hoje" : "Todos os atendimentos"}
+            {dateFilter === "Hoje"
+              ? "Atendimentos de hoje"
+              : dateFilter === "Retornos"
+                ? "Retornos programados"
+                : "Todos os atendimentos"}
           </h1>
           <p className="text-muted-foreground">{visible.length} atendimento(s) nesta visualização.</p>
         </div>
@@ -746,6 +805,7 @@ const ClinicSchedule = () => {
                         </span>
                       </p>
                       <PriorityBadge priority={a.priority} />
+                      <ReturnAppointmentBadge appointment={a} />
                     </div>
                     <p className="text-sm text-muted-foreground">
                       {a.service} — {a.vet}
@@ -778,6 +838,7 @@ const ClinicSchedule = () => {
                       </Badge>
                     )}
                     <Badge className={`${statusStyles[a.status]} hover:opacity-90`}>{a.status}</Badge>
+                    <WhatsAppActionButton appointment={a} profile={profile} />
                     <Button
                       size="sm"
                       variant="outline"
@@ -912,7 +973,10 @@ const ClinicSchedule = () => {
                             <span className="inline-flex items-center gap-1 rounded-xl bg-primary-soft px-2.5 py-1 text-xs font-bold text-primary">
                               <Clock className="h-3 w-3" /> {a.time}
                             </span>
-                            <PriorityBadge priority={a.priority} />
+                            <div className="flex flex-wrap items-center gap-1">
+                              <PriorityBadge priority={a.priority} />
+                              <ReturnAppointmentBadge appointment={a} />
+                            </div>
                           </div>
 
                           <div>
@@ -961,6 +1025,8 @@ const ClinicSchedule = () => {
                           )}
 
                           <div className="flex flex-wrap items-center justify-between gap-2 border-t border-border/60 pt-2.5">
+                            <WhatsAppActionButton appointment={a} profile={profile} compact />
+
                             {hasPrescription(a) && (
                               <Button
                                 size="sm"
@@ -1298,7 +1364,22 @@ const ClinicSchedule = () => {
                   )}
                 </div>
 
-                {/* 5. Orçamento, Procedimentos Extras & Pagamento (Issue #133) */}
+                {/* 5. Programar Retorno / Reavaliação (Issue #181) */}
+                <ReturnSchedulingSection
+                  baseDate={activeExamApp.date || getToday()}
+                  enabled={examForm.scheduleReturn}
+                  onToggleEnabled={(checked) =>
+                    setExamForm((f) => ({ ...f, scheduleReturn: checked }))
+                  }
+                  returnDate={examForm.returnDate}
+                  onChangeReturnDate={(d) => setExamForm((f) => ({ ...f, returnDate: d }))}
+                  returnTime={examForm.returnTime}
+                  onChangeReturnTime={(t) => setExamForm((f) => ({ ...f, returnTime: t }))}
+                  returnReason={examForm.returnReason}
+                  onChangeReturnReason={(r) => setExamForm((f) => ({ ...f, returnReason: r }))}
+                />
+
+                {/* 6. Orçamento, Procedimentos Extras & Pagamento (Issue #133) */}
                 <AppointmentBillingSection
                   serviceName={activeExamApp.service}
                   basePrice={examForm.valor_servico}
