@@ -12,6 +12,7 @@ import {
   FileText,
   Heart,
   LayoutList,
+  Pencil,
   Phone,
   Plus,
   Receipt,
@@ -19,11 +20,23 @@ import {
   Stethoscope,
   Syringe,
   Thermometer,
+  Trash2,
   User,
 } from "lucide-react";
 
 import { toast } from "sonner";
 import { Card, CardContent } from "@/components/ui/card";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
+import ClinicDataStatus from "./ClinicDataStatus";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -209,6 +222,8 @@ const ClinicSchedule = () => {
     appointments: list,
     profile,
     addAppointment,
+    updateAppointment,
+    deleteAppointment,
     updateAppointmentStatus,
     updateAppointmentPriority,
     concludeAppointment,
@@ -222,6 +237,9 @@ const ClinicSchedule = () => {
   const [query, setQuery] = useState("");
   const [open, setOpen] = useState(false);
   const [form, setForm] = useState(emptyForm);
+  // Atendimento em edição (#62). null = o modal está criando um novo.
+  const [editing, setEditing] = useState(null);
+  const [toDelete, setToDelete] = useState(null);
   const [errors, setErrors] = useState({});
   const [speciesOptions, setSpeciesOptions] = useState(DEFAULT_SPECIES);
 
@@ -441,6 +459,35 @@ const ClinicSchedule = () => {
   const resetForm = () => {
     setForm(emptyForm);
     setErrors({});
+    setEditing(null);
+  };
+
+  const startEdit = (a) => {
+    setEditing(a);
+    setErrors({});
+    setForm({
+      patientId: a.patientId || null,
+      petName: a.petName || "",
+      species: a.species || "",
+      breed: a.breed && a.breed !== "—" ? a.breed : "",
+      date: a.date || getToday(),
+      time: a.time || "",
+      tutor: a.tutor || "",
+      phone: a.phone || "",
+      service: a.service || "",
+      vet: a.vet && a.vet !== DEFAULT_VET ? a.vet : "",
+      priority: a.priority || "Rotina",
+      notes: a.notes || "",
+    });
+    setOpen(true);
+  };
+
+  const confirmDelete = async () => {
+    const a = toDelete;
+    setToDelete(null);
+    if (!a) return;
+    await deleteAppointment(a.id);
+    toast("Atendimento excluído", { description: `${a.petName} — ${a.time}` });
   };
 
   const handleOpenChange = (next) => {
@@ -465,6 +512,25 @@ const ClinicSchedule = () => {
     if (Object.keys(found).length > 0) {
       setErrors(found);
       document.getElementById(Object.keys(found)[0])?.focus();
+      return;
+    }
+    if (editing) {
+      updateAppointment(editing.id, {
+        date: form.date,
+        time: form.time,
+        petName: form.petName.trim(),
+        species: form.species,
+        breed: form.breed.trim() || "—",
+        tutor: form.tutor.trim(),
+        phone: formatPhone(form.phone),
+        service: form.service.trim(),
+        vet: form.vet || DEFAULT_VET,
+        priority: form.priority || "Rotina",
+        notes: form.notes.trim() || "",
+      });
+      resetForm();
+      setOpen(false);
+      toast.success("Atendimento atualizado!");
       return;
     }
     addAppointment({
@@ -571,8 +637,12 @@ const ClinicSchedule = () => {
             </DialogTrigger>
             <DialogContent className="max-h-[90vh] max-w-lg overflow-y-auto">
               <DialogHeader>
-                <DialogTitle className="font-display">Agendar atendimento</DialogTitle>
-                <DialogDescription>Preencha os dados da consulta e a triagem de risco.</DialogDescription>
+                <DialogTitle className="font-display">{editing ? "Editar atendimento" : "Agendar atendimento"}</DialogTitle>
+                <DialogDescription>
+                  {editing
+                    ? "Altere os dados e salve. O status e o prontuário não mudam aqui."
+                    : "Preencha os dados da consulta e a triagem de risco."}
+                </DialogDescription>
               </DialogHeader>
               <form onSubmit={create} noValidate className="space-y-4">
                 <div className="grid gap-3 sm:grid-cols-2">
@@ -735,7 +805,7 @@ const ClinicSchedule = () => {
                 </div>
 
                 <Button type="submit" className="w-full rounded-full gradient-primary text-primary-foreground">
-                  Confirmar agendamento
+                  {editing ? "Salvar alterações" : "Confirmar agendamento"}
                 </Button>
               </form>
             </DialogContent>
@@ -775,6 +845,8 @@ const ClinicSchedule = () => {
           />
         </div>
       </div>
+
+      <ClinicDataStatus hasData={list.length > 0} />
 
       {viewMode === "list" ? (
         <div className="space-y-3">
@@ -876,6 +948,15 @@ const ClinicSchedule = () => {
                         <Button
                           size="sm"
                           variant="ghost"
+                          className="rounded-full gap-1.5"
+                          aria-label={`Editar atendimento de ${a.petName}`}
+                          onClick={() => startEdit(a)}
+                        >
+                          <Pencil className="h-3.5 w-3.5" /> Editar
+                        </Button>
+                        <Button
+                          size="sm"
+                          variant="ghost"
                           className="rounded-full text-destructive"
                           onClick={() => cancel(a)}
                         >
@@ -883,6 +964,15 @@ const ClinicSchedule = () => {
                         </Button>
                       </>
                     )}
+                    <Button
+                      size="sm"
+                      variant="ghost"
+                      className="rounded-full gap-1.5 text-destructive"
+                      aria-label={`Excluir atendimento de ${a.petName}`}
+                      onClick={() => setToDelete(a)}
+                    >
+                      <Trash2 className="h-3.5 w-3.5" /> Excluir
+                    </Button>
                     {a.status === "Concluído" && (
                       <Button
                         size="sm"
@@ -1042,6 +1132,24 @@ const ClinicSchedule = () => {
                               <>
                                 <Button
                                   size="sm"
+                                  variant="ghost"
+                                  className="h-8 w-8 rounded-full p-0"
+                                  aria-label={`Editar atendimento de ${a.petName}`}
+                                  onClick={() => startEdit(a)}
+                                >
+                                  <Pencil className="h-3.5 w-3.5" />
+                                </Button>
+                                <Button
+                                  size="sm"
+                                  variant="ghost"
+                                  className="h-8 w-8 rounded-full p-0 text-destructive"
+                                  aria-label={`Excluir atendimento de ${a.petName}`}
+                                  onClick={() => setToDelete(a)}
+                                >
+                                  <Trash2 className="h-3.5 w-3.5" />
+                                </Button>
+                                <Button
+                                  size="sm"
                                   variant="outline"
                                   className="h-8 rounded-full gap-1 text-xs"
                                   onClick={() => handleOpenExam(a)}
@@ -1118,6 +1226,24 @@ const ClinicSchedule = () => {
       )}
 
       {/* Modal de Anamnese e Exame Clínico Completo */}
+      <AlertDialog open={Boolean(toDelete)} onOpenChange={(next) => !next && setToDelete(null)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Excluir este atendimento?</AlertDialogTitle>
+            <AlertDialogDescription>
+              {toDelete ? `${toDelete.petName} — ${toDelete.date} às ${toDelete.time}. ` : ""}
+              Ele some da agenda e do servidor. Para manter o registro, prefira "Cancelar".
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel className="rounded-full">Manter</AlertDialogCancel>
+            <AlertDialogAction className="rounded-full bg-destructive text-destructive-foreground hover:bg-destructive/90" onClick={confirmDelete}>
+              Excluir
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
       <Dialog open={examOpen} onOpenChange={setExamOpen}>
         <DialogContent className="max-h-[92vh] max-w-2xl overflow-y-auto">
           {activeExamApp && (

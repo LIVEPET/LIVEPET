@@ -1,6 +1,7 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState } from "react";
 
 import { createDefaultBeds } from "@/data/clinicDemo";
+import { toast } from "sonner";
 import { clinicService, getClinicAuthToken } from "@/services/api";
 
 const getToday = () => new Date().toISOString().split("T")[0];
@@ -55,6 +56,44 @@ const newId = () =>
     : `id-${Date.now()}-${Math.random().toString(36).slice(2, 10)}`;
 
 const normalize = (text) => String(text ?? "").trim().toLowerCase();
+
+// Ids vindos da API são números; ids criados localmente (offline) são UUID.
+const isServerId = (id) => Number.isInteger(Number(id)) && String(id).trim() !== "";
+
+// Envia uma alteração para a API e avisa a clínica se não der certo (#62).
+// A tela já foi atualizada de forma otimista; o aviso evita que a clínica
+// pense que salvou algo que não chegou ao servidor.
+const sincronizar = (acao, mensagem) => {
+  if (!clinicService.isAuthenticated()) return Promise.resolve(null);
+  let promessa;
+  try {
+    promessa = Promise.resolve(acao());
+  } catch (err) {
+    promessa = Promise.reject(err);
+  }
+  return promessa.catch((err) => {
+    toast.error(mensagem, { description: err?.message || "Verifique sua conexão e tente de novo." });
+    return null;
+  });
+};
+
+const AVISO_SEM_SERVIDOR = "Este registro ainda não está salvo no servidor.";
+
+// Campos do atendimento na tela -> campos da API.
+const appointmentToApi = (a) => ({
+  pet_name: a.petName,
+  species: a.species,
+  breed: a.breed,
+  tutor: a.tutor,
+  phone: a.phone,
+  service: a.service,
+  vet: a.vet,
+  date: a.date,
+  time: a.time,
+  status: a.status,
+  priority: a.priority,
+  notes: a.notes,
+});
 
 const sanitizeProfile = (raw) => {
   const profile = createEmptyData().profile;
@@ -153,6 +192,8 @@ export const ClinicProvider = ({ children }) => {
   const [data, setData] = useState(loadData);
   const isFetchingRef = useRef(false);
   const activeClinicIdRef = useRef(clinicService.getCurrentClinic()?.id || null);
+  const [loading, setLoading] = useState(() => clinicService.isAuthenticated());
+  const [error, setError] = useState(null);
 
   useEffect(() => {
     saveData(data);
@@ -163,6 +204,8 @@ export const ClinicProvider = ({ children }) => {
     if (isFetchingRef.current) return;
     isFetchingRef.current = true;
     const token = getClinicAuthToken();
+    setLoading(true);
+    setError(null);
 
     try {
       const currentClinic = clinicService.getCurrentClinic();
@@ -175,6 +218,14 @@ export const ClinicProvider = ({ children }) => {
         clinicService.listVeterinarians(false),
       ]);
       if (getClinicAuthToken() !== token) return;
+
+      // Se nada veio da API, a tela precisa saber (e poder tentar de novo).
+      const tudoFalhou = [clinicRes, apptsRes, patientsRes].every((r) => r.status === "rejected");
+      if (tudoFalhou) {
+        const motivo = clinicRes.reason?.message || "Verifique sua conexão.";
+        setError(`Não foi possível carregar os dados da clínica. ${motivo}`);
+        return;
+      }
 
       const clinic = clinicRes.status === "fulfilled" && clinicRes.value ? clinicRes.value : currentClinic;
       const appointments = apptsRes.status === "fulfilled" && Array.isArray(apptsRes.value) ? apptsRes.value : [];
@@ -245,10 +296,12 @@ export const ClinicProvider = ({ children }) => {
           team: teamList,
         },
         appointments: mappedAppointments,
-        patients: patients.length > 0 ? patients : current.patients,
+        // Lista vinda da API vale mesmo vazia: paciente apagado não volta do localStorage.
+        patients: patientsRes.status === "fulfilled" ? patients : current.patients,
       }));
     } finally {
       isFetchingRef.current = false;
+      setLoading(false);
       if (getClinicAuthToken() !== token && clinicService.isAuthenticated()) loadClinicData();
     }
   }, []);
@@ -303,6 +356,10 @@ export const ClinicProvider = ({ children }) => {
       if (Object.keys(payload).length > 0) {
         clinicService.updateProfile(payload).catch(() => {});
       }
+ feat/62-integracao-clinica-backend
+    });
+    if (Object.keys(payload).length > 0) {
+      sincronizar(() => clinicService.updateProfile(payload), "Não foi possível salvar o perfil da clínica.");
     }
   }, []);
 
@@ -346,29 +403,50 @@ export const ClinicProvider = ({ children }) => {
       };
     });
 
-    // Tenta sincronizar em segundo plano com o backend se disponível
-    try {
-      clinicService
-        .createAppointment({
-          pet_name: appointment.petName,
-          species: appointment.species,
-          breed: appointment.breed,
-          tutor: appointment.tutor,
-          phone: appointment.phone,
-          service: appointment.service,
-          vet: appointment.vet,
-          date: appointment.date,
-          time: appointment.time,
-          status: appointment.status,
-          priority: appointment.priority,
-          notes: appointment.notes,
-        })
-        .catch(() => {});
-    } catch {
-      // Ignora falhas de rede / offline
-    }
+    // Envia ao servidor e troca o id temporário pelo id real que ele devolveu.
+    // Sem isso, mudar status ou excluir este atendimento depois cairia em 404.
+    sincronizar(
+      () => clinicService.createAppointment(appointmentToApi(appointment)),
+      "O atendimento ficou só neste navegador: não foi salvo no servidor.",
+    ).then((salvo) => {
+      if (!salvo?.id || salvo.id === appointment.id) return;
+      setData((current) => ({
+        ...current,
+        appointments: current.appointments.map((a) => (a.id === appointment.id ? { ...a, id: salvo.id } : a)),
+      }));
+    });
 
     return appointment;
+  }, []);
+
+  const updateAppointment = useCallback((id, fields) => {
+    setData((current) => ({
+      ...current,
+      appointments: current.appointments
+        .map((a) => (a.id === id ? { ...a, ...fields } : a))
+        .sort((a, b) => {
+          const dateCmp = String(a.date ?? "").localeCompare(String(b.date ?? ""));
+          if (dateCmp !== 0) return dateCmp;
+          return String(a.time ?? "").localeCompare(String(b.time ?? ""));
+        }),
+    }));
+    if (!isServerId(id)) {
+      if (clinicService.isAuthenticated()) toast.error(AVISO_SEM_SERVIDOR);
+      return Promise.resolve(null);
+    }
+    return sincronizar(
+      () => clinicService.updateAppointment(id, appointmentToApi(fields)),
+      "Não foi possível salvar as alterações do atendimento.",
+    );
+  }, []);
+
+  const deleteAppointment = useCallback((id) => {
+    setData((current) => ({
+      ...current,
+      appointments: current.appointments.filter((a) => a.id !== id),
+    }));
+    if (!isServerId(id)) return Promise.resolve(null);
+    return sincronizar(() => clinicService.deleteAppointment(id), "Não foi possível excluir o atendimento no servidor.");
   }, []);
 
   const updateAppointmentStatus = useCallback((id, status) => {
@@ -376,11 +454,11 @@ export const ClinicProvider = ({ children }) => {
       ...current,
       appointments: current.appointments.map((a) => (a.id === id ? { ...a, status } : a)),
     }));
-    try {
-      clinicService.updateAppointmentStatus(id, status).catch(() => {});
-    } catch {
-      // Modo offline
+    if (!isServerId(id)) {
+      if (clinicService.isAuthenticated()) toast.error(AVISO_SEM_SERVIDOR);
+      return;
     }
+    sincronizar(() => clinicService.updateAppointmentStatus(id, status), "Não foi possível atualizar o status do atendimento.");
   }, []);
 
   const updateAppointmentExam = useCallback((appointmentId, examId, fields) => {
@@ -467,11 +545,7 @@ export const ClinicProvider = ({ children }) => {
       };
     });
 
-    try {
-      clinicService.updatePatient(patientId, fields).catch(() => {});
-    } catch {
-      // Modo offline
-    }
+    sincronizar(() => clinicService.updatePatient(patientId, fields), "Não foi possível salvar os dados do paciente.");
   }, []);
 
   const deletePatient = useCallback((patientId) => {
@@ -486,11 +560,7 @@ export const ClinicProvider = ({ children }) => {
       };
     });
 
-    try {
-      clinicService.deletePatient(patientId).catch(() => {});
-    } catch {
-      // Modo offline
-    }
+    sincronizar(() => clinicService.deletePatient(patientId), "Não foi possível excluir o paciente no servidor.");
   }, []);
 
   const concludeAppointment = useCallback((appointmentId, conclusion) => {
@@ -550,11 +620,14 @@ export const ClinicProvider = ({ children }) => {
       };
     });
 
-    try {
-      clinicService.concludeAppointment(appointmentId, conclusion).catch(() => {});
-    } catch {
-      // Modo offline
+    if (!isServerId(appointmentId)) {
+      if (clinicService.isAuthenticated()) toast.error(AVISO_SEM_SERVIDOR);
+      return;
     }
+    sincronizar(
+      () => clinicService.concludeAppointment(appointmentId, conclusion),
+      "O atendimento foi concluído aqui, mas não foi salvo no servidor.",
+    );
   }, []);
 
   const addPatientVaccine = useCallback((patientId, vaccine) => {
@@ -857,9 +930,13 @@ export const ClinicProvider = ({ children }) => {
       appointments: data.appointments,
       patients: data.patients,
       beds: data.beds,
+      loading,
+      error,
       saveProfile,
       refreshData: loadClinicData,
       addAppointment,
+      updateAppointment,
+      deleteAppointment,
       updateAppointmentStatus,
       updateAppointmentPriority,
       updateAppointmentPayment,
@@ -880,9 +957,13 @@ export const ClinicProvider = ({ children }) => {
     }),
     [
       data,
+      loading,
+      error,
       saveProfile,
       loadClinicData,
       addAppointment,
+      updateAppointment,
+      deleteAppointment,
       updateAppointmentStatus,
       updateAppointmentPriority,
       updateAppointmentPayment,
@@ -915,8 +996,12 @@ export const useClinic = () => {
     return {
       ...createEmptyData(),
       beds: [],
+      loading: false,
+      error: null,
       saveProfile: () => {},
       refreshData: async () => {},
+      updateAppointment: async () => null,
+      deleteAppointment: async () => null,
       addAppointment: () => {},
       updateAppointmentStatus: () => {},
       updateAppointmentPayment: () => {},

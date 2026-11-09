@@ -809,6 +809,16 @@ export const clinicService = {
   /**
    * Atualiza o status do atendimento
    */
+  /**
+   * Edita os dados de um atendimento (data, horário, tutor, serviço etc.). #62
+   */
+  async updateAppointment(id, data) {
+    return apiFetch(`/api/clinicas/atendimentos/${id}`, {
+      method: "PUT",
+      body: data,
+    });
+  },
+
   async updateAppointmentStatus(id, status) {
     return apiFetch(`/api/clinicas/atendimentos/${id}/status`, {
       method: "PATCH",
