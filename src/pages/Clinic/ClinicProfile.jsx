@@ -34,6 +34,7 @@ import {
   serviceMeta,
 } from "@/lib/clinicProfile";
 import { ConfirmRemoveDialog, HoursDialog, ServiceDialog, TeamDialog } from "./ProfileEditors";
+import ClinicDataStatus from "./ClinicDataStatus";
 
 const headerClass = "flex-row items-center justify-between space-y-0";
 
@@ -263,6 +264,8 @@ const ClinicProfile = () => {
         <h1 className="font-display text-3xl font-bold">Perfil da clínica</h1>
         <p className="text-muted-foreground">Informações que os tutores veem ao encontrar sua clínica.</p>
       </div>
+
+      <ClinicDataStatus hasData={Boolean(profile.name)} rows={2} />
 
       <div className="grid gap-6 lg:grid-cols-3">
         <Card className="lg:col-span-2 border-border/70 shadow-card">

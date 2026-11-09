@@ -554,13 +554,13 @@ const Pets = () => {
               </Link>
             </Button>
           </div>
-          <h1 className="mt-5 font-display text-4xl font-bold leading-tight text-foreground text-balance sm:text-5xl">
+          <h1 className="mt-5 font-display text-3xl font-bold leading-tight text-foreground text-balance sm:text-5xl">
             Meus Animais e{" "}
             <span className="relative inline-block italic">
               <span className="relative z-10 bg-gradient-to-r from-primary via-primary-glow to-accent-warm bg-clip-text text-transparent animate-gradient">
                 Acompanhamento
               </span>
-              <PawPrint className="absolute -right-7 -top-3 h-6 w-6 text-accent-warm animate-wiggle" />
+              <PawPrint className="absolute -right-5 -top-3 h-5 w-5 text-accent-warm animate-wiggle sm:-right-7 sm:h-6 sm:w-6" />
             </span>
           </h1>
           <p className="mt-4 text-base text-muted-foreground">

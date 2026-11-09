@@ -8,6 +8,7 @@ export const API_BASE_URL =
   (import.meta.env.DEV ? "http://localhost:8000" : "https://livepet.onrender.com");
 
 import { handleBackendDeployId } from "./versionChecker";
+import { clinicTokenExpiry } from "@/lib/clinicSession";
 
 const TOKEN_KEY = "livepet_access_token";
 const USER_KEY = "livepet_current_user";
@@ -217,11 +218,15 @@ async function apiFetch(endpoint, options = {}) {
       // Ignora erro de parsing JSON
     }
 
-    if (response.status === 401) {
-      clearStoredAuth();
+    // Senha errada no login não é sessão expirada: não derruba quem já está logado (#176).
+    const isLoginEndpoint = endpoint.endsWith("/auth/login");
+    if (response.status === 401 && !isLoginEndpoint) {
+      if (isClinicEndpoint) {
+        if (getClinicAuthToken() === clinicToken) clearStoredClinicAuth();
+      } else if (getAuthToken() === tutorToken) clearStoredAuth();
     }
 
-    throw new Error(errorDetail);
+    throw Object.assign(new Error(errorDetail), { status: response.status });
   }
 
   // 204 No Content
@@ -275,6 +280,25 @@ export const authService = {
 
     setStoredAuth(data.access_token, data.user);
     return data;
+  },
+
+  /**
+   * Confere se a senha informada é a senha atual do tutor (#176).
+   * Usa o login só para validar: não grava token nem mexe na sessão.
+   * @param {{ email: string, senha: string }} credentials
+   * @returns {Promise<boolean>} true se a senha confere, false se estiver errada
+   */
+  async verifyPassword({ email, senha }) {
+    try {
+      await apiFetch("/api/v1/auth/login", {
+        method: "POST",
+        body: { email: email.trim().toLowerCase(), senha },
+      });
+      return true;
+    } catch (err) {
+      if (err?.status === 401) return false;
+      throw err;
+    }
   },
 
   /**
@@ -678,6 +702,9 @@ export const clinicService = {
       },
     });
 
+    if (!data.clinica?.id || clinicTokenExpiry(data.access_token) <= Date.now()) {
+      throw new Error("Resposta de autenticação da clínica inválida.");
+    }
     setStoredClinicAuth(data.access_token, data.clinica);
     return data;
   },
@@ -714,15 +741,16 @@ export const clinicService = {
    * Verifica se há um token de clínica ativo
    */
   isAuthenticated() {
-    return Boolean(getClinicAuthToken());
+    return clinicTokenExpiry(getClinicAuthToken()) > Date.now();
   },
 
   /**
    * Consulta os dados cadastrais atualizados da clínica autenticada no backend
    */
   async getProfile() {
+    const token = getClinicAuthToken();
     const clinic = await apiFetch("/api/clinicas/perfil");
-    if (clinic && typeof window !== "undefined") {
+    if (clinic && typeof window !== "undefined" && token === getClinicAuthToken()) {
       try {
         storage.set(CLINIC_KEY, JSON.stringify(clinic));
       } catch {}
@@ -781,6 +809,16 @@ export const clinicService = {
   /**
    * Atualiza o status do atendimento
    */
+  /**
+   * Edita os dados de um atendimento (data, horário, tutor, serviço etc.). #62
+   */
+  async updateAppointment(id, data) {
+    return apiFetch(`/api/clinicas/atendimentos/${id}`, {
+      method: "PUT",
+      body: data,
+    });
+  },
+
   async updateAppointmentStatus(id, status) {
     return apiFetch(`/api/clinicas/atendimentos/${id}/status`, {
       method: "PATCH",

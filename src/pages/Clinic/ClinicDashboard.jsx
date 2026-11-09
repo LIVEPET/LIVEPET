@@ -6,12 +6,14 @@ import {
   BarChart3,
   CalendarDays,
   CheckCircle2,
+  CircleDollarSign,
   Clock,
   PawPrint,
   PieChart as PieChartIcon,
   Syringe,
   TrendingUp,
 } from "lucide-react";
+import { computeClinicRevenue, formatCurrency } from "@/lib/clinicBilling";
 import {
   Bar,
   BarChart,
@@ -25,12 +27,14 @@ import {
   YAxis,
 } from "recharts";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { getVaccineAlertsForDashboard } from "@/lib/vaccineSchedule";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Progress } from "@/components/ui/progress";
 import EmptyState from "@/components/EmptyState";
 import { statusStyles } from "@/data/clinicDemo";
 import { useClinic } from "@/contexts/ClinicContext";
+import ClinicDataStatus from "./ClinicDataStatus";
 
 const DAILY_SLOT_CAPACITY = 10;
 const MONTHLY_GOALS_TARGETS = {
@@ -245,6 +249,9 @@ export const computeDashboardMetrics = (appointments = [], patients = []) => {
     byWeekday,
     bySpecies,
     byService,
+    totalRevenue: computeClinicRevenue(appointments).totalRevenue,
+    paidCount: computeClinicRevenue(appointments).paidCount,
+    pendingCount: computeClinicRevenue(appointments).pendingCount,
   };
 };
 
@@ -259,6 +266,13 @@ const ClinicDashboard = () => {
   );
 
   const kpis = [
+    {
+      testId: "kpi-revenue",
+      label: "Receita acumulada",
+      value: formatCurrency(metrics.totalRevenue),
+      icon: CircleDollarSign,
+      hint: `${metrics.paidCount} atendimento(s) quitado(s)`,
+    },
     {
       testId: "kpi-appointments",
       label: "Atendimentos hoje",
@@ -294,7 +308,48 @@ const ClinicDashboard = () => {
     },
   ];
 
-  const alerts = patients.filter((p) => p.alerts.length > 0).slice(0, 4);
+  const vaccineAlerts = useMemo(
+    () => getVaccineAlertsForDashboard(patients, appointments),
+    [patients, appointments],
+  );
+
+  const attentionItems = useMemo(() => {
+    const items = [];
+
+    // 1. Doses de reforço atrasadas ou vencendo em breve
+    vaccineAlerts.forEach((v) => {
+      items.push({
+        id: v.id,
+        patientId: v.patientId,
+        name: v.patientName,
+        type: "vacina",
+        isOverdue: v.isOverdue,
+        message: v.message,
+        badge: v.isOverdue ? "Vacina atrasada" : "Reforço próximo",
+      });
+    });
+
+    // 2. Alertas clínicos gerais dos pacientes
+    patients
+      .filter((p) => Array.isArray(p.alerts) && p.alerts.length > 0)
+      .forEach((p) => {
+        if (!items.some((it) => it.patientId === p.id)) {
+          items.push({
+            id: `alert-${p.id}`,
+            patientId: p.id,
+            name: p.name,
+            type: "clinico",
+            isOverdue: false,
+            message: p.alerts[0],
+            badge: "Alerta clínico",
+          });
+        }
+      });
+
+    return items.slice(0, 5);
+  }, [vaccineAlerts, patients]);
+
+  const alerts = attentionItems;
   const next = appointments.filter(
     (a) => a.status === "Confirmado" || a.status === "Aguardando",
   );
@@ -331,8 +386,10 @@ const ClinicDashboard = () => {
         </Button>
       </div>
 
+      <ClinicDataStatus hasData={appointments.length > 0 || patients.length > 0} rows={2} />
+
       {/* KPIs Dinâmicos do Topo */}
-      <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5">
         {kpis.map(({ testId, label, value, icon: Icon, hint }) => (
           <Card
             key={label}
@@ -591,10 +648,32 @@ const ClinicDashboard = () => {
               </CardTitle>
             </CardHeader>
             <CardContent className="space-y-3">
-              {alerts.map((p) => (
-                <div key={p.id} className="rounded-2xl bg-warm-soft/70 p-3">
-                  <p className="text-sm font-semibold">{p.name}</p>
-                  <p className="text-xs text-muted-foreground">{p.alerts[0]}</p>
+              {attentionItems.map((p) => (
+                <div
+                  key={p.id}
+                  data-testid={`attention-item-${p.patientId || p.id}`}
+                  className={`rounded-2xl p-3 border transition-colors ${
+                    p.isOverdue
+                      ? "bg-red-500/10 border-red-500/30"
+                      : "bg-warm-soft/70 border-warm/30"
+                  }`}
+                >
+                  <div className="flex items-center justify-between gap-2">
+                    <p className="text-sm font-semibold truncate">{p.name}</p>
+                    {p.badge && (
+                      <Badge
+                        variant="outline"
+                        className={`text-[10px] px-1.5 py-0 h-4 font-medium border ${
+                          p.isOverdue
+                            ? "bg-red-500/10 text-red-600 dark:text-red-400 border-red-500/30"
+                            : "bg-amber-500/10 text-amber-700 dark:text-amber-400 border-amber-500/30"
+                        }`}
+                      >
+                        {p.badge}
+                      </Badge>
+                    )}
+                  </div>
+                  <p className="text-xs text-muted-foreground mt-0.5">{p.message}</p>
                 </div>
               ))}
               {alerts.length === 0 && (

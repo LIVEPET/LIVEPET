@@ -4,6 +4,7 @@ import {
   AlertTriangle,
   CheckCircle2,
   Edit3,
+  FileBadge,
   FileText,
   Link2,
   PawPrint,
@@ -45,9 +46,13 @@ import {
 } from "@/components/ui/sheet";
 import EmptyState from "@/components/EmptyState";
 import { useClinic } from "@/contexts/ClinicContext";
+import ClinicDataStatus from "./ClinicDataStatus";
 import { clinicService } from "@/services/api";
 import { ECC_OPTIONS, buildVitals, normalizeEcc } from "@/lib/clinicVitals";
 import { PatientExamsSection } from "./ClinicExams";
+import { ClinicalDocumentsDialog } from "./ClinicDocuments";
+import { PatientVaccinationSection } from "./PatientVaccination";
+import { buildPatientVaccinationHistory, VACCINE_STATUS } from "@/lib/vaccineSchedule";
 import {
   AlertsBanner,
   BodyConditionScale,
@@ -73,13 +78,18 @@ const PatientPhoto = ({ patient, className, iconClassName }) =>
 
 const ClinicPatients = () => {
   const navigate = useNavigate();
-  const { patients, appointments, updatePatient, deletePatient, linkPatientWithLivePet, updateAppointmentExam } = useClinic();
+  const { patients, appointments, profile, updatePatient, deletePatient, linkPatientWithLivePet, updateAppointmentExam, addPatientVaccine } = useClinic();
+  const [documentPatient, setDocumentPatient] = useState(null);
   const [query, setQuery] = useState("");
   const [species, setSpecies] = useState("Todos");
   const [breed, setBreed] = useState("Todas");
   const [selected, setSelected] = useState(null);
   const vitals = useMemo(
     () => (selected ? buildVitals(selected, appointments) : null),
+    [selected, appointments],
+  );
+  const selectedVaccineHistory = useMemo(
+    () => (selected ? buildPatientVaccinationHistory(selected, appointments) : null),
     [selected, appointments],
   );
 
@@ -248,6 +258,8 @@ const ClinicPatients = () => {
         <p className="text-muted-foreground">Consulte prontuários, vacinas e alertas clínicos.</p>
       </div>
 
+      <ClinicDataStatus hasData={patients.length > 0} />
+
       {/* Barra de filtros: só aparece se houver pets cadastrados, exibindo apenas as opções reais */}
       {patients.length > 0 && (
         <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
@@ -415,10 +427,11 @@ const ClinicPatients = () => {
 
               <div className="mt-5 space-y-4">
                 <Tabs defaultValue="resumo" className="w-full">
-                  <TabsList className="grid h-auto w-full grid-cols-3">
-                    <TabsTrigger value="resumo" className="h-auto whitespace-normal px-2 py-1.5 text-xs">Resumo &amp; Sinais Vitais</TabsTrigger>
-                    <TabsTrigger value="peso" className="h-auto whitespace-normal px-2 py-1.5 text-xs">Evolução de Peso</TabsTrigger>
-                    <TabsTrigger value="historico" className="h-auto whitespace-normal px-2 py-1.5 text-xs">Histórico Clínico</TabsTrigger>
+                  <TabsList className="grid h-auto w-full grid-cols-4">
+                    <TabsTrigger value="resumo" className="h-auto whitespace-normal px-1 py-1.5 text-[11px]">Resumo</TabsTrigger>
+                    <TabsTrigger value="vacinas" data-testid="tab-trigger-vacinas" className="h-auto whitespace-normal px-1 py-1.5 text-[11px]">Vacinas</TabsTrigger>
+                    <TabsTrigger value="peso" className="h-auto whitespace-normal px-1 py-1.5 text-[11px]">Peso</TabsTrigger>
+                    <TabsTrigger value="historico" className="h-auto whitespace-normal px-1 py-1.5 text-[11px]">Histórico</TabsTrigger>
                   </TabsList>
 
                   <TabsContent value="resumo" className="mt-4 space-y-4">
@@ -464,18 +477,52 @@ const ClinicPatients = () => {
                     </div>
 
                     <div className="rounded-2xl border border-border p-4">
-                      <p className="mb-2 text-sm font-semibold">Situação clínica</p>
+                      <div className="flex items-center justify-between mb-2">
+                        <p className="text-sm font-semibold">Situação vacinal</p>
+                        {selectedVaccineHistory?.summary.status === VACCINE_STATUS.OVERDUE && (
+                          <Badge variant="outline" className="bg-red-500/10 text-red-600 dark:text-red-400 border-red-500/30 text-xs">
+                            Atrasada
+                          </Badge>
+                        )}
+                        {selectedVaccineHistory?.summary.status === VACCINE_STATUS.DUE_SOON && (
+                          <Badge variant="outline" className="bg-amber-500/10 text-amber-700 dark:text-amber-400 border-amber-500/30 text-xs">
+                            Vence em breve
+                          </Badge>
+                        )}
+                        {selectedVaccineHistory?.summary.status === VACCINE_STATUS.UP_TO_DATE && (
+                          <Badge variant="outline" className="bg-emerald-500/10 text-emerald-700 dark:text-emerald-400 border-emerald-500/30 text-xs">
+                            Em dia
+                          </Badge>
+                        )}
+                      </div>
                       <p className="flex items-center gap-2 text-sm">
-                        {selected.vaccinesUpToDate === true && <CheckCircle2 className="h-4 w-4 text-primary" />}
-                        {selected.vaccinesUpToDate === false && <AlertTriangle className="h-4 w-4 text-warm" />}
-                        {selected.vaccinesUpToDate == null && <Syringe className="h-4 w-4 text-muted-foreground" />}
-                        {selected.vaccinesUpToDate === true
-                          ? "Carteira de vacinas em dia"
-                          : selected.vaccinesUpToDate === false
-                            ? "Vacinação pendente"
-                            : "Sem registro de vacinas"}
+                        {selectedVaccineHistory?.summary.status === VACCINE_STATUS.UP_TO_DATE && (
+                          <CheckCircle2 className="h-4 w-4 text-primary" />
+                        )}
+                        {(selectedVaccineHistory?.summary.status === VACCINE_STATUS.OVERDUE ||
+                          selectedVaccineHistory?.summary.status === VACCINE_STATUS.DUE_SOON) && (
+                          <AlertTriangle className="h-4 w-4 text-warm" />
+                        )}
+                        {(!selectedVaccineHistory ||
+                          selectedVaccineHistory?.summary.status === VACCINE_STATUS.NO_RECORD) && (
+                          <Syringe className="h-4 w-4 text-muted-foreground" />
+                        )}
+                        {selectedVaccineHistory?.summary.label || "Sem registro de vacinas"}
                       </p>
+                      {selectedVaccineHistory?.summary.alertMessage && (
+                        <p className="mt-1 text-xs text-muted-foreground">
+                          {selectedVaccineHistory.summary.alertMessage}
+                        </p>
+                      )}
                     </div>
+                  </TabsContent>
+
+                  <TabsContent value="vacinas" className="mt-4 space-y-4">
+                    <PatientVaccinationSection
+                      patient={selected}
+                      appointments={appointments}
+                      onAddVaccine={addPatientVaccine}
+                    />
                   </TabsContent>
 
                   <TabsContent value="peso" className="mt-4 space-y-4">
@@ -512,6 +559,16 @@ const ClinicPatients = () => {
                 </Tabs>
 
                 <Button
+                  type="button"
+                  variant="outline"
+                  data-testid="open-patient-documents-btn"
+                  onClick={() => setDocumentPatient(selected)}
+                  className="w-full rounded-full gap-2 border-primary/40 text-primary hover:bg-primary-soft"
+                >
+                  <FileBadge className="h-4 w-4" /> Emitir Atestado / Termo / Declaração
+                </Button>
+
+                <Button
                   onClick={() => {
                     navigate("/clinica/agenda", {
                       state: {
@@ -537,6 +594,13 @@ const ClinicPatients = () => {
       </Sheet>
 
       {/* Modal de Edição de Dados do Paciente e Tutor */}
+      <ClinicalDocumentsDialog
+        open={Boolean(documentPatient)}
+        onOpenChange={(o) => !o && setDocumentPatient(null)}
+        patient={documentPatient}
+        appointments={appointments}
+        profile={profile}
+      />
       <Dialog open={editOpen} onOpenChange={setEditOpen}>
         <DialogContent className="max-h-[90vh] max-w-lg overflow-y-auto">
           <DialogHeader>

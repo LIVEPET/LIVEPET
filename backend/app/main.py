@@ -3,7 +3,10 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from app.core.config import settings
 from app.core.database import Base, engine
+ feat/196-stats-endpoint
 from app.api.routers import health, auth, pets, lineages, marketplace, clinicas, stats
+from app.api.routers import health, auth, pets, lineages, marketplace, clinicas, matchpet
+ main
 import app.models  # noqa: F401
 
 
@@ -101,6 +104,7 @@ app.include_router(auth.router, prefix=settings.API_V1_STR)
 app.include_router(pets.router, prefix=settings.API_V1_STR)
 app.include_router(lineages.router, prefix=settings.API_V1_STR)
 app.include_router(marketplace.router, prefix=settings.API_V1_STR)
+app.include_router(matchpet.router, prefix=settings.API_V1_STR)
 app.include_router(clinicas.router, prefix=f"{settings.API_V1_STR}/clinicas")
 
 # Disponibiliza também sem o prefixo /api/v1 para flexibilidade

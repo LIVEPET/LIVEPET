@@ -1,0 +1,84 @@
+import { describe, expect, it } from "vitest";
+import { UFS, passwordSchema, profileSchema } from "./profileSchema";
+
+const VALIDO = {
+  nome: "Yasmim Souza",
+  email: "yasmim@livepet.com",
+  telefone: "(63) 99999-0000",
+  cidade: "Palmas",
+  estado: "TO",
+  bio: "",
+  nome_canil: "",
+  foto_url: "",
+};
+
+const erroDe = (dados, campo) => {
+  const resultado = profileSchema.safeParse({ ...VALIDO, ...dados });
+  return resultado.success ? undefined : resultado.error.flatten().fieldErrors[campo]?.[0];
+};
+
+describe("profileSchema", () => {
+  it("aceita um perfil completo e válido", () => {
+    expect(profileSchema.safeParse(VALIDO).success).toBe(true);
+  });
+
+  it("aceita os campos opcionais vazios", () => {
+    const vazio = { telefone: "", cidade: "", estado: "", bio: "", nome_canil: "" };
+    expect(profileSchema.safeParse({ ...VALIDO, ...vazio }).success).toBe(true);
+  });
+
+  it("exige nome com 2 a 150 caracteres", () => {
+    expect(erroDe({ nome: "   " }, "nome")).toBe("Informe seu nome completo.");
+    expect(erroDe({ nome: "Y" }, "nome")).toBe("O nome precisa ter pelo menos 2 caracteres.");
+    expect(erroDe({ nome: "a".repeat(151) }, "nome")).toMatch(/no máximo 150/);
+  });
+
+  it("recusa telefone inválido", () => {
+    expect(erroDe({ telefone: "abc123" }, "telefone")).toMatch(/Telefone inválido/);
+    expect(erroDe({ telefone: "(63) 8888-77" }, "telefone")).toMatch(/Telefone inválido/);
+    expect(erroDe({ telefone: "(63) 3214-0000" }, "telefone")).toBeUndefined();
+  });
+
+  it("aceita só as 27 UFs", () => {
+    expect(UFS).toHaveLength(27);
+    expect(erroDe({ estado: "ZZ" }, "estado")).toBe("Escolha uma UF da lista.");
+    expect(erroDe({ estado: "Goiás" }, "estado")).toBe("Escolha uma UF da lista.");
+  });
+
+  it("respeita os limites de cidade, bio e canil", () => {
+    expect(erroDe({ cidade: "a".repeat(101) }, "cidade")).toMatch(/no máximo 100/);
+    expect(erroDe({ bio: "a".repeat(501) }, "bio")).toMatch(/no máximo 500/);
+    expect(erroDe({ bio: "a".repeat(500) }, "bio")).toBeUndefined();
+    expect(erroDe({ nome_canil: "a".repeat(151) }, "nome_canil")).toMatch(/no máximo 150/);
+  });
+});
+
+describe("passwordSchema", () => {
+  const erroSenha = (senha, confirmacao = senha, senhaAtual = "antiga1") => {
+    const resultado = passwordSchema.safeParse({ senhaAtual, senha, confirmacao });
+    if (resultado.success) return undefined;
+    const erros = resultado.error.flatten().fieldErrors;
+    return erros.senhaAtual?.[0] ?? erros.senha?.[0] ?? erros.confirmacao?.[0];
+  };
+
+  it("aceita senha com letra, número e 6 a 100 caracteres", () => {
+    expect(erroSenha("livepet1")).toBeUndefined();
+  });
+
+  it("aplica as regras do back-end", () => {
+    expect(erroSenha("ab1")).toBe("A senha precisa ter pelo menos 6 caracteres");
+    expect(erroSenha(`a1${"x".repeat(99)}`)).toBe("A senha pode ter no máximo 100 caracteres");
+    expect(erroSenha("somenteletras")).toBe("Use pelo menos uma letra e um número");
+    expect(erroSenha("12345678")).toBe("Use pelo menos uma letra e um número");
+  });
+
+  it("exige confirmação igual", () => {
+    expect(erroSenha("livepet1", "livepet2")).toBe("As senhas não conferem");
+  });
+
+  it("exige a senha atual e que a nova seja diferente dela (#176)", () => {
+    expect(erroSenha("livepet1", "livepet1", "")).toBe("Informe sua senha atual");
+    expect(erroSenha("livepet1", "livepet1", "livepet1")).toBe("A nova senha precisa ser diferente da atual");
+    expect(erroSenha("livepet2", "livepet2", "livepet1")).toBeUndefined();
+  });
+});

@@ -81,49 +81,47 @@ def execute_sql_file(file_path: str):
 
 
 from app.core.database import SessionLocal
-from app.core.security import get_password_hash
 from app.models.clinic import Clinic
+from app.models.user import User
 
 
-def seed_test_clinic(
-    email: str = "clinica@livepet.com.br",
-    senha: str = "Clinica123",
-    nome: str = "Clínica Veterinária LivePet Teste",
-):
-    """Cria ou atualiza uma clínica de testes no banco para acesso rápido."""
-    # Garante que todas as tabelas existam no banco
-    Base.metadata.create_all(bind=engine)
-    db = SessionLocal()
+_FICTITIOUS_USER_EMAILS = (
+    "usuarioteste@livepet.com.br",
+    "professor.artur@livepet.com.br",
+    "joao.victor@livepet.com.br",
+)
+_FICTITIOUS_CLINIC_EMAIL = "clinica@livepet.com.br"
+
+
+def limpar_ficticios(session_factory=None):
+    """Remove contas fictícias e seus registros dependentes do banco configurado."""
+    db = (session_factory or SessionLocal)()
     try:
-        clinic = db.query(Clinic).filter(Clinic.email == email.lower()).first()
-        if not clinic:
-            clinic = Clinic(
-                nome=nome,
-                email=email.lower(),
-                senha_hash=get_password_hash(senha),
-                crmv="CRMV-SP 12345",
-                cnpj="12.345.678/0001-90",
-                telefone="(11) 3200-1122",
-                whatsapp="(11) 98888-2233",
-                endereco="Av. Paulista, 1000 - Bela Vista, São Paulo - SP",
-                sobre="Clínica modelo para testes de atendimento, prontuários e agendamentos LivePet.",
-            )
-            db.add(clinic)
-            db.commit()
-            db.refresh(clinic)
-            print("✅ Clínica de teste criada com sucesso!")
-        else:
-            clinic.senha_hash = get_password_hash(senha)
-            clinic.nome = nome
-            db.commit()
-            print("✅ Clínica de teste atualizada com sucesso!")
+        users = db.query(User).filter(User.email.in_(_FICTITIOUS_USER_EMAILS)).all()
+        clinics = db.query(Clinic).filter(
+            Clinic.email == _FICTITIOUS_CLINIC_EMAIL
+        ).all()
+        deleted_counts = {
+            "tutores": len(users),
+            "pets": sum(len(user.pets) for user in users),
+            "clinicas": len(clinics),
+        }
 
-        print(f"   📧 E-mail: {email}")
-        print(f"   🔑 Senha:  {senha}")
-        print(f"   🏥 Nome:   {clinic.nome}")
-        return clinic
+        for user in users:
+            db.delete(user)
+        for clinic in clinics:
+            db.delete(clinic)
+        db.commit()
+    except Exception:
+        db.rollback()
+        raise
     finally:
         db.close()
+
+    print(f"Tutores removidos: {deleted_counts['tutores']}")
+    print(f"Pets removidos em cascata: {deleted_counts['pets']}")
+    print(f"Clínicas removidas: {deleted_counts['clinicas']}")
+    return deleted_counts
 
 
 def sync_db_schema():
@@ -165,14 +163,14 @@ def sync_db_schema():
     list_tables()
 
 
-if __name__ == "__main__":
+def main():
     if len(sys.argv) < 2:
         print("Uso:")
         print("  python manage_db.py test           - Testa a conexão com o banco (Neon/SQLite)")
         print("  python manage_db.py tables         - Lista tabelas e colunas existentes")
         print("  python manage_db.py sync           - Sincroniza tabelas e novas colunas com o ORM")
         print("  python manage_db.py create         - Cria tabelas novas via SQLAlchemy ORM")
-        print("  python manage_db.py seed           - Cria usuário de teste para clínica")
+        print("  python manage_db.py limpar-ficticios - Remove contas e dados fictícios")
         print("  python manage_db.py run-sql <file> - Executa um arquivo .sql")
         sys.exit(0)
 
@@ -185,8 +183,8 @@ if __name__ == "__main__":
         sync_db_schema()
     elif cmd == "create":
         create_all_tables()
-    elif cmd == "seed":
-        seed_test_clinic()
+    elif cmd == "limpar-ficticios":
+        limpar_ficticios()
     elif cmd == "run-sql":
         if len(sys.argv) < 3:
             print("❌ Informe o caminho do arquivo .sql")
@@ -195,3 +193,6 @@ if __name__ == "__main__":
     else:
         print(f"❌ Comando desconhecido: {cmd}")
 
+
+if __name__ == "__main__":
+    main()

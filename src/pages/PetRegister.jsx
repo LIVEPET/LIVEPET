@@ -36,7 +36,7 @@ import {
 import { authService, petsService } from "@/services/api";
 import { compressImage } from "@/lib/image";
 
-const petSchema = z.object({
+export const petSchema = z.object({
   name: z.string().trim().min(1, "Informe o nome do pet").max(60),
   species: z.string().trim().min(1, "Selecione a espécie").max(40),
   breed: z.string().trim().max(60).optional().or(z.literal("")),
@@ -47,11 +47,13 @@ const petSchema = z.object({
     .optional()
     .or(z.literal("")),
   data_nascimento: z.string().optional().or(z.literal("")),
+  // zod 4: o antigo `errorMap` foi substituído por `error`. Sem isso a tela
+  // mostraria a mensagem padrão em inglês no lugar do texto abaixo.
   size: z.enum(["Pequeno", "Médio", "Grande"], {
-    errorMap: () => ({ message: "Selecione o porte" }),
+    error: () => "Selecione o porte",
   }),
   gender: z.enum(["Macho", "Fêmea"], {
-    errorMap: () => ({ message: "Selecione o sexo" }),
+    error: () => "Selecione o sexo",
   }),
   age: z
     .string()
@@ -264,7 +266,8 @@ const PetRegister = () => {
     const parsed = petSchema.safeParse(form);
     if (!parsed.success) {
       const fieldErrors = {};
-      parsed.error.errors.forEach((err) => {
+      // zod 4: `error.errors` foi removido e virou `error.issues`.
+      parsed.error.issues.forEach((err) => {
         if (err.path[0]) fieldErrors[err.path[0]] = err.message;
       });
       setErrors(fieldErrors);
@@ -366,7 +369,7 @@ const PetRegister = () => {
 
         <form
           onSubmit={handleSubmit}
-          className="grid gap-6 lg:grid-cols-[320px_1fr]"
+          className="grid grid-cols-1 gap-6 lg:grid-cols-[320px_minmax(0,1fr)]"
         >
           {/* PHOTO CARD */}
           <Card className="border-border/60 p-6 shadow-card">

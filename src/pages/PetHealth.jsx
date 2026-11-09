@@ -288,7 +288,7 @@ const PetHealth = ({ pets: initialPets, petInicial }) => {
               Carteira digital LivePet
             </span>
 
-            <div className="flex items-center gap-2">
+            <div className="flex flex-wrap items-center gap-2">
               <Button
                 asChild
                 variant="outline"
@@ -397,7 +397,7 @@ const PetHealth = ({ pets: initialPets, petInicial }) => {
           })}
         </div>
 
-        <div className="mt-6 grid gap-8 lg:grid-cols-[320px_1fr]">
+        <div className="mt-6 grid grid-cols-1 gap-8 lg:grid-cols-[320px_minmax(0,1fr)]">
           {/* Coluna lateral */}
           <aside className="space-y-6 lg:sticky lg:top-24 lg:self-start">
             <Card className="overflow-hidden border-border/60 p-0 shadow-card">

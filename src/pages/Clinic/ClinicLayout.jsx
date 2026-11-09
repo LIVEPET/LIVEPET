@@ -91,7 +91,7 @@ const ClinicShell = () => {
             className="w-full justify-start gap-2 text-muted-foreground"
             onClick={() => {
               clinicService.logout();
-              navigate("/clinica/entrar");
+              navigate("/clinica/entrar", { replace: true });
             }}
           >
             <LogOut className="h-4 w-4" /> Sair da conta
@@ -127,7 +127,7 @@ const ClinicShell = () => {
                   className="w-full gap-2"
                   onClick={() => {
                     clinicService.logout();
-                    navigate("/clinica/entrar");
+                    navigate("/clinica/entrar", { replace: true });
                   }}
                 >
                   <LogOut className="h-4 w-4" /> Sair

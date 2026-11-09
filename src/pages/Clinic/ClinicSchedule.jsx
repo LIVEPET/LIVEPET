@@ -4,25 +4,39 @@ import {
   Activity,
   AlertTriangle,
   ArrowRight,
-  Calendar,
   CalendarDays,
   CheckCircle2,
   Clock,
   Columns3,
+  FileBadge,
   FileText,
   Heart,
   LayoutList,
+  Pencil,
   Phone,
   Plus,
+  Receipt,
   Search,
   Stethoscope,
   Syringe,
   Thermometer,
+  Trash2,
   User,
 } from "lucide-react";
 
 import { toast } from "sonner";
 import { Card, CardContent } from "@/components/ui/card";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
+import ClinicDataStatus from "./ClinicDataStatus";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -50,11 +64,28 @@ import { useClinic } from "@/contexts/ClinicContext";
 import { clinicService } from "@/services/api";
 import { formatPhone, isValidPhone } from "@/lib/phone";
 import { ComplementaryExamsSelector } from "./ClinicExams";
+import { ClinicalDocumentsDialog } from "./ClinicDocuments";
 import {
   hasPrescription,
   PrescriptionBuilder,
   PrescriptionSheetDialog,
 } from "./ClinicPrescription";
+import { AppointmentBillingSection } from "./AppointmentBillingSection";
+import { ClinicReceiptDialog } from "./ClinicReceiptDialog";
+import {
+  addDaysToIsoDate,
+  formatIsoDateBR,
+  isReturnAppointmentItem,
+  ReturnAppointmentBadge,
+  ReturnSchedulingSection,
+  WhatsAppActionButton,
+} from "./ClinicReturnAndWhatsapp";
+import {
+  PAYMENT_STATUS,
+  calculateAppointmentTotal,
+  findServicePrice,
+  formatCurrency,
+} from "@/lib/clinicBilling";
 
 const filters = ["Todos", "Confirmado", "Aguardando", "Em atendimento", "Concluído", "Cancelado"];
 const DEFAULT_SPECIES = ["Cão", "Gato", "Ave", "Roedor", "Réptil", "Outro"];
@@ -191,6 +222,8 @@ const ClinicSchedule = () => {
     appointments: list,
     profile,
     addAppointment,
+    updateAppointment,
+    deleteAppointment,
     updateAppointmentStatus,
     updateAppointmentPriority,
     concludeAppointment,
@@ -204,6 +237,9 @@ const ClinicSchedule = () => {
   const [query, setQuery] = useState("");
   const [open, setOpen] = useState(false);
   const [form, setForm] = useState(emptyForm);
+  // Atendimento em edição (#62). null = o modal está criando um novo.
+  const [editing, setEditing] = useState(null);
+  const [toDelete, setToDelete] = useState(null);
   const [errors, setErrors] = useState({});
   const [speciesOptions, setSpeciesOptions] = useState(DEFAULT_SPECIES);
 
@@ -211,6 +247,8 @@ const ClinicSchedule = () => {
   const [examOpen, setExamOpen] = useState(false);
   const [activeExamApp, setActiveExamApp] = useState(null);
   const [prescriptionPreviewApp, setPrescriptionPreviewApp] = useState(null);
+  const [receiptApp, setReceiptApp] = useState(null);
+  const [documentModalApp, setDocumentModalApp] = useState(null);
   const [examForm, setExamForm] = useState({
     priority: "Rotina",
     queixa_principal: "",
@@ -227,6 +265,10 @@ const ClinicSchedule = () => {
     vacina_aplicada: "",
     vacina_lote: "",
     vacina_proxima_dose: "",
+    scheduleReturn: false,
+    returnDate: addDaysToIsoDate(getToday(), 7),
+    returnTime: "10:00",
+    returnReason: "",
   });
 
   const services = useMemo(() => uniqueNames(profile.services), [profile.services]);
@@ -274,6 +316,7 @@ const ClinicSchedule = () => {
           viewMode === "kanban" ? true : filter === "Todos" || a.status === filter;
         const matchesDate =
           dateFilter === "Todas as datas" ||
+          (dateFilter === "Retornos" && isReturnAppointmentItem(a)) ||
           (dateFilter === "Hoje" && (a.date === getToday() || !a.date));
         const matchesQuery = `${a.petName} ${a.tutor} ${a.service} ${a.priority || ""} ${a.notes || ""}`
           .toLowerCase()
@@ -301,6 +344,15 @@ const ClinicSchedule = () => {
       vacina_aplicada: a.vacina_aplicada || "",
       vacina_lote: a.vacina_lote || "",
       vacina_proxima_dose: a.vacina_proxima_dose || "",
+      valor_servico: a.valor_servico != null ? Number(a.valor_servico) : (findServicePrice(a.service, profile.services) || 0),
+      itens_adicionais: Array.isArray(a.itens_adicionais) ? a.itens_adicionais : [],
+      desconto: a.desconto != null ? Number(a.desconto) : 0,
+      status_pagamento: a.status_pagamento || PAYMENT_STATUS.PAID,
+      forma_pagamento: a.forma_pagamento || "PIX",
+      scheduleReturn: false,
+      returnDate: addDaysToIsoDate(a.date || getToday(), 7),
+      returnTime: a.time || "10:00",
+      returnReason: "",
     });
 
     if (a.status === "Confirmado" || a.status === "Aguardando") {
@@ -352,9 +404,49 @@ const ClinicSchedule = () => {
       vacina_aplicada: examForm.applyVaccine && examForm.vacina_aplicada.trim() ? examForm.vacina_aplicada.trim() : null,
       vacina_lote: examForm.applyVaccine && examForm.vacina_lote.trim() ? examForm.vacina_lote.trim() : null,
       vacina_proxima_dose: examForm.applyVaccine && examForm.vacina_proxima_dose ? examForm.vacina_proxima_dose : null,
+      valor_servico: Number(examForm.valor_servico) || 0,
+      itens_adicionais: Array.isArray(examForm.itens_adicionais) ? examForm.itens_adicionais : [],
+      desconto: Number(examForm.desconto) || 0,
+      valor_total: calculateAppointmentTotal({
+        basePrice: examForm.valor_servico,
+        extraItems: examForm.itens_adicionais,
+        discount: examForm.desconto,
+      }),
+      status_pagamento: examForm.status_pagamento || PAYMENT_STATUS.PAID,
+      forma_pagamento: examForm.forma_pagamento || "PIX",
     };
 
     concludeAppointment(activeExamApp.id, payload);
+
+    if (examForm.scheduleReturn && examForm.returnDate) {
+      const returnServiceName = "Retorno Clínico";
+      const returnPrice = findServicePrice(returnServiceName, profile.services) || 0;
+      addAppointment({
+        patientId: activeExamApp.patientId || null,
+        date: examForm.returnDate,
+        time: examForm.returnTime || activeExamApp.time || "10:00",
+        petName: activeExamApp.petName,
+        species: activeExamApp.species || "Cão",
+        breed: activeExamApp.breed || "—",
+        tutor: activeExamApp.tutor,
+        phone: activeExamApp.phone || "—",
+        service: returnServiceName,
+        isReturn: true,
+        valor_servico: returnPrice,
+        valor_total: returnPrice,
+        status_pagamento: PAYMENT_STATUS.PENDING,
+        forma_pagamento: "PIX",
+        vet: activeExamApp.vet || DEFAULT_VET,
+        priority: "Rotina",
+        notes:
+          examForm.returnReason.trim() ||
+          `Retorno referente ao atendimento de ${activeExamApp.service}`,
+      });
+      toast.success(
+        `Retorno clínico de ${activeExamApp.petName} agendado para ${formatIsoDateBR(examForm.returnDate)} às ${examForm.returnTime || "10:00"}!`,
+      );
+    }
+
     setExamOpen(false);
     toast.success(`Atendimento de ${activeExamApp.petName} concluído com sucesso! Prontuário registrado.`);
   };
@@ -367,6 +459,35 @@ const ClinicSchedule = () => {
   const resetForm = () => {
     setForm(emptyForm);
     setErrors({});
+    setEditing(null);
+  };
+
+  const startEdit = (a) => {
+    setEditing(a);
+    setErrors({});
+    setForm({
+      patientId: a.patientId || null,
+      petName: a.petName || "",
+      species: a.species || "",
+      breed: a.breed && a.breed !== "—" ? a.breed : "",
+      date: a.date || getToday(),
+      time: a.time || "",
+      tutor: a.tutor || "",
+      phone: a.phone || "",
+      service: a.service || "",
+      vet: a.vet && a.vet !== DEFAULT_VET ? a.vet : "",
+      priority: a.priority || "Rotina",
+      notes: a.notes || "",
+    });
+    setOpen(true);
+  };
+
+  const confirmDelete = async () => {
+    const a = toDelete;
+    setToDelete(null);
+    if (!a) return;
+    await deleteAppointment(a.id);
+    toast("Atendimento excluído", { description: `${a.petName} — ${a.time}` });
   };
 
   const handleOpenChange = (next) => {
@@ -393,6 +514,25 @@ const ClinicSchedule = () => {
       document.getElementById(Object.keys(found)[0])?.focus();
       return;
     }
+    if (editing) {
+      updateAppointment(editing.id, {
+        date: form.date,
+        time: form.time,
+        petName: form.petName.trim(),
+        species: form.species,
+        breed: form.breed.trim() || "—",
+        tutor: form.tutor.trim(),
+        phone: formatPhone(form.phone),
+        service: form.service.trim(),
+        vet: form.vet || DEFAULT_VET,
+        priority: form.priority || "Rotina",
+        notes: form.notes.trim() || "",
+      });
+      resetForm();
+      setOpen(false);
+      toast.success("Atendimento atualizado!");
+      return;
+    }
     addAppointment({
       patientId: form.patientId || null,
       date: form.date,
@@ -403,6 +543,10 @@ const ClinicSchedule = () => {
       tutor: form.tutor.trim(),
       phone: formatPhone(form.phone),
       service: form.service.trim(),
+      valor_servico: findServicePrice(form.service, profile.services) || 0,
+      valor_total: findServicePrice(form.service, profile.services) || 0,
+      status_pagamento: PAYMENT_STATUS.PENDING,
+      forma_pagamento: "PIX",
       vet: form.vet || DEFAULT_VET,
       priority: form.priority || "Rotina",
       notes: form.notes.trim() || "",
@@ -435,10 +579,23 @@ const ClinicSchedule = () => {
               >
                 Todas as datas
               </Button>
+              <Button
+                variant={dateFilter === "Retornos" ? "secondary" : "ghost"}
+                size="sm"
+                data-testid="filter-returns-btn"
+                className="h-6 rounded-full px-2.5 text-xs font-semibold"
+                onClick={() => setDateFilter("Retornos")}
+              >
+                Retornos
+              </Button>
             </div>
           </div>
           <h1 className="font-display text-3xl font-bold">
-            {dateFilter === "Hoje" ? "Atendimentos de hoje" : "Todos os atendimentos"}
+            {dateFilter === "Hoje"
+              ? "Atendimentos de hoje"
+              : dateFilter === "Retornos"
+                ? "Retornos programados"
+                : "Todos os atendimentos"}
           </h1>
           <p className="text-muted-foreground">{visible.length} atendimento(s) nesta visualização.</p>
         </div>
@@ -480,8 +637,12 @@ const ClinicSchedule = () => {
             </DialogTrigger>
             <DialogContent className="max-h-[90vh] max-w-lg overflow-y-auto">
               <DialogHeader>
-                <DialogTitle className="font-display">Agendar atendimento</DialogTitle>
-                <DialogDescription>Preencha os dados da consulta e a triagem de risco.</DialogDescription>
+                <DialogTitle className="font-display">{editing ? "Editar atendimento" : "Agendar atendimento"}</DialogTitle>
+                <DialogDescription>
+                  {editing
+                    ? "Altere os dados e salve. O status e o prontuário não mudam aqui."
+                    : "Preencha os dados da consulta e a triagem de risco."}
+                </DialogDescription>
               </DialogHeader>
               <form onSubmit={create} noValidate className="space-y-4">
                 <div className="grid gap-3 sm:grid-cols-2">
@@ -644,7 +805,7 @@ const ClinicSchedule = () => {
                 </div>
 
                 <Button type="submit" className="w-full rounded-full gradient-primary text-primary-foreground">
-                  Confirmar agendamento
+                  {editing ? "Salvar alterações" : "Confirmar agendamento"}
                 </Button>
               </form>
             </DialogContent>
@@ -685,6 +846,8 @@ const ClinicSchedule = () => {
         </div>
       </div>
 
+      <ClinicDataStatus hasData={list.length > 0} />
+
       {viewMode === "list" ? (
         <div className="space-y-3">
           {visible.map((a) => {
@@ -714,6 +877,7 @@ const ClinicSchedule = () => {
                         </span>
                       </p>
                       <PriorityBadge priority={a.priority} />
+                      <ReturnAppointmentBadge appointment={a} />
                     </div>
                     <p className="text-sm text-muted-foreground">
                       {a.service} — {a.vet}
@@ -728,7 +892,43 @@ const ClinicSchedule = () => {
                     </p>
                   </div>
                   <div className="flex flex-wrap items-center gap-2">
+                    {(a.valor_total != null || a.valor_servico != null) && (
+                      <Badge variant="outline" className="text-xs font-semibold text-primary border-primary/30">
+                        {formatCurrency(a.valor_total ?? a.valor_servico)}
+                      </Badge>
+                    )}
+                    {a.status_pagamento && (
+                      <Badge
+                        variant="outline"
+                        className={`text-xs ${
+                          a.status_pagamento === "Pago"
+                            ? "bg-emerald-500/10 text-emerald-700 dark:text-emerald-400 border-emerald-500/30"
+                            : "bg-amber-500/10 text-amber-700 dark:text-amber-400 border-amber-500/30"
+                        }`}
+                      >
+                        {a.status_pagamento === "Pago" ? "Pago" : "Pendente"}
+                      </Badge>
+                    )}
                     <Badge className={`${statusStyles[a.status]} hover:opacity-90`}>{a.status}</Badge>
+                    <WhatsAppActionButton appointment={a} profile={profile} />
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      data-testid={`btn-receipt-${a.id}`}
+                      className="rounded-full gap-1.5 text-xs font-medium border-primary/30 text-primary hover:bg-primary-soft"
+                      onClick={() => setReceiptApp(a)}
+                    >
+                      <Receipt className="h-3.5 w-3.5" /> Recibo
+                    </Button>
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      data-testid={`open-documents-${a.id}`}
+                      className="rounded-full gap-1.5 text-xs font-medium"
+                      onClick={() => setDocumentModalApp(a)}
+                    >
+                      <FileBadge className="h-3.5 w-3.5" /> Emitir Documento
+                    </Button>
                     {hasPrescription(a) && (
                       <Button
                         size="sm"
@@ -748,6 +948,15 @@ const ClinicSchedule = () => {
                         <Button
                           size="sm"
                           variant="ghost"
+                          className="rounded-full gap-1.5"
+                          aria-label={`Editar atendimento de ${a.petName}`}
+                          onClick={() => startEdit(a)}
+                        >
+                          <Pencil className="h-3.5 w-3.5" /> Editar
+                        </Button>
+                        <Button
+                          size="sm"
+                          variant="ghost"
                           className="rounded-full text-destructive"
                           onClick={() => cancel(a)}
                         >
@@ -755,6 +964,15 @@ const ClinicSchedule = () => {
                         </Button>
                       </>
                     )}
+                    <Button
+                      size="sm"
+                      variant="ghost"
+                      className="rounded-full gap-1.5 text-destructive"
+                      aria-label={`Excluir atendimento de ${a.petName}`}
+                      onClick={() => setToDelete(a)}
+                    >
+                      <Trash2 className="h-3.5 w-3.5" /> Excluir
+                    </Button>
                     {a.status === "Concluído" && (
                       <Button
                         size="sm"
@@ -845,7 +1063,10 @@ const ClinicSchedule = () => {
                             <span className="inline-flex items-center gap-1 rounded-xl bg-primary-soft px-2.5 py-1 text-xs font-bold text-primary">
                               <Clock className="h-3 w-3" /> {a.time}
                             </span>
-                            <PriorityBadge priority={a.priority} />
+                            <div className="flex flex-wrap items-center gap-1">
+                              <PriorityBadge priority={a.priority} />
+                              <ReturnAppointmentBadge appointment={a} />
+                            </div>
                           </div>
 
                           <div>
@@ -875,7 +1096,27 @@ const ClinicSchedule = () => {
                             </p>
                           )}
 
+                          {(a.valor_total != null || a.valor_servico != null) && (
+                            <div className="flex items-center justify-between text-xs py-1 border-t border-border/40">
+                              <span className="font-semibold text-foreground">
+                                {formatCurrency(a.valor_total ?? a.valor_servico)}
+                              </span>
+                              <Badge
+                                variant="outline"
+                                className={`text-[10px] px-1.5 py-0 h-4 ${
+                                  a.status_pagamento === "Pago"
+                                    ? "bg-emerald-500/10 text-emerald-700 dark:text-emerald-400 border-emerald-500/30"
+                                    : "bg-amber-500/10 text-amber-700 dark:text-amber-400 border-amber-500/30"
+                                }`}
+                              >
+                                {a.status_pagamento === "Pago" ? "Pago" : "Pendente"}
+                              </Badge>
+                            </div>
+                          )}
+
                           <div className="flex flex-wrap items-center justify-between gap-2 border-t border-border/60 pt-2.5">
+                            <WhatsAppActionButton appointment={a} profile={profile} compact />
+
                             {hasPrescription(a) && (
                               <Button
                                 size="sm"
@@ -889,6 +1130,24 @@ const ClinicSchedule = () => {
 
                             {col.id === "waiting" && (
                               <>
+                                <Button
+                                  size="sm"
+                                  variant="ghost"
+                                  className="h-8 w-8 rounded-full p-0"
+                                  aria-label={`Editar atendimento de ${a.petName}`}
+                                  onClick={() => startEdit(a)}
+                                >
+                                  <Pencil className="h-3.5 w-3.5" />
+                                </Button>
+                                <Button
+                                  size="sm"
+                                  variant="ghost"
+                                  className="h-8 w-8 rounded-full p-0 text-destructive"
+                                  aria-label={`Excluir atendimento de ${a.petName}`}
+                                  onClick={() => setToDelete(a)}
+                                >
+                                  <Trash2 className="h-3.5 w-3.5" />
+                                </Button>
                                 <Button
                                   size="sm"
                                   variant="outline"
@@ -928,14 +1187,25 @@ const ClinicSchedule = () => {
                             )}
 
                             {col.id === "done" && (
-                              <Button
-                                size="sm"
-                                variant="outline"
-                                className="h-8 w-full rounded-full gap-1 text-xs"
-                                onClick={() => handleOpenExam(a)}
-                              >
-                                <Stethoscope className="h-3 w-3" /> Ver Prontuário
-                              </Button>
+                              <div className="flex gap-1.5 w-full">
+                                <Button
+                                  size="sm"
+                                  variant="outline"
+                                  className="h-8 flex-1 rounded-full gap-1 text-xs"
+                                  onClick={() => handleOpenExam(a)}
+                                >
+                                  <Stethoscope className="h-3 w-3" /> Prontuário
+                                </Button>
+                                <Button
+                                  size="sm"
+                                  variant="outline"
+                                  data-testid={`btn-receipt-kanban-${a.id}`}
+                                  className="h-8 flex-1 rounded-full gap-1 text-xs border-primary/30 text-primary hover:bg-primary-soft"
+                                  onClick={() => setReceiptApp(a)}
+                                >
+                                  <Receipt className="h-3 w-3" /> Recibo
+                                </Button>
+                              </div>
                             )}
                           </div>
                         </CardContent>
@@ -956,6 +1226,24 @@ const ClinicSchedule = () => {
       )}
 
       {/* Modal de Anamnese e Exame Clínico Completo */}
+      <AlertDialog open={Boolean(toDelete)} onOpenChange={(next) => !next && setToDelete(null)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Excluir este atendimento?</AlertDialogTitle>
+            <AlertDialogDescription>
+              {toDelete ? `${toDelete.petName} — ${toDelete.date} às ${toDelete.time}. ` : ""}
+              Ele some da agenda e do servidor. Para manter o registro, prefira "Cancelar".
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel className="rounded-full">Manter</AlertDialogCancel>
+            <AlertDialogAction className="rounded-full bg-destructive text-destructive-foreground hover:bg-destructive/90" onClick={confirmDelete}>
+              Excluir
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
       <Dialog open={examOpen} onOpenChange={setExamOpen}>
         <DialogContent className="max-h-[92vh] max-w-2xl overflow-y-auto">
           {activeExamApp && (
@@ -1202,7 +1490,56 @@ const ClinicSchedule = () => {
                   )}
                 </div>
 
+                {/* 5. Programar Retorno / Reavaliação (Issue #181) */}
+                <ReturnSchedulingSection
+                  baseDate={activeExamApp.date || getToday()}
+                  enabled={examForm.scheduleReturn}
+                  onToggleEnabled={(checked) =>
+                    setExamForm((f) => ({ ...f, scheduleReturn: checked }))
+                  }
+                  returnDate={examForm.returnDate}
+                  onChangeReturnDate={(d) => setExamForm((f) => ({ ...f, returnDate: d }))}
+                  returnTime={examForm.returnTime}
+                  onChangeReturnTime={(t) => setExamForm((f) => ({ ...f, returnTime: t }))}
+                  returnReason={examForm.returnReason}
+                  onChangeReturnReason={(r) => setExamForm((f) => ({ ...f, returnReason: r }))}
+                />
+
+                {/* 6. Orçamento, Procedimentos Extras & Pagamento (Issue #133) */}
+                <AppointmentBillingSection
+                  serviceName={activeExamApp.service}
+                  basePrice={examForm.valor_servico}
+                  onChangeBasePrice={(v) => setExamForm((f) => ({ ...f, valor_servico: v }))}
+                  extraItems={examForm.itens_adicionais}
+                  onChangeExtraItems={(items) => setExamForm((f) => ({ ...f, itens_adicionais: items }))}
+                  discount={examForm.desconto}
+                  onChangeDiscount={(d) => setExamForm((f) => ({ ...f, desconto: d }))}
+                  paymentStatus={examForm.status_pagamento}
+                  onChangePaymentStatus={(st) => setExamForm((f) => ({ ...f, status_pagamento: st }))}
+                  paymentMethod={examForm.forma_pagamento}
+                  onChangePaymentMethod={(m) => setExamForm((f) => ({ ...f, forma_pagamento: m }))}
+                />
+
                 <div className="flex flex-col-reverse justify-end gap-2 pt-2 sm:flex-row">
+                  <Button
+                    type="button"
+                    variant="outline"
+                    className="gap-1.5"
+                    onClick={() =>
+                      setDocumentModalApp({
+                        ...activeExamApp,
+                        temperatura: examForm.temperatura || activeExamApp.temperatura,
+                        peso: examForm.peso || activeExamApp.peso,
+                        frequencia_cardiaca: examForm.frequencia_cardiaca || activeExamApp.frequencia_cardiaca,
+                        frequencia_respiratoria:
+                          examForm.frequencia_respiratoria || activeExamApp.frequencia_respiratoria,
+                        mucosas: examForm.mucosas || activeExamApp.mucosas,
+                        diagnostico: examForm.diagnostico || activeExamApp.diagnostico,
+                      })
+                    }
+                  >
+                    <FileBadge className="h-4 w-4 text-primary" /> Emitir Atestado / Termo / Declaração
+                  </Button>
                   <Button type="button" variant="outline" onClick={() => setExamOpen(false)}>
                     Fechar
                   </Button>
@@ -1217,10 +1554,23 @@ const ClinicSchedule = () => {
       </Dialog>
 
       {/* Modal de Pré-visualização de Receituário Veterinário Timbrado */}
+      <ClinicalDocumentsDialog
+        open={Boolean(documentModalApp)}
+        onOpenChange={(o) => !o && setDocumentModalApp(null)}
+        appointment={documentModalApp}
+        appointments={list}
+        profile={profile}
+      />
       <PrescriptionSheetDialog
         open={Boolean(prescriptionPreviewApp)}
         onOpenChange={(o) => !o && setPrescriptionPreviewApp(null)}
         appointment={prescriptionPreviewApp}
+        profile={profile}
+      />
+      <ClinicReceiptDialog
+        open={Boolean(receiptApp)}
+        onOpenChange={(o) => !o && setReceiptApp(null)}
+        appointment={receiptApp}
         profile={profile}
       />
     </div>
