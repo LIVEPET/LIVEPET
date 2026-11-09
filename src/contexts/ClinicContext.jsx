@@ -340,24 +340,28 @@ export const ClinicProvider = ({ children }) => {
     }
   }, [loadClinicData]);
 
-const saveProfile = useCallback((fields) => {
-  setData((current) => ({ ...current, profile: { ...current.profile, ...fields } }));
-  if (clinicService.isAuthenticated()) {
-    const payload = {};
-    Object.entries(PROFILE_API_FIELDS).forEach(([key, apiKey]) => {
-      if (fields[key] !== undefined) {
-        if (Array.isArray(fields[key])) {
-          payload[apiKey] = JSON.stringify(fields[key]);
-        } else {
-          payload[apiKey] = fields[key];
+  const saveProfile = useCallback((fields) => {
+    setData((current) => ({ ...current, profile: { ...current.profile, ...fields } }));
+    if (clinicService.isAuthenticated()) {
+      const payload = {};
+      Object.entries(PROFILE_API_FIELDS).forEach(([key, apiKey]) => {
+        if (fields[key] !== undefined) {
+          if (Array.isArray(fields[key])) {
+            payload[apiKey] = JSON.stringify(fields[key]);
+          } else {
+            payload[apiKey] = fields[key];
+          }
         }
+      });
+      if (Object.keys(payload).length > 0) {
+        clinicService.updateProfile(payload).catch(() => {});
       }
+ feat/62-integracao-clinica-backend
     });
     if (Object.keys(payload).length > 0) {
       sincronizar(() => clinicService.updateProfile(payload), "Não foi possível salvar o perfil da clínica.");
     }
-  }
-}, []);
+  }, []);
 
   const addAppointment = useCallback((input) => {
     const appointment = {
@@ -676,6 +680,7 @@ const saveProfile = useCallback((fields) => {
       minute: "2-digit",
     });
     const occupant = {
+      patientId: occupantInput.patientId || null,
       petName: occupantInput.petName?.trim() || "Paciente",
       species: occupantInput.species || "Cão",
       breed: occupantInput.breed?.trim() || "—",
@@ -687,6 +692,7 @@ const saveProfile = useCallback((fields) => {
       nextMedicationTime: occupantInput.nextMedicationTime || "—",
       admittedAt: occupantInput.admittedAt || `Hoje, ${nowTime}`,
       evolutions: asArray(occupantInput.evolutions),
+      medicationSchedule: asArray(occupantInput.medicationSchedule),
     };
 
     setData((current) => ({
@@ -735,30 +741,160 @@ const saveProfile = useCallback((fields) => {
     }));
   }, []);
 
+  const addBedMedicationItem = useCallback((bedId, itemInput) => {
+    const entry = {
+      id: newId(),
+      medication: String(itemInput.medication || "").trim() || "Medicação",
+      dosage: String(itemInput.dosage || "").trim() || "Conforme prescrição",
+      scheduledTime: itemInput.scheduledTime || "14:00",
+      status: "Pendente",
+      administeredAt: null,
+      administeredBy: null,
+    };
+
+    setData((current) => ({
+      ...current,
+      beds: asArray(current.beds).map((b) => {
+        if (b.id !== bedId || !b.occupant) return b;
+        const nextSchedule = [...asArray(b.occupant.medicationSchedule), entry].sort((a, c) =>
+          String(a.scheduledTime || "").localeCompare(String(c.scheduledTime || "")),
+        );
+        const nextPending = nextSchedule.find((m) => m.status !== "Administrado");
+        return {
+          ...b,
+          occupant: {
+            ...b.occupant,
+            medicationSchedule: nextSchedule,
+            nextMedicationTime: nextPending
+              ? nextPending.scheduledTime
+              : b.occupant.nextMedicationTime,
+          },
+        };
+      }),
+    }));
+  }, []);
+
+  const toggleBedMedicationStatus = useCallback((bedId, medId, administeredBy = "Enfermagem") => {
+    const nowTime = new Date().toLocaleTimeString("pt-BR", {
+      hour: "2-digit",
+      minute: "2-digit",
+    });
+
+    setData((current) => ({
+      ...current,
+      beds: asArray(current.beds).map((b) => {
+        if (b.id !== bedId || !b.occupant) return b;
+        const nextSchedule = asArray(b.occupant.medicationSchedule).map((item) => {
+          if (item.id !== medId) return item;
+          const willBeAdministered = item.status !== "Administrado";
+          return {
+            ...item,
+            status: willBeAdministered ? "Administrado" : "Pendente",
+            administeredAt: willBeAdministered ? nowTime : null,
+            administeredBy: willBeAdministered ? administeredBy || b.occupant.vet : null,
+          };
+        });
+        const nextPending = nextSchedule.find((m) => m.status !== "Administrado");
+        return {
+          ...b,
+          occupant: {
+            ...b.occupant,
+            medicationSchedule: nextSchedule,
+            nextMedicationTime: nextPending ? nextPending.scheduledTime : "Concluído",
+          },
+        };
+      }),
+    }));
+  }, []);
+
+  const removeBedMedicationItem = useCallback((bedId, medId) => {
+    setData((current) => ({
+      ...current,
+      beds: asArray(current.beds).map((b) => {
+        if (b.id !== bedId || !b.occupant) return b;
+        const nextSchedule = asArray(b.occupant.medicationSchedule).filter((m) => m.id !== medId);
+        const nextPending = nextSchedule.find((m) => m.status !== "Administrado");
+        return {
+          ...b,
+          occupant: {
+            ...b.occupant,
+            medicationSchedule: nextSchedule,
+            nextMedicationTime: nextPending
+              ? nextPending.scheduledTime
+              : b.occupant.nextMedicationTime,
+          },
+        };
+      }),
+    }));
+  }, []);
+
   const dischargePatientFromBed = useCallback((bedId, dischargeNote = "") => {
     setData((current) => {
       const targetBed = asArray(current.beds).find((b) => b.id === bedId);
       const occupant = targetBed?.occupant;
 
-      const nextPatients = occupant
-        ? current.patients.map((p) => {
-            if (isSamePatient(p, { petName: occupant.petName, tutor: occupant.tutor })) {
-              const historyEntry = {
-                date: getToday(),
-                type: `Alta Hospitalar (${targetBed.name})`,
-                vet: occupant.vet,
-                summary:
-                  dischargeNote.trim() ||
-                  `Alta médica após internação por: ${occupant.reason}`,
-              };
-              return {
-                ...p,
-                history: [historyEntry, ...asArray(p.history)],
-              };
-            }
-            return p;
-          })
-        : current.patients;
+      let nextPatients = current.patients;
+      if (occupant) {
+        const evoCount = asArray(occupant.evolutions).length;
+        const medAdministeredCount = asArray(occupant.medicationSchedule).filter(
+          (m) => m.status === "Administrado",
+        ).length;
+        const summaryParts = [
+          `Motivo: ${occupant.reason}`,
+          evoCount > 0 ? `${evoCount} evolução(ões) no leito` : null,
+          medAdministeredCount > 0 ? `${medAdministeredCount} dose(s) administrada(s)` : null,
+          String(dischargeNote || "").trim()
+            ? `Recomendações: ${String(dischargeNote).trim()}`
+            : null,
+        ].filter(Boolean);
+
+        const historyEntry = {
+          date: getToday(),
+          type: `Alta Hospitalar (${targetBed.name})`,
+          vet: occupant.vet,
+          summary:
+            summaryParts.join(" · ") ||
+            `Alta médica após internação por: ${occupant.reason}`,
+        };
+
+        let matchedAny = false;
+        nextPatients = current.patients.map((p) => {
+          const matchesId =
+            occupant.patientId && String(p.id) === String(occupant.patientId);
+          const matchesExact = isSamePatient(p, {
+            petName: occupant.petName,
+            tutor: occupant.tutor,
+          });
+          const matchesNameWhenDefaultTutor =
+            normalize(p.name) === normalize(occupant.petName) &&
+            (occupant.tutor === "Tutor cadastrado" || occupant.tutor === "—");
+
+          if (matchesId || matchesExact || matchesNameWhenDefaultTutor) {
+            matchedAny = true;
+            return {
+              ...p,
+              lastVisit: getToday(),
+              history: [historyEntry, ...asArray(p.history)],
+            };
+          }
+          return p;
+        });
+
+        if (!matchedAny) {
+          const createdPatient = {
+            ...patientFromAppointment({
+              petName: occupant.petName,
+              species: occupant.species,
+              breed: occupant.breed,
+              tutor: occupant.tutor,
+              phone: "—",
+            }),
+            lastVisit: getToday(),
+            history: [historyEntry],
+          };
+          nextPatients = [...nextPatients, createdPatient];
+        }
+      }
 
       return {
         ...current,
@@ -812,6 +948,9 @@ const saveProfile = useCallback((fields) => {
       linkPatientWithLivePet,
       admitPatientToBed,
       addBedEvolution,
+      addBedMedicationItem,
+      toggleBedMedicationStatus,
+      removeBedMedicationItem,
       dischargePatientFromBed,
       releaseBedFromCleaning,
       setBedCleaning,
@@ -836,6 +975,9 @@ const saveProfile = useCallback((fields) => {
       linkPatientWithLivePet,
       admitPatientToBed,
       addBedEvolution,
+      addBedMedicationItem,
+      toggleBedMedicationStatus,
+      removeBedMedicationItem,
       dischargePatientFromBed,
       releaseBedFromCleaning,
       setBedCleaning,
@@ -868,6 +1010,9 @@ export const useClinic = () => {
       updatePatient: () => {},
       deletePatient: () => {},
       addPatientVaccine: () => {},
+      addBedMedicationItem: () => {},
+      toggleBedMedicationStatus: () => {},
+      removeBedMedicationItem: () => {},
       updateBed: () => {},
     };
   }
