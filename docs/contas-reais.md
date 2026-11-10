@@ -6,6 +6,6 @@
 | @paulogsilva28 | [ ] | [ ] | [ ] |
 | @jpaslx | [ ] | [ ] | [ ] |
 | @jhennyferlin | [ ] | [ ] | [ ] |
-| @willian-np | [ ] | [ ] | [ ] |
+| @willian-np | [x] | [ ] | [ ] |
 | @sofzi | [ ] | [ ] | [ ] |
 | @joaovictorcesario17 | [ ] | [ ] | [ ] |
