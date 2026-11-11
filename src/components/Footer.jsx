@@ -88,21 +88,13 @@ const FooterCol = ({ title, links }) => (
   <div>
     <p className="mb-4 text-sm font-bold text-foreground">{title}</p>
     <ul className="space-y-2.5 text-sm text-muted-foreground">
-      {links.map((l) =>
-        l.external ? (
-          <li key={l.label}>
-            <a href={l.to} className="transition-smooth hover:text-primary">
-              {l.label}
-            </a>
-          </li>
-        ) : (
-          <li key={l.label}>
-            <Link to={l.to} className="transition-smooth hover:text-primary">
-              {l.label}
-            </Link>
-          </li>
-        ),
-      )}
+      {links.map((l) => (
+        <li key={l.label}>
+          <Link to={l.to} className="transition-smooth hover:text-primary">
+            {l.label}
+          </Link>
+        </li>
+      ))}
     </ul>
   </div>
 );
