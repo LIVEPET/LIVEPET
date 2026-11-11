@@ -1,9 +1,10 @@
 import { Link } from "react-router-dom";
-import { ArrowRight, Sparkles, Star, Heart, PawPrint } from "lucide-react";
+import { ArrowRight, Sparkles, Heart, PawPrint } from "lucide-react";
+import { Skeleton } from "@/components/ui/skeleton";
 import { Button } from "@/components/ui/button";
 import heroPets from "@/assets/hero-pets.jpg";
 
-const Hero = () => {
+const Hero = ({ stats, loading, error }) => {
   return (
     <section className="relative overflow-hidden gradient-mesh">
       <div className="blob h-[420px] w-[420px] -left-20 top-10 bg-warm/40" />
@@ -57,13 +58,17 @@ const Hero = () => {
           </div>
 
           <div className="flex items-center gap-3">
-            <div className="flex gap-0.5 text-warm">
-              {Array.from({ length: 5 }).map((_, i) => (
-                <Star key={i} className="h-3.5 w-3.5 fill-current" />
-              ))}
-            </div>
-            <span className="text-xs font-medium text-muted-foreground">
-              4.9 — +30 mil tutores
+            <span
+              className="text-xs font-medium text-muted-foreground"
+              aria-live="polite"
+            >
+              {loading ? (
+                <Skeleton className="h-4 w-28" />
+              ) : error ? (
+                "— tutores"
+              ) : (
+                `+${stats.tutores} tutores`
+              )}
             </span>
           </div>
         </div>
