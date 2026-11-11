@@ -7,27 +7,26 @@ import {
 
 const faqs = [
   {
-    q: "O Live Pet é gratuito?",
-    a: "Sim. O plano Free cadastra 1 pet com lembretes básicos para sempre.",
+    q: "Como cadastro meu pet?",
+    a: "Basta acessar a área de cadastro no painel p>
   },
   {
-    q: "Como funciona a validação de pedigree?",
-    a: "Disponível nos planos pagos. Envie o documento e validamos em até 48h com selo digital.",
+    q: "Quem pode ver os dados do meu pet?",
+    a: "Os dados do seu pet são privados e vinculado>
   },
   {
-    q: "Quantos pets posso cadastrar?",
-    a: "Free: 1. Premium: 5. Família: ilimitados.",
+    q: "Como funciona o agendamento de consultas?",
+    a: "Você pode escolher o profissional disponível>
   },
   {
-    q: "Como funcionam os lembretes?",
-    a: "O app avisa com antecedência por push, e-mail e WhatsApp.",
+    q: "Consigo acompanhar o histórico médico do pet>
+    a: "Sim, todas as consultas, exames realizados, >
   },
   {
-    q: "Posso cancelar quando quiser?",
-    a: "Sem fidelidade. Cancele no app e use até o fim do ciclo pago.",
-  },
+    q: "O sistema envia lembretes de vacinação?",
+    a: "Sim, a plataforma gera notificações automáti>
+  }
 ];
-
 const FAQ = () => {
   return (
     <section className="container relative py-16">
