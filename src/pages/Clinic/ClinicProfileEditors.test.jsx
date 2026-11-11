@@ -5,6 +5,7 @@ import { beforeAll, beforeEach, describe, expect, it } from "vitest";
 import { STORAGE_KEY, ClinicProvider } from "@/contexts/ClinicContext";
 import { chooseOption, openNewAppointment, stubRadixForJsdom } from "@/test/clinicTestUtils";
 import ClinicLayout from "./ClinicLayout";
+import ClinicNewAppointment from "./ClinicNewAppointment";
 import ClinicProfile from "./ClinicProfile";
 import ClinicSchedule from "./ClinicSchedule";
 
@@ -13,6 +14,7 @@ const app = (initial = "/clinica/perfil") => (
     <Routes>
       <Route path="/clinica" element={<ClinicLayout />}>
         <Route path="agenda" element={<ClinicSchedule />} />
+        <Route path="agenda/novo" element={<ClinicNewAppointment />} />
         <Route path="perfil" element={<ClinicProfile />} />
       </Route>
     </Routes>

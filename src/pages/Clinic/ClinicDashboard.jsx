@@ -634,7 +634,7 @@ const ClinicDashboard = () => {
                 title="Nenhum atendimento hoje"
                 description="Sua agenda está livre por enquanto. Agende um atendimento para ele aparecer aqui."
                 actionLabel="Agendar atendimento"
-                onAction={() => navigate("/clinica/agenda")}
+                onAction={() => navigate("/clinica/agenda/novo")}
               />
             )}
           </CardContent>

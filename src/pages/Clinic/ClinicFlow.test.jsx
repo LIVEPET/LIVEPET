@@ -6,6 +6,7 @@ import { beforeAll, beforeEach, describe, expect, it } from "vitest";
 import { fillAppointmentForm, openNewAppointment, stubRadixForJsdom } from "@/test/clinicTestUtils";
 import ClinicLayout from "./ClinicLayout";
 import ClinicDashboard from "./ClinicDashboard";
+import ClinicNewAppointment from "./ClinicNewAppointment";
 import ClinicSchedule from "./ClinicSchedule";
 import ClinicPatients from "./ClinicPatients";
 import ClinicProfile from "./ClinicProfile";
@@ -16,6 +17,7 @@ const app = (initial = "/clinica") => (
       <Route path="/clinica" element={<ClinicLayout />}>
         <Route index element={<ClinicDashboard />} />
         <Route path="agenda" element={<ClinicSchedule />} />
+        <Route path="agenda/novo" element={<ClinicNewAppointment />} />
         <Route path="pacientes" element={<ClinicPatients />} />
         <Route path="perfil" element={<ClinicProfile />} />
       </Route>
