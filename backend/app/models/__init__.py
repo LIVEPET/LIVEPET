@@ -11,6 +11,7 @@ from app.models.clinic_appointment import ClinicAppointment
 from app.models.clinic_link_request import ClinicPetLinkRequest
 from app.models.veterinario import Veterinario
 from app.models.pet_swipe import PetSwipe
+from app.models.testimonial import Testimonial
 __all__ = [
     "User",
     "Pet",
@@ -23,7 +24,8 @@ __all__ = [
     "Clinic",
     "ClinicAppointment",
     "ClinicPetLinkRequest",
-        "Veterinario",
+    "Veterinario",
     "PetSwipe",
+    "Testimonial",
 ]
 
