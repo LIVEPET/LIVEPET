@@ -3,7 +3,7 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from app.core.config import settings
 from app.core.database import Base, engine
-from app.api.routers import health, auth, pets, lineages, marketplace, clinicas, matchpet, testimonials
+from app.api.routers import health, auth, pets, lineages, marketplace, clinicas, matchpet, stats, testimonials
 import app.models  # noqa: F401
 
 
@@ -96,6 +96,7 @@ async def add_deploy_and_cache_headers(request, call_next):
 
 # Inclusão dos roteadores da API
 app.include_router(health.router)
+app.include_router(stats.router, prefix=settings.API_V1_STR)
 app.include_router(auth.router, prefix=settings.API_V1_STR)
 app.include_router(pets.router, prefix=settings.API_V1_STR)
 app.include_router(lineages.router, prefix=settings.API_V1_STR)
