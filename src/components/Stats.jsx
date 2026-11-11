@@ -154,7 +154,7 @@ const Stats = ({ stats, loading, error }) => {
                   </div>
                 </div>
               ))
-            : statItems.map((stat) => (
+            : statItems.map((stat, index) => (
                 <StatCard
                   key={stat.label}
                   stat={stat}
