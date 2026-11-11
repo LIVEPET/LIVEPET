@@ -354,12 +354,8 @@ export const ClinicProvider = ({ children }) => {
         }
       });
       if (Object.keys(payload).length > 0) {
-        clinicService.updateProfile(payload).catch(() => {});
+        sincronizar(() => clinicService.updateProfile(payload), "Não foi possível salvar o perfil da clínica.");
       }
- feat/62-integracao-clinica-backend
-    });
-    if (Object.keys(payload).length > 0) {
-      sincronizar(() => clinicService.updateProfile(payload), "Não foi possível salvar o perfil da clínica.");
     }
   }, []);
 
