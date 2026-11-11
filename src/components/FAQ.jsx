@@ -6,26 +6,16 @@ import {
 } from "@/components/ui/accordion";
 
 const faqs = [
-  {
-    q: "Como cadastro meu pet?",
-    a: "Basta acessar a área de cadastro no painel p>
-  },
-  {
-    q: "Quem pode ver os dados do meu pet?",
-    a: "Os dados do seu pet são privados e vinculado>
-  },
-  {
-    q: "Como funciona o agendamento de consultas?",
-    a: "Você pode escolher o profissional disponível>
-  },
-  {
-    q: "Consigo acompanhar o histórico médico do pet>
-    a: "Sim, todas as consultas, exames realizados, >
-  },
-  {
-    q: "O sistema envia lembretes de vacinação?",
-    a: "Sim, a plataforma gera notificações automáti>
-  }
+  { q: "Como cadastro meu pet?", 
+    a "Basta acessar a área de cadastro no painel principal, preencher o nome, espécie, raça e idade do seu pet para criar o perfil dele na plataforma rapidamente." },
+  { q: "Quem pode ver os dados do meu pet?", 
+    a: "Os dados do seu pet são privados e vinculados à sua conta. Apenas você e os profissionais autorizados na clínica possuem acesso às informações cadastradas." }, 
+  { q: "Como funciona o agendamento de consultas?", 
+    a: "Você pode escolher o profissional disponível, selecionar o melhor dia e horário na agenda e confirmar a consulta diretamente pelo painel do usuário." }, 
+  { q: "Consigo acompanhar o histórico médico do pet?", 
+    a: "Sim, todas as consultas, exames realizados, vacinas aplicadas e receitas ficam registrados na linha do tempo do perfil do seu pet." }, 
+  { q: "O sistema envia lembretes de vacinação?", 
+    a: "Sim, a plataforma gera notificações automáticas para alertar sobre as próximas doses de vacinas e retornos de consultas cadastrados." }
 ];
 const FAQ = () => {
   return (
