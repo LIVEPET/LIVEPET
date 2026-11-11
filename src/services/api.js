@@ -952,6 +952,16 @@ export const clinicService = {
   },
 };
 
+
+/**
+ * Estatísticas públicas da plataforma.
+ */
+export const statsService = {
+  async get() {
+    return apiFetch("/api/v1/stats");
+  },
+};
+
 export default {
   auth: authService,
   pets: petsService,
