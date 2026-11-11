@@ -34,6 +34,7 @@ import { Progress } from "@/components/ui/progress";
 import EmptyState from "@/components/EmptyState";
 import { statusStyles } from "@/data/clinicDemo";
 import { useClinic } from "@/contexts/ClinicContext";
+import ClinicDataStatus from "./ClinicDataStatus";
 
 const DAILY_SLOT_CAPACITY = 10;
 const MONTHLY_GOALS_TARGETS = {
@@ -385,6 +386,8 @@ const ClinicDashboard = () => {
         </Button>
       </div>
 
+      <ClinicDataStatus hasData={appointments.length > 0 || patients.length > 0} rows={2} />
+
       {/* KPIs Dinâmicos do Topo */}
       <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5">
         {kpis.map(({ testId, label, value, icon: Icon, hint }) => (
@@ -631,7 +634,7 @@ const ClinicDashboard = () => {
                 title="Nenhum atendimento hoje"
                 description="Sua agenda está livre por enquanto. Agende um atendimento para ele aparecer aqui."
                 actionLabel="Agendar atendimento"
-                onAction={() => navigate("/clinica/agenda")}
+                onAction={() => navigate("/clinica/agenda/novo")}
               />
             )}
           </CardContent>

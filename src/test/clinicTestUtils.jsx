@@ -27,7 +27,7 @@ export const openNewAppointment = async () => {
   await screen.findByLabelText("Horário");
 };
 
-// Preenche o modal "Novo atendimento". Passe service: null para pular o serviço.
+// Preenche o formulário "Novo atendimento". Passe service: null para pular o serviço.
 export const fillAppointmentForm = async ({
   pet = "Thor",
   species = "Cão",

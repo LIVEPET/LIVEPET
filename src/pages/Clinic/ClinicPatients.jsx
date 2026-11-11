@@ -46,6 +46,7 @@ import {
 } from "@/components/ui/sheet";
 import EmptyState from "@/components/EmptyState";
 import { useClinic } from "@/contexts/ClinicContext";
+import ClinicDataStatus from "./ClinicDataStatus";
 import { clinicService } from "@/services/api";
 import { ECC_OPTIONS, buildVitals, normalizeEcc } from "@/lib/clinicVitals";
 import { PatientExamsSection } from "./ClinicExams";
@@ -256,6 +257,8 @@ const ClinicPatients = () => {
         <h1 className="font-display text-3xl font-bold">Pacientes e histórico</h1>
         <p className="text-muted-foreground">Consulte prontuários, vacinas e alertas clínicos.</p>
       </div>
+
+      <ClinicDataStatus hasData={patients.length > 0} />
 
       {/* Barra de filtros: só aparece se houver pets cadastrados, exibindo apenas as opções reais */}
       {patients.length > 0 && (
@@ -567,7 +570,7 @@ const ClinicPatients = () => {
 
                 <Button
                   onClick={() => {
-                    navigate("/clinica/agenda", {
+                    navigate("/clinica/agenda/novo", {
                       state: {
                         prefill: {
                           patientId: selected.id,

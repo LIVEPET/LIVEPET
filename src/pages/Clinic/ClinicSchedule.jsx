@@ -1,10 +1,9 @@
 import { useEffect, useMemo, useState } from "react";
-import { Link, useLocation, useNavigate } from "react-router-dom";
+import { useLocation, useNavigate } from "react-router-dom";
 import {
   Activity,
   AlertTriangle,
   ArrowRight,
-  Calendar,
   CalendarDays,
   CheckCircle2,
   Clock,
@@ -13,17 +12,31 @@ import {
   FileText,
   Heart,
   LayoutList,
+  Pencil,
   Phone,
   Plus,
+  Receipt,
   Search,
   Stethoscope,
   Syringe,
   Thermometer,
+  Trash2,
   User,
 } from "lucide-react";
 
 import { toast } from "sonner";
 import { Card, CardContent } from "@/components/ui/card";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
+import ClinicDataStatus from "./ClinicDataStatus";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -35,7 +48,6 @@ import {
   DialogDescription,
   DialogHeader,
   DialogTitle,
-  DialogTrigger,
 } from "@/components/ui/dialog";
 import {
   Select,
@@ -49,7 +61,18 @@ import EmptyState from "@/components/EmptyState";
 import { getPriorityMeta, PRIORITY_OPTIONS, statusStyles } from "@/data/clinicDemo";
 import { useClinic } from "@/contexts/ClinicContext";
 import { clinicService } from "@/services/api";
-import { formatPhone, isValidPhone } from "@/lib/phone";
+import { formatPhone } from "@/lib/phone";
+import {
+  AppointmentFormFields,
+  DEFAULT_SPECIES,
+  DEFAULT_VET,
+  PriorityBadge,
+  PrioritySelector,
+  createEmptyAppointmentForm,
+  getToday,
+  uniqueNames,
+  validateAppointmentForm,
+} from "./AppointmentForm";
 import { ComplementaryExamsSelector } from "./ClinicExams";
 import { ClinicalDocumentsDialog } from "./ClinicDocuments";
 import {
@@ -60,16 +83,21 @@ import {
 import { AppointmentBillingSection } from "./AppointmentBillingSection";
 import { ClinicReceiptDialog } from "./ClinicReceiptDialog";
 import {
+  addDaysToIsoDate,
+  formatIsoDateBR,
+  isReturnAppointmentItem,
+  ReturnAppointmentBadge,
+  ReturnSchedulingSection,
+  WhatsAppActionButton,
+} from "./ClinicReturnAndWhatsapp";
+import {
   PAYMENT_STATUS,
   calculateAppointmentTotal,
   findServicePrice,
   formatCurrency,
 } from "@/lib/clinicBilling";
-import { Receipt } from "lucide-react";
 
 const filters = ["Todos", "Confirmado", "Aguardando", "Em atendimento", "Concluído", "Cancelado"];
-const DEFAULT_SPECIES = ["Cão", "Gato", "Ave", "Roedor", "Réptil", "Outro"];
-const DEFAULT_VET = "Equipe da clínica";
 
 const KANBAN_COLUMNS = [
   {
@@ -98,110 +126,13 @@ const KANBAN_COLUMNS = [
   },
 ];
 
-const getToday = () => new Date().toISOString().split("T")[0];
-
-const emptyForm = {
-  patientId: null,
-  petName: "",
-  species: "",
-  breed: "",
-  date: getToday(),
-  time: "",
-  tutor: "",
-  phone: "",
-  service: "",
-  vet: "",
-  priority: "Rotina",
-  notes: "",
-};
-
-// Serviços e equipe vêm do Perfil; aceita texto puro ou objeto com "name".
-const toName = (item) => (typeof item === "string" ? item : item?.name);
-const uniqueNames = (items) => [...new Set(items.map(toName).filter(Boolean))];
-
-// A ordem das chaves segue a ordem dos campos na tela (o primeiro erro recebe o foco).
-const validate = (form, hasServices) => {
-  const errors = {};
-  if (!form.petName.trim()) errors.petName = "Informe o nome do pet.";
-  if (!form.species) errors.species = "Selecione a espécie.";
-  if (!form.date) errors.date = "Informe a data.";
-  if (!form.time) errors.time = "Informe o horário.";
-  if (!form.tutor.trim()) errors.tutor = "Informe o nome do tutor.";
-  if (!form.phone.trim()) errors.phone = "Informe o telefone do tutor.";
-  else if (!isValidPhone(form.phone)) {
-    errors.phone = "Telefone inválido. Use DDD + número, ex.: (11) 99999-0000.";
-  }
-  if (!form.service.trim()) {
-    errors.service = hasServices ? "Selecione o serviço." : "Informe o serviço.";
-  }
-  return errors;
-};
-
-const FieldError = ({ id, message }) =>
-  message ? (
-    <p id={`${id}-error`} role="alert" className="text-xs text-destructive">
-      {message}
-    </p>
-  ) : null;
-
-const ProfileLink = ({ children }) => (
-  <Link to="/clinica/perfil" className="font-medium text-primary underline-offset-4 hover:underline">
-    {children}
-  </Link>
-);
-
-const PriorityBadge = ({ priority }) => {
-  const meta = getPriorityMeta(priority);
-  return (
-    <Badge
-      variant="outline"
-      className={`gap-1.5 border ${meta.badgeClass}`}
-      title={`Classificação de Risco: ${meta.label}`}
-    >
-      <span className={`h-2 w-2 rounded-full ${meta.dotClass}`} />
-      {meta.label}
-    </Badge>
-  );
-};
-
-const PrioritySelector = ({ value, onChange, idPrefix = "priority" }) => {
-  const current = getPriorityMeta(value).value;
-  return (
-    <div
-      role="radiogroup"
-      aria-label="Classificação de Risco (Triagem)"
-      className="grid grid-cols-2 gap-2"
-    >
-      {PRIORITY_OPTIONS.map((opt) => {
-        const active = current === opt.value;
-        return (
-          <button
-            key={opt.value}
-            id={`${idPrefix}-${opt.value}`}
-            type="button"
-            role="radio"
-            aria-checked={active}
-            onClick={() => onChange(opt.value)}
-            className={`flex items-center gap-2 rounded-xl border px-3 py-2 text-left text-xs transition-all ${
-              active
-                ? `${opt.badgeClass} ring-2 ring-primary/30 font-semibold shadow-sm`
-                : "border-border bg-background text-muted-foreground hover:bg-muted/60"
-            }`}
-          >
-            <span className={`h-2.5 w-2.5 shrink-0 rounded-full ${opt.dotClass}`} />
-            <span className="truncate">{opt.label}</span>
-          </button>
-        );
-      })}
-    </div>
-  );
-};
-
 const ClinicSchedule = () => {
   const {
     appointments: list,
     profile,
     addAppointment,
+    updateAppointment,
+    deleteAppointment,
     updateAppointmentStatus,
     updateAppointmentPriority,
     concludeAppointment,
@@ -213,8 +144,10 @@ const ClinicSchedule = () => {
   const [filter, setFilter] = useState("Todos");
   const [dateFilter, setDateFilter] = useState("Hoje");
   const [query, setQuery] = useState("");
-  const [open, setOpen] = useState(false);
-  const [form, setForm] = useState(emptyForm);
+  const [form, setForm] = useState(createEmptyAppointmentForm);
+  // Atendimento em edição (#62).
+  const [editing, setEditing] = useState(null);
+  const [toDelete, setToDelete] = useState(null);
   const [errors, setErrors] = useState({});
   const [speciesOptions, setSpeciesOptions] = useState(DEFAULT_SPECIES);
 
@@ -240,6 +173,10 @@ const ClinicSchedule = () => {
     vacina_aplicada: "",
     vacina_lote: "",
     vacina_proxima_dose: "",
+    scheduleReturn: false,
+    returnDate: addDaysToIsoDate(getToday(), 7),
+    returnTime: "10:00",
+    returnReason: "",
   });
 
   const services = useMemo(() => uniqueNames(profile.services), [profile.services]);
@@ -261,24 +198,15 @@ const ClinicSchedule = () => {
     };
   }, []);
 
-  // Pré-preenchimento ao vir da aba de Pacientes
+  // Encaminha pré-preenchimento legado para a página dedicada de novo atendimento
   useEffect(() => {
     if (location.state?.prefill) {
-      const p = location.state.prefill;
-      setForm((current) => ({
-        ...current,
-        patientId: p.patientId || null,
-        petName: p.petName || current.petName,
-        species: p.species || current.species,
-        breed: p.breed || current.breed,
-        tutor: p.tutor || current.tutor,
-        phone: p.phone || current.phone,
-        priority: p.priority || current.priority || "Rotina",
-      }));
-      setOpen(true);
-      navigate(location.pathname, { replace: true, state: {} });
+      navigate("/clinica/agenda/novo", {
+        replace: true,
+        state: { prefill: location.state.prefill },
+      });
     }
-  }, [location.state, location.pathname, navigate]);
+  }, [location.state, navigate]);
 
   const visible = useMemo(
     () =>
@@ -287,6 +215,7 @@ const ClinicSchedule = () => {
           viewMode === "kanban" ? true : filter === "Todos" || a.status === filter;
         const matchesDate =
           dateFilter === "Todas as datas" ||
+          (dateFilter === "Retornos" && isReturnAppointmentItem(a)) ||
           (dateFilter === "Hoje" && (a.date === getToday() || !a.date));
         const matchesQuery = `${a.petName} ${a.tutor} ${a.service} ${a.priority || ""} ${a.notes || ""}`
           .toLowerCase()
@@ -319,6 +248,10 @@ const ClinicSchedule = () => {
       desconto: a.desconto != null ? Number(a.desconto) : 0,
       status_pagamento: a.status_pagamento || PAYMENT_STATUS.PAID,
       forma_pagamento: a.forma_pagamento || "PIX",
+      scheduleReturn: false,
+      returnDate: addDaysToIsoDate(a.date || getToday(), 7),
+      returnTime: a.time || "10:00",
+      returnReason: "",
     });
 
     if (a.status === "Confirmado" || a.status === "Aguardando") {
@@ -383,6 +316,36 @@ const ClinicSchedule = () => {
     };
 
     concludeAppointment(activeExamApp.id, payload);
+
+    if (examForm.scheduleReturn && examForm.returnDate) {
+      const returnServiceName = "Retorno Clínico";
+      const returnPrice = findServicePrice(returnServiceName, profile.services) || 0;
+      addAppointment({
+        patientId: activeExamApp.patientId || null,
+        date: examForm.returnDate,
+        time: examForm.returnTime || activeExamApp.time || "10:00",
+        petName: activeExamApp.petName,
+        species: activeExamApp.species || "Cão",
+        breed: activeExamApp.breed || "—",
+        tutor: activeExamApp.tutor,
+        phone: activeExamApp.phone || "—",
+        service: returnServiceName,
+        isReturn: true,
+        valor_servico: returnPrice,
+        valor_total: returnPrice,
+        status_pagamento: PAYMENT_STATUS.PENDING,
+        forma_pagamento: "PIX",
+        vet: activeExamApp.vet || DEFAULT_VET,
+        priority: "Rotina",
+        notes:
+          examForm.returnReason.trim() ||
+          `Retorno referente ao atendimento de ${activeExamApp.service}`,
+      });
+      toast.success(
+        `Retorno clínico de ${activeExamApp.petName} agendado para ${formatIsoDateBR(examForm.returnDate)} às ${examForm.returnTime || "10:00"}!`,
+      );
+    }
+
     setExamOpen(false);
     toast.success(`Atendimento de ${activeExamApp.petName} concluído com sucesso! Prontuário registrado.`);
   };
@@ -393,12 +356,39 @@ const ClinicSchedule = () => {
   };
 
   const resetForm = () => {
-    setForm(emptyForm);
+    setForm(createEmptyAppointmentForm());
     setErrors({});
+    setEditing(null);
   };
 
-  const handleOpenChange = (next) => {
-    setOpen(next);
+  const startEdit = (a) => {
+    setEditing(a);
+    setErrors({});
+    setForm({
+      patientId: a.patientId || null,
+      petName: a.petName || "",
+      species: a.species || "",
+      breed: a.breed && a.breed !== "—" ? a.breed : "",
+      date: a.date || getToday(),
+      time: a.time || "",
+      tutor: a.tutor || "",
+      phone: a.phone || "",
+      service: a.service || "",
+      vet: a.vet && a.vet !== DEFAULT_VET ? a.vet : "",
+      priority: a.priority || "Rotina",
+      notes: a.notes || "",
+    });
+  };
+
+  const confirmDelete = async () => {
+    const a = toDelete;
+    setToDelete(null);
+    if (!a) return;
+    await deleteAppointment(a.id);
+    toast("Atendimento excluído", { description: `${a.petName} — ${a.time}` });
+  };
+
+  const handleEditOpenChange = (next) => {
     if (!next) resetForm();
   };
 
@@ -407,22 +397,16 @@ const ClinicSchedule = () => {
     setErrors(({ [key]: _removed, ...rest }) => rest);
   };
 
-  const fieldProps = (key) => ({
-    id: key,
-    "aria-invalid": errors[key] ? true : undefined,
-    "aria-describedby": errors[key] ? `${key}-error` : undefined,
-  });
-
-  const create = (e) => {
+  const saveEdit = (e) => {
     e.preventDefault();
-    const found = validate(form, services.length > 0);
+    if (!editing) return;
+    const found = validateAppointmentForm(form, services.length > 0);
     if (Object.keys(found).length > 0) {
       setErrors(found);
       document.getElementById(Object.keys(found)[0])?.focus();
       return;
     }
-    addAppointment({
-      patientId: form.patientId || null,
+    updateAppointment(editing.id, {
       date: form.date,
       time: form.time,
       petName: form.petName.trim(),
@@ -431,17 +415,12 @@ const ClinicSchedule = () => {
       tutor: form.tutor.trim(),
       phone: formatPhone(form.phone),
       service: form.service.trim(),
-      valor_servico: findServicePrice(form.service, profile.services) || 0,
-      valor_total: findServicePrice(form.service, profile.services) || 0,
-      status_pagamento: PAYMENT_STATUS.PENDING,
-      forma_pagamento: "PIX",
       vet: form.vet || DEFAULT_VET,
       priority: form.priority || "Rotina",
       notes: form.notes.trim() || "",
     });
     resetForm();
-    setOpen(false);
-    toast.success("Atendimento agendado!");
+    toast.success("Atendimento atualizado!");
   };
 
   return (
@@ -467,10 +446,23 @@ const ClinicSchedule = () => {
               >
                 Todas as datas
               </Button>
+              <Button
+                variant={dateFilter === "Retornos" ? "secondary" : "ghost"}
+                size="sm"
+                data-testid="filter-returns-btn"
+                className="h-6 rounded-full px-2.5 text-xs font-semibold"
+                onClick={() => setDateFilter("Retornos")}
+              >
+                Retornos
+              </Button>
             </div>
           </div>
           <h1 className="font-display text-3xl font-bold">
-            {dateFilter === "Hoje" ? "Atendimentos de hoje" : "Todos os atendimentos"}
+            {dateFilter === "Hoje"
+              ? "Atendimentos de hoje"
+              : dateFilter === "Retornos"
+                ? "Retornos programados"
+                : "Todos os atendimentos"}
           </h1>
           <p className="text-muted-foreground">{visible.length} atendimento(s) nesta visualização.</p>
         </div>
@@ -504,181 +496,32 @@ const ClinicSchedule = () => {
             </Button>
           </div>
 
-          <Dialog open={open} onOpenChange={handleOpenChange}>
-            <DialogTrigger asChild>
-              <Button className="rounded-full gradient-primary text-primary-foreground shadow-soft">
-                <Plus className="h-4 w-4" /> Novo atendimento
-              </Button>
-            </DialogTrigger>
+          <Button
+            type="button"
+            className="rounded-full gradient-primary text-primary-foreground shadow-soft"
+            onClick={() => navigate("/clinica/agenda/novo")}
+          >
+            <Plus className="h-4 w-4" /> Novo atendimento
+          </Button>
+
+          <Dialog open={Boolean(editing)} onOpenChange={handleEditOpenChange}>
             <DialogContent className="max-h-[90vh] max-w-lg overflow-y-auto">
               <DialogHeader>
-                <DialogTitle className="font-display">Agendar atendimento</DialogTitle>
-                <DialogDescription>Preencha os dados da consulta e a triagem de risco.</DialogDescription>
+                <DialogTitle className="font-display">Editar atendimento</DialogTitle>
+                <DialogDescription>
+                  Altere os dados e salve. O status e o prontuário não mudam aqui.
+                </DialogDescription>
               </DialogHeader>
-              <form onSubmit={create} noValidate className="space-y-4">
-                <div className="grid gap-3 sm:grid-cols-2">
-                  <div className="space-y-2">
-                    <Label htmlFor="petName">Pet</Label>
-                    <Input
-                      {...fieldProps("petName")}
-                      value={form.petName}
-                      onChange={(e) => update("petName", e.target.value)}
-                    />
-                    <FieldError id="petName" message={errors.petName} />
-                  </div>
-                  <div className="space-y-2">
-                    <Label htmlFor="species">Espécie</Label>
-                    <Select value={form.species} onValueChange={(v) => update("species", v)}>
-                      <SelectTrigger {...fieldProps("species")}>
-                        <SelectValue placeholder="Selecione" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        {speciesOptions.map((s) => (
-                          <SelectItem key={s} value={s}>
-                            {s}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                    <FieldError id="species" message={errors.species} />
-                  </div>
-                  <div className="space-y-2">
-                    <Label htmlFor="breed">Raça (opcional)</Label>
-                    <Input
-                      id="breed"
-                      value={form.breed}
-                      onChange={(e) => update("breed", e.target.value)}
-                    />
-                  </div>
-                  <div className="space-y-2">
-                    <Label htmlFor="date">Data</Label>
-                    <Input
-                      {...fieldProps("date")}
-                      type="date"
-                      value={form.date}
-                      onChange={(e) => update("date", e.target.value)}
-                    />
-                    <FieldError id="date" message={errors.date} />
-                  </div>
-                  <div className="space-y-2">
-                    <Label htmlFor="time">Horário</Label>
-                    <Input
-                      {...fieldProps("time")}
-                      type="time"
-                      value={form.time}
-                      onChange={(e) => update("time", e.target.value)}
-                    />
-                    <FieldError id="time" message={errors.time} />
-                  </div>
-                  <div className="space-y-2">
-                    <Label htmlFor="tutor">Tutor</Label>
-                    <Input
-                      {...fieldProps("tutor")}
-                      value={form.tutor}
-                      onChange={(e) => update("tutor", e.target.value)}
-                    />
-                    <FieldError id="tutor" message={errors.tutor} />
-                  </div>
-                  <div className="space-y-2 sm:col-span-2">
-                    <Label htmlFor="phone">Telefone</Label>
-                    <Input
-                      {...fieldProps("phone")}
-                      type="tel"
-                      inputMode="tel"
-                      autoComplete="off"
-                      placeholder="(11) 99999-0000"
-                      value={form.phone}
-                      onChange={(e) => update("phone", formatPhone(e.target.value))}
-                    />
-                    <FieldError id="phone" message={errors.phone} />
-                  </div>
-                </div>
-
-                <div className="space-y-2">
-                  <Label className="flex items-center gap-1.5">
-                    <AlertTriangle className="h-3.5 w-3.5 text-primary" />
-                    Classificação de Risco (Triagem)
-                  </Label>
-                  <PrioritySelector
-                    value={form.priority}
-                    onChange={(v) => update("priority", v)}
-                    idPrefix="schedule-priority"
-                  />
-                </div>
-
-                <div className="space-y-2">
-                  <Label htmlFor="service">Serviço</Label>
-                  {services.length > 0 ? (
-                    <Select value={form.service} onValueChange={(v) => update("service", v)}>
-                      <SelectTrigger {...fieldProps("service")}>
-                        <SelectValue placeholder="Selecione o serviço" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        {services.map((s) => (
-                          <SelectItem key={s} value={s}>
-                            {s}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                  ) : (
-                    <>
-                      <Input
-                        {...fieldProps("service")}
-                        placeholder="Consulta clínica"
-                        value={form.service}
-                        onChange={(e) => update("service", e.target.value)}
-                      />
-                      <p className="text-xs text-muted-foreground">
-                        Nenhum serviço cadastrado.{" "}
-                        <ProfileLink>Cadastre serviços no Perfil da clínica</ProfileLink>.
-                      </p>
-                    </>
-                  )}
-                  <FieldError id="service" message={errors.service} />
-                </div>
-
-                <div className="space-y-2">
-                  <Label htmlFor="vet">Responsável</Label>
-                  {team.length > 0 ? (
-                    <Select value={form.vet} onValueChange={(v) => update("vet", v)}>
-                      <SelectTrigger id="vet">
-                        <SelectValue placeholder={DEFAULT_VET} />
-                      </SelectTrigger>
-                      <SelectContent>
-                        {team.map((name) => (
-                          <SelectItem key={name} value={name}>
-                            {name}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                  ) : (
-                    <>
-                      <Input id="vet" value={DEFAULT_VET} disabled readOnly />
-                      <p className="text-xs text-muted-foreground">
-                        <ProfileLink>Cadastre a equipe no Perfil da clínica</ProfileLink> para escolher
-                        o responsável.
-                      </p>
-                    </>
-                  )}
-                </div>
-
-                <div className="space-y-2">
-                  <Label htmlFor="notes">Observações / Queixa principal (opcional)</Label>
-                  <Textarea
-                    id="notes"
-                    placeholder="Ex.: Consulta de rotina, vacinação anual, tosse seca há 2 dias..."
-                    rows={2}
-                    value={form.notes}
-                    onChange={(e) => update("notes", e.target.value)}
-                  />
-                </div>
-
-                <Button type="submit" className="w-full rounded-full gradient-primary text-primary-foreground">
-                  Confirmar agendamento
-                </Button>
-              </form>
+              <AppointmentFormFields
+                form={form}
+                errors={errors}
+                speciesOptions={speciesOptions}
+                services={services}
+                team={team}
+                onUpdate={update}
+                onSubmit={saveEdit}
+                submitLabel="Salvar alterações"
+              />
             </DialogContent>
           </Dialog>
         </div>
@@ -717,6 +560,8 @@ const ClinicSchedule = () => {
         </div>
       </div>
 
+      <ClinicDataStatus hasData={list.length > 0} />
+
       {viewMode === "list" ? (
         <div className="space-y-3">
           {visible.map((a) => {
@@ -746,6 +591,7 @@ const ClinicSchedule = () => {
                         </span>
                       </p>
                       <PriorityBadge priority={a.priority} />
+                      <ReturnAppointmentBadge appointment={a} />
                     </div>
                     <p className="text-sm text-muted-foreground">
                       {a.service} — {a.vet}
@@ -778,6 +624,7 @@ const ClinicSchedule = () => {
                       </Badge>
                     )}
                     <Badge className={`${statusStyles[a.status]} hover:opacity-90`}>{a.status}</Badge>
+                    <WhatsAppActionButton appointment={a} profile={profile} />
                     <Button
                       size="sm"
                       variant="outline"
@@ -815,6 +662,15 @@ const ClinicSchedule = () => {
                         <Button
                           size="sm"
                           variant="ghost"
+                          className="rounded-full gap-1.5"
+                          aria-label={`Editar atendimento de ${a.petName}`}
+                          onClick={() => startEdit(a)}
+                        >
+                          <Pencil className="h-3.5 w-3.5" /> Editar
+                        </Button>
+                        <Button
+                          size="sm"
+                          variant="ghost"
                           className="rounded-full text-destructive"
                           onClick={() => cancel(a)}
                         >
@@ -822,6 +678,15 @@ const ClinicSchedule = () => {
                         </Button>
                       </>
                     )}
+                    <Button
+                      size="sm"
+                      variant="ghost"
+                      className="rounded-full gap-1.5 text-destructive"
+                      aria-label={`Excluir atendimento de ${a.petName}`}
+                      onClick={() => setToDelete(a)}
+                    >
+                      <Trash2 className="h-3.5 w-3.5" /> Excluir
+                    </Button>
                     {a.status === "Concluído" && (
                       <Button
                         size="sm"
@@ -849,7 +714,7 @@ const ClinicSchedule = () => {
                 title="Nenhum atendimento hoje"
                 description="Sua agenda está livre. Agende o primeiro atendimento para começar."
                 actionLabel="Novo atendimento"
-                onAction={() => setOpen(true)}
+                onAction={() => navigate("/clinica/agenda/novo")}
               />
             ) : (
               <EmptyState
@@ -912,7 +777,10 @@ const ClinicSchedule = () => {
                             <span className="inline-flex items-center gap-1 rounded-xl bg-primary-soft px-2.5 py-1 text-xs font-bold text-primary">
                               <Clock className="h-3 w-3" /> {a.time}
                             </span>
-                            <PriorityBadge priority={a.priority} />
+                            <div className="flex flex-wrap items-center gap-1">
+                              <PriorityBadge priority={a.priority} />
+                              <ReturnAppointmentBadge appointment={a} />
+                            </div>
                           </div>
 
                           <div>
@@ -961,6 +829,8 @@ const ClinicSchedule = () => {
                           )}
 
                           <div className="flex flex-wrap items-center justify-between gap-2 border-t border-border/60 pt-2.5">
+                            <WhatsAppActionButton appointment={a} profile={profile} compact />
+
                             {hasPrescription(a) && (
                               <Button
                                 size="sm"
@@ -974,6 +844,24 @@ const ClinicSchedule = () => {
 
                             {col.id === "waiting" && (
                               <>
+                                <Button
+                                  size="sm"
+                                  variant="ghost"
+                                  className="h-8 w-8 rounded-full p-0"
+                                  aria-label={`Editar atendimento de ${a.petName}`}
+                                  onClick={() => startEdit(a)}
+                                >
+                                  <Pencil className="h-3.5 w-3.5" />
+                                </Button>
+                                <Button
+                                  size="sm"
+                                  variant="ghost"
+                                  className="h-8 w-8 rounded-full p-0 text-destructive"
+                                  aria-label={`Excluir atendimento de ${a.petName}`}
+                                  onClick={() => setToDelete(a)}
+                                >
+                                  <Trash2 className="h-3.5 w-3.5" />
+                                </Button>
                                 <Button
                                   size="sm"
                                   variant="outline"
@@ -1052,6 +940,24 @@ const ClinicSchedule = () => {
       )}
 
       {/* Modal de Anamnese e Exame Clínico Completo */}
+      <AlertDialog open={Boolean(toDelete)} onOpenChange={(next) => !next && setToDelete(null)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Excluir este atendimento?</AlertDialogTitle>
+            <AlertDialogDescription>
+              {toDelete ? `${toDelete.petName} — ${toDelete.date} às ${toDelete.time}. ` : ""}
+              Ele some da agenda e do servidor. Para manter o registro, prefira "Cancelar".
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel className="rounded-full">Manter</AlertDialogCancel>
+            <AlertDialogAction className="rounded-full bg-destructive text-destructive-foreground hover:bg-destructive/90" onClick={confirmDelete}>
+              Excluir
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
       <Dialog open={examOpen} onOpenChange={setExamOpen}>
         <DialogContent className="max-h-[92vh] max-w-2xl overflow-y-auto">
           {activeExamApp && (
@@ -1298,7 +1204,22 @@ const ClinicSchedule = () => {
                   )}
                 </div>
 
-                {/* 5. Orçamento, Procedimentos Extras & Pagamento (Issue #133) */}
+                {/* 5. Programar Retorno / Reavaliação (Issue #181) */}
+                <ReturnSchedulingSection
+                  baseDate={activeExamApp.date || getToday()}
+                  enabled={examForm.scheduleReturn}
+                  onToggleEnabled={(checked) =>
+                    setExamForm((f) => ({ ...f, scheduleReturn: checked }))
+                  }
+                  returnDate={examForm.returnDate}
+                  onChangeReturnDate={(d) => setExamForm((f) => ({ ...f, returnDate: d }))}
+                  returnTime={examForm.returnTime}
+                  onChangeReturnTime={(t) => setExamForm((f) => ({ ...f, returnTime: t }))}
+                  returnReason={examForm.returnReason}
+                  onChangeReturnReason={(r) => setExamForm((f) => ({ ...f, returnReason: r }))}
+                />
+
+                {/* 6. Orçamento, Procedimentos Extras & Pagamento (Issue #133) */}
                 <AppointmentBillingSection
                   serviceName={activeExamApp.service}
                   basePrice={examForm.valor_servico}

@@ -1,7 +1,8 @@
 import { render, screen, within, fireEvent } from "@testing-library/react";
-import { MemoryRouter } from "react-router-dom";
+import { MemoryRouter, Route, Routes } from "react-router-dom";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { ClinicProvider, STORAGE_KEY } from "@/contexts/ClinicContext";
+import ClinicNewAppointment from "./ClinicNewAppointment";
 import ClinicSchedule from "./ClinicSchedule";
 
 vi.mock("@/services/api", () => ({
@@ -40,7 +41,10 @@ const renderSchedule = () =>
   render(
     <MemoryRouter initialEntries={["/clinica/agenda"]}>
       <ClinicProvider>
-        <ClinicSchedule />
+        <Routes>
+          <Route path="/clinica/agenda" element={<ClinicSchedule />} />
+          <Route path="/clinica/agenda/novo" element={<ClinicNewAppointment />} />
+        </Routes>
       </ClinicProvider>
     </MemoryRouter>,
   );
@@ -50,7 +54,7 @@ describe("ClinicSchedule — Kanban & Classificação de Risco (Issue #81)", () 
     window.localStorage.clear();
   });
 
-  it("exibe seletor de prioridade no modal de agendamento e aplica borda e badge semafórico no card", () => {
+  it("exibe seletor de prioridade no agendamento e aplica borda e badge semafórico no card", async () => {
     seedStorage([
       {
         id: "app-1",
@@ -96,9 +100,9 @@ describe("ClinicSchedule — Kanban & Classificação de Risco (Issue #81)", () 
     expect(lunaCard.className).toContain("border-l-emerald-500");
     expect(within(lunaCard).getByText("Rotina (Verde)")).toBeInTheDocument();
 
-    // Abre modal de novo atendimento e verifica opções de triagem
+    // Abre página de novo atendimento e verifica opções de triagem
     fireEvent.click(screen.getByRole("button", { name: /novo atendimento/i }));
-    const radioGroup = screen.getByRole("radiogroup", { name: /classificação de risco/i });
+    const radioGroup = await screen.findByRole("radiogroup", { name: /classificação de risco/i });
     expect(within(radioGroup).getByRole("radio", { name: /Rotina \(Verde\)/i })).toBeInTheDocument();
     expect(within(radioGroup).getByRole("radio", { name: /Prioritário \(Amarelo\)/i })).toBeInTheDocument();
     expect(within(radioGroup).getByRole("radio", { name: /Urgência \(Laranja\)/i })).toBeInTheDocument();
