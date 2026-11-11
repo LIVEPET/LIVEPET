@@ -10,13 +10,15 @@ import {
   stubRadixForJsdom,
 } from "@/test/clinicTestUtils";
 import ClinicLayout from "./ClinicLayout";
+import ClinicNewAppointment from "./ClinicNewAppointment";
 import ClinicSchedule from "./ClinicSchedule";
 
-const app = () => (
-  <ClinicProvider><MemoryRouter initialEntries={["/clinica/agenda"]}>
+const app = (initialEntry = "/clinica/agenda") => (
+  <ClinicProvider><MemoryRouter initialEntries={[initialEntry]}>
     <Routes>
       <Route path="/clinica" element={<ClinicLayout />}>
         <Route path="agenda" element={<ClinicSchedule />} />
+        <Route path="agenda/novo" element={<ClinicNewAppointment />} />
         <Route path="perfil" element={<div>TELA DE PERFIL</div>} />
       </Route>
     </Routes>
@@ -28,8 +30,8 @@ const submit = () => userEvent.click(screen.getByRole("button", { name: "Confirm
 beforeAll(stubRadixForJsdom);
 beforeEach(() => localStorage.clear());
 
-describe("modal Novo atendimento", () => {
-  it("mostra erro em cada campo obrigatório e mantém o modal aberto", async () => {
+describe("página Novo atendimento (/clinica/agenda/novo)", () => {
+  it("mostra erro em cada campo obrigatório e permanece na página", async () => {
     render(app());
     await openNewAppointment();
     await submit();
@@ -189,5 +191,40 @@ describe("modal Novo atendimento", () => {
     await submit();
 
     expect(await screen.findByText("Informe a data.")).toBeTruthy();
+  });
+
+  it("abre em página dedicada sem modal e volta para a agenda ao cancelar", async () => {
+    render(app());
+    await openNewAppointment();
+
+    expect(screen.queryByRole("dialog")).toBeNull();
+    expect(screen.getByRole("button", { name: /Voltar para a agenda/ })).toBeTruthy();
+
+    await userEvent.click(screen.getByRole("button", { name: "Cancelar" }));
+    expect(await screen.findByText("Atendimentos de hoje")).toBeTruthy();
+    expect(screen.queryByText("Agendar atendimento")).toBeNull();
+  });
+
+  it("acessa /clinica/agenda/novo diretamente e pré-preenche via state.prefill", async () => {
+    render(
+      app({
+        pathname: "/clinica/agenda/novo",
+        state: {
+          prefill: {
+            patientId: "pat-1",
+            petName: "Rex",
+            species: "Cão",
+            breed: "Golden",
+            tutor: "Carlos",
+            phone: "(62) 98888-1111",
+          },
+        },
+      }),
+    );
+
+    expect(await screen.findByLabelText("Pet")).toHaveValue("Rex");
+    expect(screen.getByLabelText("Tutor")).toHaveValue("Carlos");
+    expect(screen.getByLabelText("Telefone")).toHaveValue("(62) 98888-1111");
+    expect(screen.getByLabelText(/^Raça/)).toHaveValue("Golden");
   });
 });

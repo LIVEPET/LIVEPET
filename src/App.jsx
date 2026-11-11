@@ -28,6 +28,7 @@ import ClinicDashboard from "./pages/Clinic/ClinicDashboard";
 import ClinicPatients from "./pages/Clinic/ClinicPatients";
 import ClinicProfile from "./pages/Clinic/ClinicProfile";
 import ClinicSchedule from "./pages/Clinic/ClinicSchedule";
+import ClinicNewAppointment from "./pages/Clinic/ClinicNewAppointment";
 import ClinicInpatient from "./pages/Clinic/ClinicInpatient";
 import ProtectedClinicRoute from "./components/ProtectedClinicRoute";
 import { ClinicProvider } from "@/contexts/ClinicContext";
@@ -50,6 +51,7 @@ const App = () => (
             <Route path="/clinica" element={<ClinicLayout />}>
               <Route index element={<ClinicDashboard />} />
               <Route path="agenda" element={<ClinicSchedule />} />
+              <Route path="agenda/novo" element={<ClinicNewAppointment />} />
               <Route path="internacao" element={<ClinicInpatient />} />
               <Route path="pacientes" element={<ClinicPatients />} />
               <Route path="perfil" element={<ClinicProfile />} />

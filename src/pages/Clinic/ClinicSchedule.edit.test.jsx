@@ -1,8 +1,9 @@
 import { fireEvent, render, screen, waitFor, within } from "@testing-library/react";
-import { MemoryRouter } from "react-router-dom";
+import { MemoryRouter, Route, Routes } from "react-router-dom";
 import { beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
 import { ClinicProvider, STORAGE_KEY } from "@/contexts/ClinicContext";
 import { stubRadixForJsdom } from "@/test/clinicTestUtils";
+import ClinicNewAppointment from "./ClinicNewAppointment";
 import ClinicSchedule from "./ClinicSchedule";
 
 // Edição e exclusão de agendamentos pela agenda (#62).
@@ -56,7 +57,10 @@ const renderSchedule = () =>
   render(
     <MemoryRouter initialEntries={["/clinica/agenda"]}>
       <ClinicProvider>
-        <ClinicSchedule />
+        <Routes>
+          <Route path="/clinica/agenda" element={<ClinicSchedule />} />
+          <Route path="/clinica/agenda/novo" element={<ClinicNewAppointment />} />
+        </Routes>
       </ClinicProvider>
     </MemoryRouter>,
   );
@@ -100,7 +104,7 @@ describe("ClinicSchedule — editar e excluir agendamento (#62)", () => {
     expect(screen.getByRole("dialog")).toBeInTheDocument();
   });
 
-  it("fechar o modal de edição e abrir 'Novo atendimento' volta ao formulário vazio", async () => {
+  it("fechar o modal de edição e clicar em 'Novo atendimento' abre a página com formulário vazio", async () => {
     renderSchedule();
 
     fireEvent.click(screen.getByRole("button", { name: "Editar atendimento de Thor" }));
@@ -109,9 +113,9 @@ describe("ClinicSchedule — editar e excluir agendamento (#62)", () => {
     await waitFor(() => expect(screen.queryByRole("dialog")).not.toBeInTheDocument());
 
     fireEvent.click(screen.getByRole("button", { name: /Novo atendimento/i }));
-    const novo = await screen.findByRole("dialog");
-    expect(within(novo).getByText("Agendar atendimento")).toBeInTheDocument();
-    expect(within(novo).getByLabelText("Pet")).toHaveValue("");
+    expect(await screen.findByText("Agendar atendimento")).toBeInTheDocument();
+    expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
+    expect(screen.getByLabelText("Pet")).toHaveValue("");
   });
 
   it("excluir pede confirmação e só remove depois do 'Excluir'", async () => {

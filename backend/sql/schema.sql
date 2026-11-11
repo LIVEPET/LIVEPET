@@ -268,6 +268,16 @@ CREATE TABLE public.pet_swipes (
 
 CREATE INDEX idx_pet_swipes_destino ON public.pet_swipes(pet_destino_id);
 
+-- 13. Tabela de Depoimentos de Tutores
+CREATE TABLE public.testimonials (
+    id SERIAL PRIMARY KEY,
+    user_id INTEGER NOT NULL REFERENCES public.users(id) ON DELETE CASCADE,
+    texto VARCHAR(280) NOT NULL,
+    aprovado BOOLEAN NOT NULL DEFAULT FALSE,
+    criado_em TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    CONSTRAINT uq_testimonials_user UNIQUE (user_id)
+);
+
 -- Comentários de documentação
 COMMENT ON TABLE public.users IS 'Tabela de tutores e usuários do sistema LivePet';
 COMMENT ON TABLE public.pets IS 'Tabela de animais vinculados aos tutores';
@@ -282,5 +292,6 @@ COMMENT ON TABLE public.clinic_appointments IS 'Prontuários e consultas realiza
 COMMENT ON TABLE public.clinic_pet_link_requests IS 'Vínculos entre clínicas e pets oficiais de tutores';
 COMMENT ON TABLE public.marketplace_listings IS 'Anúncios do marketplace de filhotes e adoção responsável';
 COMMENT ON TABLE public.pet_swipes IS 'Curtidas, super curtidas e passes entre pets no MatchPet';
+COMMENT ON TABLE public.testimonials IS 'Depoimentos de tutores reais, exibidos na landing após aprovação';
 
 

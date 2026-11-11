@@ -570,7 +570,7 @@ const ClinicPatients = () => {
 
                 <Button
                   onClick={() => {
-                    navigate("/clinica/agenda", {
+                    navigate("/clinica/agenda/novo", {
                       state: {
                         prefill: {
                           patientId: selected.id,
