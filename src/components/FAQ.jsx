@@ -7,7 +7,7 @@ import {
 
 const faqs = [
   { q: "Como cadastro meu pet?", 
-    a "Basta acessar a área de cadastro no painel principal, preencher o nome, espécie, raça e idade do seu pet para criar o perfil dele na plataforma rapidamente." },
+    a: "Basta acessar a área de cadastro no painel principal, preencher o nome, espécie, raça e idade do seu pet para criar o perfil dele na plataforma rapidamente." },
   { q: "Quem pode ver os dados do meu pet?", 
     a: "Os dados do seu pet são privados e vinculados à sua conta. Apenas você e os profissionais autorizados na clínica possuem acesso às informações cadastradas." }, 
   { q: "Como funciona o agendamento de consultas?", 

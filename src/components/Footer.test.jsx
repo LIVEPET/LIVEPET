@@ -23,3 +23,4 @@ describe("Footer", () => {
     expect(screen.getByText("Meus Pets").getAttribute("href")).toBe("/pets");
     expect(screen.getByText("Pedigree").getAttribute("href")).toBe("/pedigree");
   });
+});
