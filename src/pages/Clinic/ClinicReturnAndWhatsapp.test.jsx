@@ -85,7 +85,7 @@ describe("Issue #181 — Agendamento Rápido de Retorno Clínico e WhatsApp na A
     seedState();
   });
 
-  it("gera link formatado do WhatsApp com dados da clínica, pet, tutor, data, horário e veterinário", () => {
+  it("gera link formatado do WhatsApp com mensagem profissional sem emojis e com dados da clínica, pet, tutor, data, horário e veterinário", () => {
     const openSpy = vi.spyOn(window, "open").mockImplementation(() => null);
 
     render(
@@ -106,10 +106,14 @@ describe("Issue #181 — Agendamento Rápido de Retorno Clínico e WhatsApp na A
     const decoded = decodeURIComponent(calledUrl.split("text=")[1]);
     expect(decoded).toContain("Roberto Alves");
     expect(decoded).toContain("Clínica Veterinária Central Pet");
+    expect(decoded).toContain("CRMV-SP 44556");
+    expect(decoded).toContain("Confirmação de Agendamento Clínico");
     expect(decoded).toContain("Consulta Clínica");
     expect(decoded).toContain("Bidu");
     expect(decoded).toContain("09:30");
     expect(decoded).toContain("Dr. Gabriel Souza");
+    // Garante que não há emojis (pares substitutos Unicode) que quebram no redirecionamento do wa.me
+    expect(/[\uD800-\uDBFF][\uDC00-\uDFFF]/.test(decoded)).toBe(false);
 
     openSpy.mockRestore();
   });
@@ -170,4 +174,3 @@ describe("Issue #181 — Agendamento Rápido de Retorno Clínico e WhatsApp na A
     expect(decodeURIComponent(returnUrl)).toContain("Retorno Clínico");
   });
 });
-
