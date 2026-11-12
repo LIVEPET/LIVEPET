@@ -23,11 +23,4 @@ describe("Footer", () => {
     expect(screen.getByText("Meus Pets").getAttribute("href")).toBe("/pets");
     expect(screen.getByText("Pedigree").getAttribute("href")).toBe("/pedigree");
   });
-
-  it("usa mailto no link de contato", () => {
-    renderFooter();
-    expect(screen.getByText("Contato").getAttribute("href")).toBe(
-      "mailto:contato@livepet.app"
-    );
-  });
 });

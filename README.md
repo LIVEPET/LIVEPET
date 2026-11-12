@@ -287,14 +287,14 @@ livepet/
 │   ├── app/                  Modelos, schemas, rotas e dependências
 │   ├── sql/                  Scripts e esquemas DDL do banco de dados
 │   ├── tests/                Testes automatizados com Pytest
-│   └── manage_db.py          Gerenciador de migrações e seed do banco
+│   └── manage_db.py          Gerenciador de migrações
 ├── docs/                     Roadmap, comunicados e levantamento de requisitos
 ├── public/                   Ícones, manifesto e arquivos estáticos públicos
 ├── src/
 │   ├── assets/               Imagens e recursos estáticos
 │   ├── components/           Componentes reutilizáveis
 │   │   └── ui/               Componentes base do shadcn/ui
-│   ├── data/                 Dados mock para demonstração e previews
+│   ├── data/                 
 │   ├── hooks/                Hooks customizados
 │   ├── lib/                  Utilitários e regras de negócio
 │   ├── pages/                Páginas da aplicação

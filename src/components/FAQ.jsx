@@ -6,28 +6,17 @@ import {
 } from "@/components/ui/accordion";
 
 const faqs = [
-  {
-    q: "O Live Pet é gratuito?",
-    a: "Sim. O plano Free cadastra 1 pet com lembretes básicos para sempre.",
-  },
-  {
-    q: "Como funciona a validação de pedigree?",
-    a: "Disponível nos planos pagos. Envie o documento e validamos em até 48h com selo digital.",
-  },
-  {
-    q: "Quantos pets posso cadastrar?",
-    a: "Free: 1. Premium: 5. Família: ilimitados.",
-  },
-  {
-    q: "Como funcionam os lembretes?",
-    a: "O app avisa com antecedência por push, e-mail e WhatsApp.",
-  },
-  {
-    q: "Posso cancelar quando quiser?",
-    a: "Sem fidelidade. Cancele no app e use até o fim do ciclo pago.",
-  },
+  { q: "Como cadastro meu pet?", 
+    a: "Basta acessar a área de cadastro no painel principal, preencher o nome, espécie, raça e idade do seu pet para criar o perfil dele na plataforma rapidamente." },
+  { q: "Quem pode ver os dados do meu pet?", 
+    a: "Os dados do seu pet são privados e vinculados à sua conta. Apenas você e os profissionais autorizados na clínica possuem acesso às informações cadastradas." }, 
+  { q: "Como funciona o agendamento de consultas?", 
+    a: "Você pode escolher o profissional disponível, selecionar o melhor dia e horário na agenda e confirmar a consulta diretamente pelo painel do usuário." }, 
+  { q: "Consigo acompanhar o histórico médico do pet?", 
+    a: "Sim, todas as consultas, exames realizados, vacinas aplicadas e receitas ficam registrados na linha do tempo do perfil do seu pet." }, 
+  { q: "O sistema envia lembretes de vacinação?", 
+    a: "Sim, a plataforma gera notificações automáticas para alertar sobre as próximas doses de vacinas e retornos de consultas cadastrados." }
 ];
-
 const FAQ = () => {
   return (
     <section className="container relative py-16">

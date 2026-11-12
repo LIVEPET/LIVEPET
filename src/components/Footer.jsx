@@ -1,5 +1,5 @@
 import { Link } from "react-router-dom";
-import { Instagram, Facebook, Youtube, Mail, Heart } from "lucide-react";
+import { Instagram, Facebook, Youtube, Heart } from "lucide-react";
 import Logo from "./Logo";
 
 const productLinks = [
@@ -18,7 +18,6 @@ const communityLinks = [
 
 const supportLinks = [
   { label: "Central de Ajuda", to: "/#faq" },
-  { label: "Contato", to: "mailto:contato@livepet.app", external: true },
   { label: "Privacidade", to: "/#" },
 ];
 
@@ -49,11 +48,6 @@ const Footer = () => {
                   Icon: Youtube,
                   href: "https://youtube.com",
                   label: "YouTube",
-                },
-                {
-                  Icon: Mail,
-                  href: "mailto:contato@livepet.app",
-                  label: "Email",
                 },
               ].map(({ Icon, href, label }) => (
                 <a
@@ -94,21 +88,13 @@ const FooterCol = ({ title, links }) => (
   <div>
     <p className="mb-4 text-sm font-bold text-foreground">{title}</p>
     <ul className="space-y-2.5 text-sm text-muted-foreground">
-      {links.map((l) =>
-        l.external ? (
-          <li key={l.label}>
-            <a href={l.to} className="transition-smooth hover:text-primary">
-              {l.label}
-            </a>
-          </li>
-        ) : (
-          <li key={l.label}>
-            <Link to={l.to} className="transition-smooth hover:text-primary">
-              {l.label}
-            </Link>
-          </li>
-        ),
-      )}
+      {links.map((l) => (
+        <li key={l.label}>
+          <Link to={l.to} className="transition-smooth hover:text-primary">
+            {l.label}
+          </Link>
+        </li>
+      ))}
     </ul>
   </div>
 );
