@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import {
   Heart,
@@ -692,12 +692,15 @@ const MatchPet = () => {
   const [chatInput, setChatInput] = useState("");
   const chatBottomRef = useRef(null);
 
-  const getChatKey = (targetPet) => {
-    if (!activePet || !targetPet) return "default";
-    const myId = String(activePet.id);
-    const theirId = String(targetPet.rawId || targetPet.id);
-    return [myId, theirId].sort().join("__");
-  };
+  const getChatKey = useCallback(
+    (targetPet) => {
+      if (!activePet || !targetPet) return "default";
+      const myId = String(activePet.id);
+      const theirId = String(targetPet.rawId || targetPet.id);
+      return [myId, theirId].sort().join("__");
+    },
+    [activePet]
+  );
 
   const openChat = (pet) => {
     setChatPet(pet);
@@ -713,7 +716,7 @@ const MatchPet = () => {
     if (!chatPet || !activePet) return [];
     const key = getChatKey(chatPet);
     return chatsData[key] || [];
-  }, [chatsData, chatPet, activePet]);
+  }, [chatsData, chatPet, activePet, getChatKey]);
 
   const sendMessage = () => {
     if (!chatPet || !chatInput.trim() || !activePet) return;

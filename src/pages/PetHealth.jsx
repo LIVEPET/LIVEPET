@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { Link, useSearchParams } from "react-router-dom";
 import {
   ArrowLeft,
@@ -84,6 +84,11 @@ const PetHealth = ({ pets: initialPets, petInicial }) => {
   const [petId, setPetId] = useState(
     petInicial ?? urlPetId ?? initialPets?.[0]?.id ?? "",
   );
+  // Ref com o valor mais recente de petId, para ler dentro do efeito abaixo
+  // sem incluí-lo nas dependências (isso causaria uma segunda busca
+  // duplicada toda vez que o próprio efeito define o petId inicial).
+  const petIdRef = useRef(petId);
+  petIdRef.current = petId;
 
   // Dialog de cadastro de nova vacina
   const [dialogOpen, setDialogOpen] = useState(false);
@@ -100,7 +105,7 @@ const PetHealth = ({ pets: initialPets, petInicial }) => {
   useEffect(() => {
     if (initialPets) {
       setDbPets(initialPets);
-      if (!petId && initialPets.length > 0) {
+      if (!petIdRef.current && initialPets.length > 0) {
         setPetId(initialPets[0].id);
       }
       return;

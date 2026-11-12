@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { Link, useSearchParams } from "react-router-dom";
 import { QRCodeSVG } from "qrcode.react";
 import {
@@ -114,7 +114,7 @@ const Pedigree = () => {
   const [sentRequests, setSentRequests] = useState([]);
   const [loadingRequests, setLoadingRequests] = useState(false);
 
-  const fetchDogs = async () => {
+  const fetchDogs = useCallback(async () => {
     try {
       setLoading(true);
       const data = await petsService.list();
@@ -209,9 +209,9 @@ const Pedigree = () => {
     } finally {
       setLoading(false);
     }
-  };
+  }, [urlPetId]);
 
-  const loadRequests = async () => {
+  const loadRequests = useCallback(async () => {
     try {
       setLoadingRequests(true);
       const [received, sent] = await Promise.all([
@@ -225,12 +225,12 @@ const Pedigree = () => {
     } finally {
       setLoadingRequests(false);
     }
-  };
+  }, []);
 
   useEffect(() => {
     fetchDogs();
     loadRequests();
-  }, [urlPetId]);
+  }, [fetchDogs, loadRequests]);
 
   const handleApproveRequest = async (requestId) => {
     const toastId = toast.loading("Aprovando vínculo de linhagem...");

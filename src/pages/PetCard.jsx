@@ -230,7 +230,7 @@ const PetCard = () => {
     };
 
     loadPets();
-  }, [searchParams]);
+  }, [searchParams, token]);
 
   // Pet atualmente selecionado pelo usuário
   const selectedPet = useMemo(() => {

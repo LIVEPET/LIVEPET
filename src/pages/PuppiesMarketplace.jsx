@@ -1,4 +1,4 @@
-import { useState, useMemo, useEffect, useRef } from "react";
+import { useState, useMemo, useEffect, useRef, useCallback } from "react";
 import { Link, useNavigate, useSearchParams } from "react-router-dom";
 import {
   ShoppingBag,
@@ -74,6 +74,12 @@ const PuppiesMarketplace = () => {
 
   // Filtros
   const [query, setQuery] = useState("");
+  // Ref com o valor mais recente de query, lida dentro de loadMarketplaceListings
+  // sem entrar nas dependências do efeito (a busca por texto já é refeita
+  // localmente em filteredAndSortedListings a cada tecla digitada; buscar de
+  // novo no backend a cada tecla seria redundante e mais lento).
+  const queryRef = useRef(query);
+  queryRef.current = query;
   const [selectedSpecies, setSelectedSpecies] = useState("Todas");
   const [pedigreeOnly, setPedigreeOnly] = useState(false);
   const [adTipoFilter, setAdTipoFilter] = useState(() => searchParams.get("tipo") || "todos"); // "todos", "venda", "adocao"
@@ -168,11 +174,11 @@ const PuppiesMarketplace = () => {
   }, []);
 
   // Carrega anúncios reais do banco de dados (FastAPI / PostgreSQL)
-  const loadMarketplaceListings = async () => {
+  const loadMarketplaceListings = useCallback(async () => {
     try {
       setLoading(true);
       const data = await marketplaceService.list({
-        q: query,
+        q: queryRef.current,
         especie: selectedSpecies,
         tipo: adTipoFilter,
         pedigree: pedigreeOnly,
@@ -189,11 +195,11 @@ const PuppiesMarketplace = () => {
     } finally {
       setLoading(false);
     }
-  };
+  }, [selectedSpecies, adTipoFilter, pedigreeOnly]);
 
   useEffect(() => {
     loadMarketplaceListings();
-  }, [selectedSpecies, pedigreeOnly, adTipoFilter]);
+  }, [loadMarketplaceListings]);
 
   // Lista ordenada
   const filteredAndSortedListings = useMemo(() => {

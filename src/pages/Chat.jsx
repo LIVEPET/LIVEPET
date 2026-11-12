@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Link, useNavigate, useSearchParams } from "react-router-dom";
 import {
   MessageCircle,
@@ -120,6 +120,11 @@ const Chat = () => {
   const [checkingSystem, setCheckingSystem] = useState(false);
   const messagesEndRef = useRef(null);
 
+  // Mantém a referência ao chat ativo acessível dentro de callbacks memoizados
+  // sem precisar incluí-lo nas dependências (evita refetch a cada troca de conversa)
+  const activeChatIdRef = useRef(activeChatId);
+  activeChatIdRef.current = activeChatId;
+
   // Carrega usuário e conversas
   useEffect(() => {
     const user = authService.getCurrentUser();
@@ -141,7 +146,7 @@ const Chat = () => {
 
   // Rotina de verificação: busca anúncios do usuário que completaram 30 dias
   // e insere/atualiza mensagens automáticas com botões pré-definidos no chat do sistema
-  const sync30DaysConfirmations = async () => {
+  const sync30DaysConfirmations = useCallback(async () => {
     if (!currentUser) return;
     try {
       setCheckingSystem(true);
@@ -229,7 +234,7 @@ const Chat = () => {
         saveStoredConversations(currentConvs);
         setConversations([...currentConvs]);
         // Se veio para o chat de confirmação ou se não há chat selecionado, seleciona o assistente
-        if (!activeChatId) {
+        if (!activeChatIdRef.current) {
           setActiveChatId("assistente_livepet_bot");
         }
       }
@@ -238,13 +243,13 @@ const Chat = () => {
     } finally {
       setCheckingSystem(false);
     }
-  };
+  }, [currentUser]);
 
   useEffect(() => {
     if (currentUser) {
       sync30DaysConfirmations();
     }
-  }, [currentUser]);
+  }, [currentUser, sync30DaysConfirmations]);
 
   const selectConversation = (id) => {
     setActiveChatId(id);
