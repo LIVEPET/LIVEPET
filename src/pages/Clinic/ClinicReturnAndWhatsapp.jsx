@@ -37,6 +37,7 @@ export const buildWhatsAppUrl = (appointment, profile = {}) => {
       : rawPhone || "5511999999999";
 
   const clinicName = profile?.name || "Clínica Veterinária LivePet";
+  const clinicCrmv = profile?.crmv ? ` (${profile.crmv})` : "";
   const tutor = appointment?.tutor || "Tutor(a)";
   const petName = appointment?.petName || "seu pet";
   const service = appointment?.service || "Atendimento veterinário";
@@ -45,18 +46,23 @@ export const buildWhatsAppUrl = (appointment, profile = {}) => {
   const vet = appointment?.vet || "Equipe da clínica";
 
   const extraNote = appointment?.notes
-    ? `\n📋 *Orientações / Observações:* ${appointment.notes}`
+    ? `\n- *Observações / Orientações:* ${appointment.notes}`
     : "";
 
   const message =
-    `Olá, ${tutor}! Tudo bem? 🐾\n` +
-    `Aqui é da *${clinicName}*.\n\n` +
-    `Passando para confirmar o agendamento de *${service}* do(a) paciente *${petName}*:\n` +
-    `📅 *Data:* ${dateBR}\n` +
-    `⏰ *Horário:* ${time}\n` +
-    `👩‍⚕️ *Veterinário(a):* ${vet}` +
+    `*${clinicName}*${clinicCrmv}\n` +
+    `*Confirmação de Agendamento Clínico*\n\n` +
+    `Prezado(a) *${tutor}*,\n` +
+    `Confirmamos o agendamento de atendimento veterinário conforme os dados a seguir:\n\n` +
+    `- *Paciente:* ${petName}\n` +
+    `- *Serviço / Procedimento:* ${service}\n` +
+    `- *Data:* ${dateBR}\n` +
+    `- *Horário:* ${time}\n` +
+    `- *Profissional responsável:* ${vet}` +
     extraNote +
-    `\n\nQualquer dúvida estamos à disposição!`;
+    `\n\nCaso necessite reagendar ou tenha alguma dúvida, permanecemos à disposição.\n\n` +
+    `Atenciosamente,\n` +
+    `*${clinicName}*`;
 
   return `https://wa.me/${normalizedPhone}?text=${encodeURIComponent(message)}`;
 };
@@ -212,4 +218,3 @@ export const ReturnSchedulingSection = ({
     </div>
   );
 };
-
