@@ -5,6 +5,7 @@ import { ClinicProvider, STORAGE_KEY } from "@/contexts/ClinicContext";
 import { stubRadixForJsdom } from "@/test/clinicTestUtils";
 import ClinicLayout from "./ClinicLayout";
 import ClinicSchedule from "./ClinicSchedule";
+import ClinicConsultation from "./ClinicConsultation";
 import ClinicPatients from "./ClinicPatients";
 import { QUICK_EXAM_OPTIONS } from "./ClinicExams";
 
@@ -49,6 +50,7 @@ const renderClinicApp = (initialEntry = "/clinica/agenda") =>
         <Routes>
           <Route path="/clinica" element={<ClinicLayout />}>
             <Route path="agenda" element={<ClinicSchedule />} />
+            <Route path="atendimento/:id" element={<ClinicConsultation />} />
             <Route path="pacientes" element={<ClinicPatients />} />
           </Route>
         </Routes>

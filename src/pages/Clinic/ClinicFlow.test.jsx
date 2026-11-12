@@ -7,6 +7,11 @@ import { fillAppointmentForm, openNewAppointment, stubRadixForJsdom } from "@/te
 import ClinicLayout from "./ClinicLayout";
 import ClinicDashboard from "./ClinicDashboard";
 import ClinicNewAppointment from "./ClinicNewAppointment";
+import ClinicEditAppointment from "./ClinicEditAppointment";
+import ClinicConsultation from "./ClinicConsultation";
+import ClinicDocumentsPage from "./ClinicDocumentsPage";
+import ClinicPrescriptionPage from "./ClinicPrescriptionPage";
+import ClinicReceiptPage from "./ClinicReceiptPage";
 import ClinicSchedule from "./ClinicSchedule";
 import ClinicPatients from "./ClinicPatients";
 import ClinicProfile from "./ClinicProfile";
@@ -18,6 +23,11 @@ const app = (initial = "/clinica") => (
         <Route index element={<ClinicDashboard />} />
         <Route path="agenda" element={<ClinicSchedule />} />
         <Route path="agenda/novo" element={<ClinicNewAppointment />} />
+        <Route path="agenda/editar/:id" element={<ClinicEditAppointment />} />
+        <Route path="atendimento/:id" element={<ClinicConsultation />} />
+        <Route path="documentos/:id" element={<ClinicDocumentsPage />} />
+        <Route path="prescricao/:id" element={<ClinicPrescriptionPage />} />
+        <Route path="recibo/:id" element={<ClinicReceiptPage />} />
         <Route path="pacientes" element={<ClinicPatients />} />
         <Route path="perfil" element={<ClinicProfile />} />
       </Route>

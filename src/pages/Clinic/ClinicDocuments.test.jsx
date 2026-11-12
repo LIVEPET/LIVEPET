@@ -1,9 +1,10 @@
 import { describe, it, expect, beforeEach, vi } from "vitest";
 import { render, screen, fireEvent, within } from "@testing-library/react";
-import { MemoryRouter } from "react-router-dom";
+import { MemoryRouter, Route, Routes } from "react-router-dom";
 import { ClinicProvider, STORAGE_KEY } from "@/contexts/ClinicContext";
 import { stubRadixForJsdom } from "@/test/clinicTestUtils";
 import ClinicSchedule from "./ClinicSchedule";
+import ClinicDocumentsPage from "./ClinicDocumentsPage";
 import ClinicPatients from "./ClinicPatients";
 
 const savePdfMock = vi.fn();
@@ -122,9 +123,12 @@ describe("Issue #132 - Gerador Visual de Atestado de Saúde, Termo de Consentime
     const printSpy = vi.spyOn(window, "print").mockImplementation(() => {});
 
     render(
-      <MemoryRouter>
+      <MemoryRouter initialEntries={["/clinica/agenda"]}>
         <ClinicProvider>
-          <ClinicSchedule />
+          <Routes>
+            <Route path="/clinica/agenda" element={<ClinicSchedule />} />
+            <Route path="/clinica/documentos/:id" element={<ClinicDocumentsPage />} />
+          </Routes>
         </ClinicProvider>
       </MemoryRouter>,
     );

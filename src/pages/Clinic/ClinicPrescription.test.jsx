@@ -1,9 +1,11 @@
 import { render, screen, within, fireEvent } from "@testing-library/react";
-import { MemoryRouter } from "react-router-dom";
+import { MemoryRouter, Route, Routes } from "react-router-dom";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { ClinicProvider, STORAGE_KEY } from "@/contexts/ClinicContext";
 import { stubRadixForJsdom } from "@/test/clinicTestUtils";
 import ClinicSchedule from "./ClinicSchedule";
+import ClinicConsultation from "./ClinicConsultation";
+import ClinicPrescriptionPage from "./ClinicPrescriptionPage";
 import { groupPrescriptionByRoute, hasPrescription } from "./ClinicPrescription";
 
 const savePdfMock = vi.fn();
@@ -69,7 +71,11 @@ const renderSchedule = () =>
   render(
     <MemoryRouter initialEntries={["/clinica/agenda"]}>
       <ClinicProvider>
-        <ClinicSchedule />
+        <Routes>
+          <Route path="/clinica/agenda" element={<ClinicSchedule />} />
+          <Route path="/clinica/atendimento/:id" element={<ClinicConsultation />} />
+          <Route path="/clinica/prescricao/:id" element={<ClinicPrescriptionPage />} />
+        </Routes>
       </ClinicProvider>
     </MemoryRouter>,
   );

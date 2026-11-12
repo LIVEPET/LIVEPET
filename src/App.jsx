@@ -29,6 +29,11 @@ import ClinicPatients from "./pages/Clinic/ClinicPatients";
 import ClinicProfile from "./pages/Clinic/ClinicProfile";
 import ClinicSchedule from "./pages/Clinic/ClinicSchedule";
 import ClinicNewAppointment from "./pages/Clinic/ClinicNewAppointment";
+import ClinicEditAppointment from "./pages/Clinic/ClinicEditAppointment";
+import ClinicConsultation from "./pages/Clinic/ClinicConsultation";
+import ClinicDocumentsPage from "./pages/Clinic/ClinicDocumentsPage";
+import ClinicPrescriptionPage from "./pages/Clinic/ClinicPrescriptionPage";
+import ClinicReceiptPage from "./pages/Clinic/ClinicReceiptPage";
 import ClinicInpatient from "./pages/Clinic/ClinicInpatient";
 import ProtectedClinicRoute from "./components/ProtectedClinicRoute";
 import { ClinicProvider } from "@/contexts/ClinicContext";
@@ -52,6 +57,11 @@ const App = () => (
               <Route index element={<ClinicDashboard />} />
               <Route path="agenda" element={<ClinicSchedule />} />
               <Route path="agenda/novo" element={<ClinicNewAppointment />} />
+              <Route path="agenda/editar/:id" element={<ClinicEditAppointment />} />
+              <Route path="atendimento/:id" element={<ClinicConsultation />} />
+              <Route path="documentos/:id" element={<ClinicDocumentsPage />} />
+              <Route path="prescricao/:id" element={<ClinicPrescriptionPage />} />
+              <Route path="recibo/:id" element={<ClinicReceiptPage />} />
               <Route path="internacao" element={<ClinicInpatient />} />
               <Route path="pacientes" element={<ClinicPatients />} />
               <Route path="perfil" element={<ClinicProfile />} />

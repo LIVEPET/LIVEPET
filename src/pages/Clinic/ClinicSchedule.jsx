@@ -26,76 +26,29 @@ import {
 
 import { toast } from "sonner";
 import { Card, CardContent } from "@/components/ui/card";
-import {
-  AlertDialog,
-  AlertDialogAction,
-  AlertDialogCancel,
-  AlertDialogContent,
-  AlertDialogDescription,
-  AlertDialogFooter,
-  AlertDialogHeader,
-  AlertDialogTitle,
-} from "@/components/ui/alert-dialog";
 import ClinicDataStatus from "./ClinicDataStatus";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
-import { Textarea } from "@/components/ui/textarea";
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogHeader,
-  DialogTitle,
-} from "@/components/ui/dialog";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import EmptyState from "@/components/EmptyState";
 import { getPriorityMeta, PRIORITY_OPTIONS, statusStyles } from "@/data/clinicDemo";
 import { useClinic } from "@/contexts/ClinicContext";
 import { clinicService } from "@/services/api";
 import { formatPhone } from "@/lib/phone";
+import { formatCurrency } from "@/lib/clinicBilling";
 import {
-  AppointmentFormFields,
   DEFAULT_SPECIES,
-  DEFAULT_VET,
   PriorityBadge,
-  PrioritySelector,
-  createEmptyAppointmentForm,
   getToday,
   uniqueNames,
-  validateAppointmentForm,
 } from "./AppointmentForm";
-import { ComplementaryExamsSelector } from "./ClinicExams";
-import { ClinicalDocumentsDialog } from "./ClinicDocuments";
+import { hasPrescription } from "./ClinicPrescription";
 import {
-  hasPrescription,
-  PrescriptionBuilder,
-  PrescriptionSheetDialog,
-} from "./ClinicPrescription";
-import { AppointmentBillingSection } from "./AppointmentBillingSection";
-import { ClinicReceiptDialog } from "./ClinicReceiptDialog";
-import {
-  addDaysToIsoDate,
-  formatIsoDateBR,
   isReturnAppointmentItem,
   ReturnAppointmentBadge,
-  ReturnSchedulingSection,
   WhatsAppActionButton,
 } from "./ClinicReturnAndWhatsapp";
-import {
-  PAYMENT_STATUS,
-  calculateAppointmentTotal,
-  findServicePrice,
-  formatCurrency,
-} from "@/lib/clinicBilling";
 
 const filters = ["Todos", "Confirmado", "Aguardando", "Em atendimento", "Concluído", "Cancelado"];
 
@@ -144,59 +97,7 @@ const ClinicSchedule = () => {
   const [filter, setFilter] = useState("Todos");
   const [dateFilter, setDateFilter] = useState("Hoje");
   const [query, setQuery] = useState("");
-  const [form, setForm] = useState(createEmptyAppointmentForm);
-  // Atendimento em edição (#62).
-  const [editing, setEditing] = useState(null);
   const [toDelete, setToDelete] = useState(null);
-  const [errors, setErrors] = useState({});
-  const [speciesOptions, setSpeciesOptions] = useState(DEFAULT_SPECIES);
-
-  // Estados do Modal de Anamnese & Exame Clínico
-  const [examOpen, setExamOpen] = useState(false);
-  const [activeExamApp, setActiveExamApp] = useState(null);
-  const [prescriptionPreviewApp, setPrescriptionPreviewApp] = useState(null);
-  const [receiptApp, setReceiptApp] = useState(null);
-  const [documentModalApp, setDocumentModalApp] = useState(null);
-  const [examForm, setExamForm] = useState({
-    priority: "Rotina",
-    queixa_principal: "",
-    temperatura: "",
-    peso: "",
-    frequencia_cardiaca: "",
-    frequencia_respiratoria: "",
-    mucosas: "Normocoradas",
-    diagnostico: "",
-    prescricao: "",
-    prescricao_itens: [],
-    exames_complementares: [],
-    applyVaccine: false,
-    vacina_aplicada: "",
-    vacina_lote: "",
-    vacina_proxima_dose: "",
-    scheduleReturn: false,
-    returnDate: addDaysToIsoDate(getToday(), 7),
-    returnTime: "10:00",
-    returnReason: "",
-  });
-
-  const services = useMemo(() => uniqueNames(profile.services), [profile.services]);
-  const team = useMemo(() => uniqueNames(profile.team), [profile.team]);
-
-  // Sincroniza espécies cadastradas no banco de dados
-  useEffect(() => {
-    let active = true;
-    clinicService
-      .getSpecies()
-      .then((data) => {
-        if (active && Array.isArray(data) && data.length > 0) {
-          setSpeciesOptions(data);
-        }
-      })
-      .catch(() => {});
-    return () => {
-      active = false;
-    };
-  }, []);
 
   // Encaminha pré-preenchimento legado para a página dedicada de novo atendimento
   useEffect(() => {
@@ -226,47 +127,10 @@ const ClinicSchedule = () => {
   );
 
   const handleOpenExam = (a) => {
-    setActiveExamApp(a);
-    setExamForm({
-      priority: getPriorityMeta(a.priority).value,
-      queixa_principal: a.queixa_principal || a.notes || "",
-      temperatura: a.temperatura != null ? String(a.temperatura) : "",
-      peso: a.peso != null ? String(a.peso) : "",
-      frequencia_cardiaca: a.frequencia_cardiaca != null ? String(a.frequencia_cardiaca) : "",
-      frequencia_respiratoria: a.frequencia_respiratoria != null ? String(a.frequencia_respiratoria) : "",
-      mucosas: a.mucosas || "Normocoradas",
-      diagnostico: a.diagnostico || "",
-      prescricao: a.prescricao || "",
-      prescricao_itens: Array.isArray(a.prescricao_itens) ? a.prescricao_itens : [],
-      exames_complementares: Array.isArray(a.exames_complementares) ? a.exames_complementares : [],
-      applyVaccine: !!a.vacina_aplicada,
-      vacina_aplicada: a.vacina_aplicada || "",
-      vacina_lote: a.vacina_lote || "",
-      vacina_proxima_dose: a.vacina_proxima_dose || "",
-      valor_servico: a.valor_servico != null ? Number(a.valor_servico) : (findServicePrice(a.service, profile.services) || 0),
-      itens_adicionais: Array.isArray(a.itens_adicionais) ? a.itens_adicionais : [],
-      desconto: a.desconto != null ? Number(a.desconto) : 0,
-      status_pagamento: a.status_pagamento || PAYMENT_STATUS.PAID,
-      forma_pagamento: a.forma_pagamento || "PIX",
-      scheduleReturn: false,
-      returnDate: addDaysToIsoDate(a.date || getToday(), 7),
-      returnTime: a.time || "10:00",
-      returnReason: "",
-    });
-
     if (a.status === "Confirmado" || a.status === "Aguardando") {
       updateAppointmentStatus(a.id, "Em atendimento");
-      toast.success(`${a.petName}: atendimento iniciado`);
     }
-    setExamOpen(true);
-  };
-
-  const handleExamPriorityChange = (nextPriority) => {
-    setExamForm((f) => ({ ...f, priority: nextPriority }));
-    if (activeExamApp && updateAppointmentPriority) {
-      updateAppointmentPriority(activeExamApp.id, nextPriority);
-      setActiveExamApp((prev) => (prev ? { ...prev, priority: nextPriority } : prev));
-    }
+    navigate(`/clinica/atendimento/${a.id}`);
   };
 
   const handleQuickAdvanceStatus = (a) => {
@@ -279,105 +143,13 @@ const ClinicSchedule = () => {
     }
   };
 
-  const handleSaveExam = (e) => {
-    e.preventDefault();
-    if (!activeExamApp) return;
-
-    if (examForm.applyVaccine && !examForm.vacina_aplicada.trim()) {
-      toast.error("Informe o nome da vacina aplicada ou desmarque a opção.");
-      return;
-    }
-
-    const payload = {
-      priority: examForm.priority || "Rotina",
-      queixa_principal: examForm.queixa_principal.trim() || null,
-      temperatura: examForm.temperatura ? parseFloat(examForm.temperatura) : null,
-      peso: examForm.peso ? parseFloat(examForm.peso) : null,
-      frequencia_cardiaca: examForm.frequencia_cardiaca ? parseInt(examForm.frequencia_cardiaca, 10) : null,
-      frequencia_respiratoria: examForm.frequencia_respiratoria ? parseInt(examForm.frequencia_respiratoria, 10) : null,
-      mucosas: examForm.mucosas || "Normocoradas",
-      diagnostico: examForm.diagnostico.trim() || null,
-      prescricao: examForm.prescricao.trim() || null,
-      prescricao_itens: Array.isArray(examForm.prescricao_itens) ? examForm.prescricao_itens : [],
-      exames_complementares: Array.isArray(examForm.exames_complementares) ? examForm.exames_complementares : [],
-      vacina_aplicada: examForm.applyVaccine && examForm.vacina_aplicada.trim() ? examForm.vacina_aplicada.trim() : null,
-      vacina_lote: examForm.applyVaccine && examForm.vacina_lote.trim() ? examForm.vacina_lote.trim() : null,
-      vacina_proxima_dose: examForm.applyVaccine && examForm.vacina_proxima_dose ? examForm.vacina_proxima_dose : null,
-      valor_servico: Number(examForm.valor_servico) || 0,
-      itens_adicionais: Array.isArray(examForm.itens_adicionais) ? examForm.itens_adicionais : [],
-      desconto: Number(examForm.desconto) || 0,
-      valor_total: calculateAppointmentTotal({
-        basePrice: examForm.valor_servico,
-        extraItems: examForm.itens_adicionais,
-        discount: examForm.desconto,
-      }),
-      status_pagamento: examForm.status_pagamento || PAYMENT_STATUS.PAID,
-      forma_pagamento: examForm.forma_pagamento || "PIX",
-    };
-
-    concludeAppointment(activeExamApp.id, payload);
-
-    if (examForm.scheduleReturn && examForm.returnDate) {
-      const returnServiceName = "Retorno Clínico";
-      const returnPrice = findServicePrice(returnServiceName, profile.services) || 0;
-      addAppointment({
-        patientId: activeExamApp.patientId || null,
-        date: examForm.returnDate,
-        time: examForm.returnTime || activeExamApp.time || "10:00",
-        petName: activeExamApp.petName,
-        species: activeExamApp.species || "Cão",
-        breed: activeExamApp.breed || "—",
-        tutor: activeExamApp.tutor,
-        phone: activeExamApp.phone || "—",
-        service: returnServiceName,
-        isReturn: true,
-        valor_servico: returnPrice,
-        valor_total: returnPrice,
-        status_pagamento: PAYMENT_STATUS.PENDING,
-        forma_pagamento: "PIX",
-        vet: activeExamApp.vet || DEFAULT_VET,
-        priority: "Rotina",
-        notes:
-          examForm.returnReason.trim() ||
-          `Retorno referente ao atendimento de ${activeExamApp.service}`,
-      });
-      toast.success(
-        `Retorno clínico de ${activeExamApp.petName} agendado para ${formatIsoDateBR(examForm.returnDate)} às ${examForm.returnTime || "10:00"}!`,
-      );
-    }
-
-    setExamOpen(false);
-    toast.success(`Atendimento de ${activeExamApp.petName} concluído com sucesso! Prontuário registrado.`);
-  };
-
   const cancel = (a) => {
     updateAppointmentStatus(a.id, "Cancelado");
     toast("Atendimento cancelado", { description: `${a.petName} — ${a.time}` });
   };
 
-  const resetForm = () => {
-    setForm(createEmptyAppointmentForm());
-    setErrors({});
-    setEditing(null);
-  };
-
   const startEdit = (a) => {
-    setEditing(a);
-    setErrors({});
-    setForm({
-      patientId: a.patientId || null,
-      petName: a.petName || "",
-      species: a.species || "",
-      breed: a.breed && a.breed !== "—" ? a.breed : "",
-      date: a.date || getToday(),
-      time: a.time || "",
-      tutor: a.tutor || "",
-      phone: a.phone || "",
-      service: a.service || "",
-      vet: a.vet && a.vet !== DEFAULT_VET ? a.vet : "",
-      priority: a.priority || "Rotina",
-      notes: a.notes || "",
-    });
+    navigate(`/clinica/agenda/editar/${a.id}`);
   };
 
   const confirmDelete = async () => {
@@ -386,41 +158,6 @@ const ClinicSchedule = () => {
     if (!a) return;
     await deleteAppointment(a.id);
     toast("Atendimento excluído", { description: `${a.petName} — ${a.time}` });
-  };
-
-  const handleEditOpenChange = (next) => {
-    if (!next) resetForm();
-  };
-
-  const update = (key, value) => {
-    setForm((current) => ({ ...current, [key]: value }));
-    setErrors(({ [key]: _removed, ...rest }) => rest);
-  };
-
-  const saveEdit = (e) => {
-    e.preventDefault();
-    if (!editing) return;
-    const found = validateAppointmentForm(form, services.length > 0);
-    if (Object.keys(found).length > 0) {
-      setErrors(found);
-      document.getElementById(Object.keys(found)[0])?.focus();
-      return;
-    }
-    updateAppointment(editing.id, {
-      date: form.date,
-      time: form.time,
-      petName: form.petName.trim(),
-      species: form.species,
-      breed: form.breed.trim() || "—",
-      tutor: form.tutor.trim(),
-      phone: formatPhone(form.phone),
-      service: form.service.trim(),
-      vet: form.vet || DEFAULT_VET,
-      priority: form.priority || "Rotina",
-      notes: form.notes.trim() || "",
-    });
-    resetForm();
-    toast.success("Atendimento atualizado!");
   };
 
   return (
@@ -503,27 +240,6 @@ const ClinicSchedule = () => {
           >
             <Plus className="h-4 w-4" /> Novo atendimento
           </Button>
-
-          <Dialog open={Boolean(editing)} onOpenChange={handleEditOpenChange}>
-            <DialogContent className="max-h-[90vh] max-w-lg overflow-y-auto">
-              <DialogHeader>
-                <DialogTitle className="font-display">Editar atendimento</DialogTitle>
-                <DialogDescription>
-                  Altere os dados e salve. O status e o prontuário não mudam aqui.
-                </DialogDescription>
-              </DialogHeader>
-              <AppointmentFormFields
-                form={form}
-                errors={errors}
-                speciesOptions={speciesOptions}
-                services={services}
-                team={team}
-                onUpdate={update}
-                onSubmit={saveEdit}
-                submitLabel="Salvar alterações"
-              />
-            </DialogContent>
-          </Dialog>
         </div>
       </div>
 
@@ -630,7 +346,7 @@ const ClinicSchedule = () => {
                       variant="outline"
                       data-testid={`btn-receipt-${a.id}`}
                       className="rounded-full gap-1.5 text-xs font-medium border-primary/30 text-primary hover:bg-primary-soft"
-                      onClick={() => setReceiptApp(a)}
+                      onClick={() => navigate(`/clinica/recibo/${a.id}`)}
                     >
                       <Receipt className="h-3.5 w-3.5" /> Recibo
                     </Button>
@@ -639,7 +355,7 @@ const ClinicSchedule = () => {
                       variant="outline"
                       data-testid={`open-documents-${a.id}`}
                       className="rounded-full gap-1.5 text-xs font-medium"
-                      onClick={() => setDocumentModalApp(a)}
+                      onClick={() => navigate(`/clinica/documentos/${a.id}`)}
                     >
                       <FileBadge className="h-3.5 w-3.5" /> Emitir Documento
                     </Button>
@@ -648,7 +364,7 @@ const ClinicSchedule = () => {
                         size="sm"
                         variant="outline"
                         className="rounded-full gap-1.5 border-primary/40 text-xs font-medium text-primary hover:bg-primary-soft"
-                        onClick={() => setPrescriptionPreviewApp(a)}
+                        onClick={() => navigate(`/clinica/prescricao/${a.id}`)}
                       >
                         <FileText className="h-3.5 w-3.5" /> Visualizar Receituário
                       </Button>
@@ -698,6 +414,40 @@ const ClinicSchedule = () => {
                       </Button>
                     )}
                   </div>
+                  {toDelete?.id === a.id && (
+                    <div
+                      role="alertdialog"
+                      aria-label="Confirmar exclusão de atendimento"
+                      className="w-full mt-3 rounded-2xl border border-destructive/40 bg-destructive/10 p-4 flex flex-wrap items-center justify-between gap-3 text-xs"
+                    >
+                      <div className="space-y-0.5">
+                        <p className="font-semibold text-destructive">Excluir este atendimento?</p>
+                        <p className="text-muted-foreground">
+                          {toDelete.petName} — {toDelete.date} às {toDelete.time}. Ele some da agenda e do servidor. Para manter o registro, prefira "Cancelar".
+                        </p>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <Button
+                          type="button"
+                          variant="outline"
+                          size="sm"
+                          className="h-8 rounded-full text-xs"
+                          onClick={() => setToDelete(null)}
+                        >
+                          Manter
+                        </Button>
+                        <Button
+                          type="button"
+                          variant="destructive"
+                          size="sm"
+                          className="h-8 rounded-full text-xs"
+                          onClick={confirmDelete}
+                        >
+                          Excluir
+                        </Button>
+                      </div>
+                    </div>
+                  )}
                   {a.notes && (
                     <p className="w-full rounded-xl bg-muted px-3 py-2 text-xs text-muted-foreground">
                       {a.notes}
@@ -836,7 +586,7 @@ const ClinicSchedule = () => {
                                 size="sm"
                                 variant="outline"
                                 className="h-8 w-full rounded-full gap-1 border-primary/40 text-xs font-medium text-primary hover:bg-primary-soft"
-                                onClick={() => setPrescriptionPreviewApp(a)}
+                                onClick={() => navigate(`/clinica/prescricao/${a.id}`)}
                               >
                                 <FileText className="h-3 w-3" /> Visualizar Receituário
                               </Button>
@@ -915,13 +665,47 @@ const ClinicSchedule = () => {
                                   variant="outline"
                                   data-testid={`btn-receipt-kanban-${a.id}`}
                                   className="h-8 flex-1 rounded-full gap-1 text-xs border-primary/30 text-primary hover:bg-primary-soft"
-                                  onClick={() => setReceiptApp(a)}
+                                  onClick={() => navigate(`/clinica/recibo/${a.id}`)}
                                 >
                                   <Receipt className="h-3 w-3" /> Recibo
                                 </Button>
                               </div>
                             )}
                           </div>
+                          {toDelete?.id === a.id && (
+                            <div
+                              role="alertdialog"
+                              aria-label="Confirmar exclusão de atendimento"
+                              className="w-full mt-2.5 rounded-xl border border-destructive/40 bg-destructive/10 p-3 flex flex-col gap-2 text-xs"
+                            >
+                              <div className="space-y-0.5">
+                                <p className="font-semibold text-destructive">Excluir este atendimento?</p>
+                                <p className="text-muted-foreground text-[11px]">
+                                  {toDelete.petName} — {toDelete.date} às {toDelete.time}.
+                                </p>
+                              </div>
+                              <div className="flex items-center justify-end gap-1.5">
+                                <Button
+                                  type="button"
+                                  variant="outline"
+                                  size="sm"
+                                  className="h-7 px-2.5 rounded-full text-xs"
+                                  onClick={() => setToDelete(null)}
+                                >
+                                  Manter
+                                </Button>
+                                <Button
+                                  type="button"
+                                  variant="destructive"
+                                  size="sm"
+                                  className="h-7 px-2.5 rounded-full text-xs"
+                                  onClick={confirmDelete}
+                                >
+                                  Excluir
+                                </Button>
+                              </div>
+                            </div>
+                          )}
                         </CardContent>
                       </Card>
                     );
@@ -939,354 +723,6 @@ const ClinicSchedule = () => {
         </div>
       )}
 
-      {/* Modal de Anamnese e Exame Clínico Completo */}
-      <AlertDialog open={Boolean(toDelete)} onOpenChange={(next) => !next && setToDelete(null)}>
-        <AlertDialogContent>
-          <AlertDialogHeader>
-            <AlertDialogTitle>Excluir este atendimento?</AlertDialogTitle>
-            <AlertDialogDescription>
-              {toDelete ? `${toDelete.petName} — ${toDelete.date} às ${toDelete.time}. ` : ""}
-              Ele some da agenda e do servidor. Para manter o registro, prefira "Cancelar".
-            </AlertDialogDescription>
-          </AlertDialogHeader>
-          <AlertDialogFooter>
-            <AlertDialogCancel className="rounded-full">Manter</AlertDialogCancel>
-            <AlertDialogAction className="rounded-full bg-destructive text-destructive-foreground hover:bg-destructive/90" onClick={confirmDelete}>
-              Excluir
-            </AlertDialogAction>
-          </AlertDialogFooter>
-        </AlertDialogContent>
-      </AlertDialog>
-
-      <Dialog open={examOpen} onOpenChange={setExamOpen}>
-        <DialogContent className="max-h-[92vh] max-w-2xl overflow-y-auto">
-          {activeExamApp && (
-            <>
-              <DialogHeader>
-                <div className="flex flex-wrap items-center justify-between gap-2">
-                  <div className="flex items-center gap-2">
-                    <div className="grid h-10 w-10 place-items-center rounded-2xl bg-primary-soft text-primary">
-                      <Stethoscope className="h-5 w-5" />
-                    </div>
-                    <div>
-                      <DialogTitle className="font-display text-2xl">
-                        Atendimento Clínico & Anamnese
-                      </DialogTitle>
-                      <DialogDescription>
-                        {activeExamApp.petName} ({activeExamApp.species} · {activeExamApp.breed}) · Tutor: {activeExamApp.tutor}
-                      </DialogDescription>
-                    </div>
-                  </div>
-                  <div className="flex items-center gap-2">
-                    <PriorityBadge priority={examForm.priority} />
-                    <Badge className={`${statusStyles[activeExamApp.status]} text-xs`}>
-                      {activeExamApp.status}
-                    </Badge>
-                  </div>
-                </div>
-              </DialogHeader>
-
-              <form onSubmit={handleSaveExam} className="space-y-5 pt-2">
-                {/* 0. Classificação de Risco (Triagem Veterinária) */}
-                <div className="space-y-2 rounded-2xl border border-border/80 bg-muted/20 p-4">
-                  <Label className="flex items-center gap-1.5 text-sm font-semibold">
-                    <AlertTriangle className="h-4 w-4 text-primary" /> Classificação de Risco (Triagem)
-                  </Label>
-                  <PrioritySelector
-                    value={examForm.priority}
-                    onChange={handleExamPriorityChange}
-                    idPrefix="exam-priority"
-                  />
-                </div>
-
-                {/* 1. Anamnese / Queixa Principal */}
-                <div className="space-y-2 rounded-2xl border border-border/80 bg-muted/20 p-4">
-                  <Label htmlFor="queixa" className="flex items-center gap-1.5 text-sm font-semibold">
-                    <Activity className="h-4 w-4 text-primary" /> Anamnese & Queixa Principal
-                  </Label>
-                  <Textarea
-                    id="queixa"
-                    rows={3}
-                    placeholder="Relato do tutor: motivo da consulta, sintomas, duração, alterações de comportamento ou alimentação..."
-                    value={examForm.queixa_principal}
-                    onChange={(e) => setExamForm((f) => ({ ...f, queixa_principal: e.target.value }))}
-                  />
-                </div>
-
-                {/* 2. Sinais Vitais & Exame Físico */}
-                <div className="space-y-3 rounded-2xl border border-border/80 bg-muted/20 p-4">
-                  <p className="flex items-center gap-1.5 text-sm font-semibold">
-                    <Thermometer className="h-4 w-4 text-primary" /> Sinais Vitais e Avaliação Física
-                  </p>
-
-                  <div className="grid gap-3 sm:grid-cols-2">
-                    {/* Peso */}
-                    <div className="space-y-1">
-                      <Label htmlFor="peso" className="text-xs font-semibold">
-                        Peso Atual (kg)
-                      </Label>
-                      <Input
-                        id="peso"
-                        type="number"
-                        step="0.1"
-                        placeholder="Ex: 12.5"
-                        value={examForm.peso}
-                        onChange={(e) => setExamForm((f) => ({ ...f, peso: e.target.value }))}
-                      />
-                    </div>
-
-                    {/* Temperatura */}
-                    <div className="space-y-1">
-                      <Label htmlFor="temp" className="text-xs font-semibold">
-                        Temperatura Retal (°C)
-                      </Label>
-                      <Input
-                        id="temp"
-                        type="number"
-                        step="0.1"
-                        placeholder="Ex: 38.5"
-                        value={examForm.temperatura}
-                        onChange={(e) => setExamForm((f) => ({ ...f, temperatura: e.target.value }))}
-                      />
-                      <p className="text-[11px] text-muted-foreground">
-                        Ref: Cães 37.5–39.2 °C | Gatos 38.0–39.2 °C
-                      </p>
-                    </div>
-
-                    {/* Frequência Cardíaca */}
-                    <div className="space-y-1">
-                      <Label htmlFor="fc" className="text-xs font-medium">
-                        Frequência Cardíaca (bpm) <span className="text-muted-foreground text-[10px]">(opcional)</span>
-                      </Label>
-                      <Input
-                        id="fc"
-                        type="number"
-                        placeholder="Ex: 110"
-                        value={examForm.frequencia_cardiaca}
-                        onChange={(e) => setExamForm((f) => ({ ...f, frequencia_cardiaca: e.target.value }))}
-                      />
-                      <p className="text-[11px] text-muted-foreground">
-                        Ref: Cães 70–160 | Gatos 140–220 bpm
-                      </p>
-                    </div>
-
-                    {/* Frequência Respiratória */}
-                    <div className="space-y-1">
-                      <Label htmlFor="fr" className="text-xs font-medium">
-                        Frequência Respiratória (mpm) <span className="text-muted-foreground text-[10px]">(opcional)</span>
-                      </Label>
-                      <Input
-                        id="fr"
-                        type="number"
-                        placeholder="Ex: 24"
-                        value={examForm.frequencia_respiratoria}
-                        onChange={(e) => setExamForm((f) => ({ ...f, frequencia_respiratoria: e.target.value }))}
-                      />
-                      <p className="text-[11px] text-muted-foreground">
-                        Ref: 15–35 mpm
-                      </p>
-                    </div>
-                  </div>
-
-                  {/* Mucosas */}
-                  <div className="space-y-1 pt-1">
-                    <Label htmlFor="mucosas" className="text-xs font-medium">Coloração das Mucosas</Label>
-                    <Select
-                      value={examForm.mucosas}
-                      onValueChange={(v) => setExamForm((f) => ({ ...f, mucosas: v }))}
-                    >
-                      <SelectTrigger id="mucosas">
-                        <SelectValue />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="Normocoradas">Normocoradas (róseas saudáveis)</SelectItem>
-                        <SelectItem value="Pálidas">Pálidas (suspeita de anemia/choque)</SelectItem>
-                        <SelectItem value="Congestas / Hiperêmicas">Congestas / Hiperêmicas (avermelhadas/febre)</SelectItem>
-                        <SelectItem value="Ictéricas">Ictéricas (amareladas/hepático)</SelectItem>
-                        <SelectItem value="Cianóticas">Cianóticas (azuladas/hipóxia)</SelectItem>
-                      </SelectContent>
-                    </Select>
-                  </div>
-                </div>
-
-                {/* 3. Diagnóstico e Prescrição Estruturada */}
-                <div className="space-y-4 rounded-2xl border border-border/80 bg-muted/20 p-4">
-                  <p className="flex items-center gap-1.5 text-sm font-semibold">
-                    <Heart className="h-4 w-4 text-primary" /> Diagnóstico & Conduta Clínica
-                  </p>
-                  <div className="space-y-2">
-                    <Label htmlFor="diagnostico" className="text-xs font-semibold">Diagnóstico Clínico / Avaliação</Label>
-                    <Textarea
-                      id="diagnostico"
-                      rows={2}
-                      placeholder="Diagnóstico provisório ou definitivo e achados do exame clínico..."
-                      value={examForm.diagnostico}
-                      onChange={(e) => setExamForm((f) => ({ ...f, diagnostico: e.target.value }))}
-                    />
-                  </div>
-
-                  <PrescriptionBuilder
-                    items={examForm.prescricao_itens}
-                    onChangeItems={(nextItems) =>
-                      setExamForm((f) => ({ ...f, prescricao_itens: nextItems }))
-                    }
-                    notes={examForm.prescricao}
-                    onChangeNotes={(nextNotes) =>
-                      setExamForm((f) => ({ ...f, prescricao: nextNotes }))
-                    }
-                    onOpenPreview={() =>
-                      setPrescriptionPreviewApp({
-                        ...activeExamApp,
-                        peso: examForm.peso || activeExamApp.peso,
-                        prescricao: examForm.prescricao,
-                        prescricao_itens: examForm.prescricao_itens,
-                      })
-                    }
-                  />
-                </div>
-
-                <ComplementaryExamsSelector
-                  exams={examForm.exames_complementares}
-                  onChangeExams={(nextExams) =>
-                    setExamForm((f) => ({ ...f, exames_complementares: nextExams }))
-                  }
-                />
-
-                {/* 4. Vacinação Rápida (Opcional) */}
-                <div className="space-y-3 rounded-2xl border border-border/80 bg-muted/20 p-4">
-                  <div className="flex items-center justify-between">
-                    <Label
-                      htmlFor="applyVaccineToggle"
-                      className="flex cursor-pointer items-center gap-2 text-sm font-semibold"
-                    >
-                      <Syringe className="h-4 w-4 text-primary" />
-                      Aplicar Vacina neste atendimento
-                    </Label>
-                    <input
-                      id="applyVaccineToggle"
-                      type="checkbox"
-                      className="h-4 w-4 rounded border-gray-300 text-primary accent-primary"
-                      checked={examForm.applyVaccine}
-                      onChange={(e) => setExamForm((f) => ({ ...f, applyVaccine: e.target.checked }))}
-                    />
-                  </div>
-
-                  {examForm.applyVaccine && (
-                    <div className="grid gap-3 pt-2 sm:grid-cols-3">
-                      <div className="space-y-1">
-                        <Label htmlFor="vacNome" className="text-xs">Nome da Vacina</Label>
-                        <Input
-                          id="vacNome"
-                          placeholder="Ex: V10 Polivalente"
-                          value={examForm.vacina_aplicada}
-                          onChange={(e) => setExamForm((f) => ({ ...f, vacina_aplicada: e.target.value }))}
-                        />
-                      </div>
-                      <div className="space-y-1">
-                        <Label htmlFor="vacLote" className="text-xs">Lote</Label>
-                        <Input
-                          id="vacLote"
-                          placeholder="Ex: LT-2026-X"
-                          value={examForm.vacina_lote}
-                          onChange={(e) => setExamForm((f) => ({ ...f, vacina_lote: e.target.value }))}
-                        />
-                      </div>
-                      <div className="space-y-1">
-                        <Label htmlFor="vacProx" className="text-xs">Próxima Dose / Reforço</Label>
-                        <Input
-                          id="vacProx"
-                          type="date"
-                          value={examForm.vacina_proxima_dose}
-                          onChange={(e) => setExamForm((f) => ({ ...f, vacina_proxima_dose: e.target.value }))}
-                        />
-                      </div>
-                    </div>
-                  )}
-                </div>
-
-                {/* 5. Programar Retorno / Reavaliação (Issue #181) */}
-                <ReturnSchedulingSection
-                  baseDate={activeExamApp.date || getToday()}
-                  enabled={examForm.scheduleReturn}
-                  onToggleEnabled={(checked) =>
-                    setExamForm((f) => ({ ...f, scheduleReturn: checked }))
-                  }
-                  returnDate={examForm.returnDate}
-                  onChangeReturnDate={(d) => setExamForm((f) => ({ ...f, returnDate: d }))}
-                  returnTime={examForm.returnTime}
-                  onChangeReturnTime={(t) => setExamForm((f) => ({ ...f, returnTime: t }))}
-                  returnReason={examForm.returnReason}
-                  onChangeReturnReason={(r) => setExamForm((f) => ({ ...f, returnReason: r }))}
-                />
-
-                {/* 6. Orçamento, Procedimentos Extras & Pagamento (Issue #133) */}
-                <AppointmentBillingSection
-                  serviceName={activeExamApp.service}
-                  basePrice={examForm.valor_servico}
-                  onChangeBasePrice={(v) => setExamForm((f) => ({ ...f, valor_servico: v }))}
-                  extraItems={examForm.itens_adicionais}
-                  onChangeExtraItems={(items) => setExamForm((f) => ({ ...f, itens_adicionais: items }))}
-                  discount={examForm.desconto}
-                  onChangeDiscount={(d) => setExamForm((f) => ({ ...f, desconto: d }))}
-                  paymentStatus={examForm.status_pagamento}
-                  onChangePaymentStatus={(st) => setExamForm((f) => ({ ...f, status_pagamento: st }))}
-                  paymentMethod={examForm.forma_pagamento}
-                  onChangePaymentMethod={(m) => setExamForm((f) => ({ ...f, forma_pagamento: m }))}
-                />
-
-                <div className="flex flex-col-reverse justify-end gap-2 pt-2 sm:flex-row">
-                  <Button
-                    type="button"
-                    variant="outline"
-                    className="gap-1.5"
-                    onClick={() =>
-                      setDocumentModalApp({
-                        ...activeExamApp,
-                        temperatura: examForm.temperatura || activeExamApp.temperatura,
-                        peso: examForm.peso || activeExamApp.peso,
-                        frequencia_cardiaca: examForm.frequencia_cardiaca || activeExamApp.frequencia_cardiaca,
-                        frequencia_respiratoria:
-                          examForm.frequencia_respiratoria || activeExamApp.frequencia_respiratoria,
-                        mucosas: examForm.mucosas || activeExamApp.mucosas,
-                        diagnostico: examForm.diagnostico || activeExamApp.diagnostico,
-                      })
-                    }
-                  >
-                    <FileBadge className="h-4 w-4 text-primary" /> Emitir Atestado / Termo / Declaração
-                  </Button>
-                  <Button type="button" variant="outline" onClick={() => setExamOpen(false)}>
-                    Fechar
-                  </Button>
-                  <Button type="submit" className="gradient-primary text-primary-foreground shadow-soft">
-                    <CheckCircle2 className="mr-1.5 h-4 w-4" /> Concluir e registrar no prontuário
-                  </Button>
-                </div>
-              </form>
-            </>
-          )}
-        </DialogContent>
-      </Dialog>
-
-      {/* Modal de Pré-visualização de Receituário Veterinário Timbrado */}
-      <ClinicalDocumentsDialog
-        open={Boolean(documentModalApp)}
-        onOpenChange={(o) => !o && setDocumentModalApp(null)}
-        appointment={documentModalApp}
-        appointments={list}
-        profile={profile}
-      />
-      <PrescriptionSheetDialog
-        open={Boolean(prescriptionPreviewApp)}
-        onOpenChange={(o) => !o && setPrescriptionPreviewApp(null)}
-        appointment={prescriptionPreviewApp}
-        profile={profile}
-      />
-      <ClinicReceiptDialog
-        open={Boolean(receiptApp)}
-        onOpenChange={(o) => !o && setReceiptApp(null)}
-        appointment={receiptApp}
-        profile={profile}
-      />
     </div>
   );
 };
