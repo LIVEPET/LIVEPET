@@ -487,11 +487,10 @@ export const PrescriptionBuilder = ({
   );
 };
 
-export const PrescriptionSheetDialog = ({
-  open,
-  onOpenChange,
+export const PrescriptionSheetContent = ({
   appointment,
   profile,
+  onClose = null,
 }) => {
   if (!appointment) return null;
 
@@ -520,19 +519,18 @@ export const PrescriptionSheetDialog = ({
   };
 
   return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-h-[92vh] max-w-3xl overflow-y-auto">
-        <DialogHeader>
-          <DialogTitle className="flex items-center gap-2 font-display text-xl">
-            <FileText className="h-5 w-5 text-primary" />
-            Receituário Veterinário Timbrado
-          </DialogTitle>
-          <DialogDescription>
-            Pré-visualização oficial da receita para impressão ou exportação em PDF.
-          </DialogDescription>
-        </DialogHeader>
+    <div className="space-y-6">
+      <div className="space-y-1">
+        <h3 className="flex items-center gap-2 font-display text-xl font-bold">
+          <FileText className="h-5 w-5 text-primary" />
+          Receituário Veterinário Timbrado
+        </h3>
+        <p className="text-sm text-muted-foreground">
+          Pré-visualização oficial da receita para impressão ou exportação em PDF.
+        </p>
+      </div>
 
-        {/* Folha Oficial de Receituário Timbrado */}
+      {/* Folha Oficial de Receituário Timbrado */}
         <div
           data-testid="prescription-sheet-preview"
           className="rounded-2xl border-2 border-primary/25 bg-white p-6 text-slate-900 shadow-sm sm:p-8"
@@ -673,10 +671,12 @@ export const PrescriptionSheetDialog = ({
           </div>
         </div>
 
-        <DialogFooter className="flex flex-wrap items-center justify-end gap-2">
-          <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>
-            Fechar
-          </Button>
+        <div className="flex flex-wrap items-center justify-end gap-2 pt-2 border-t border-border/60">
+          {onClose && (
+            <Button type="button" variant="outline" onClick={onClose}>
+              Fechar
+            </Button>
+          )}
           <Button
             type="button"
             variant="outline"
@@ -692,9 +692,25 @@ export const PrescriptionSheetDialog = ({
           >
             <Download className="h-4 w-4" /> Baixar PDF
           </Button>
-        </DialogFooter>
-      </DialogContent>
-    </Dialog>
+        </div>
+      </div>
   );
 };
+
+export const PrescriptionSheetDialog = ({
+  open,
+  onOpenChange,
+  appointment,
+  profile,
+}) => (
+  <Dialog open={open} onOpenChange={onOpenChange}>
+    <DialogContent className="max-h-[92vh] max-w-3xl overflow-y-auto">
+      <PrescriptionSheetContent
+        appointment={appointment}
+        profile={profile}
+        onClose={() => onOpenChange?.(false)}
+      />
+    </DialogContent>
+  </Dialog>
+);
 

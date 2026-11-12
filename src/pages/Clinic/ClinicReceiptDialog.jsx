@@ -13,11 +13,10 @@ import {
 } from "@/components/ui/dialog";
 import { exportReceiptPdf, formatCurrency } from "@/lib/clinicBilling";
 
-export const ClinicReceiptDialog = ({
-  open,
-  onOpenChange,
+export const ClinicReceiptContent = ({
   appointment,
   profile,
+  onClose = null,
 }) => {
   const [isExporting, setIsExporting] = useState(false);
 
@@ -72,25 +71,24 @@ export const ClinicReceiptDialog = ({
   };
 
   return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-xl max-h-[90vh] overflow-y-auto" data-testid="receipt-dialog">
-        <DialogHeader>
-          <div className="flex items-center justify-between gap-2">
-            <DialogTitle className="flex items-center gap-2 font-display text-lg">
-              <FileText className="h-5 w-5 text-primary" /> Recibo de Atendimento
-            </DialogTitle>
-            <Badge
-              variant="outline"
-              data-testid="receipt-payment-badge"
-              className="bg-emerald-500/10 text-emerald-700 dark:text-emerald-400 border-emerald-500/30 gap-1 text-xs"
-            >
-              <CheckCircle2 className="h-3 w-3" /> PAGO
-            </Badge>
-          </div>
-          <DialogDescription>
+    <div className="space-y-5" data-testid="receipt-dialog">
+      <div className="flex items-center justify-between gap-2 border-b border-border/70 pb-3">
+        <div>
+          <h3 className="flex items-center gap-2 font-display text-lg font-bold">
+            <FileText className="h-5 w-5 text-primary" /> Recibo de Atendimento
+          </h3>
+          <p className="text-xs text-muted-foreground mt-0.5">
             Comprovante financeiro e de quitação de serviços veterinários prestados.
-          </DialogDescription>
-        </DialogHeader>
+          </p>
+        </div>
+        <Badge
+          variant="outline"
+          data-testid="receipt-payment-badge"
+          className="bg-emerald-500/10 text-emerald-700 dark:text-emerald-400 border-emerald-500/30 gap-1 text-xs"
+        >
+          <CheckCircle2 className="h-3 w-3" /> PAGO
+        </Badge>
+      </div>
 
         {/* Pré-visualização do Recibo Timbrado */}
         <div className="rounded-2xl border border-border/80 bg-card p-5 space-y-5 text-sm shadow-sm" data-testid="receipt-preview">
@@ -174,7 +172,13 @@ export const ClinicReceiptDialog = ({
           </div>
         </div>
 
-        <DialogFooter className="flex-col sm:flex-row gap-2 pt-2">
+        <div className="flex flex-col sm:flex-row items-center justify-end gap-2 pt-3 border-t border-border/60">
+          {onClose && (
+            <Button type="button" variant="outline" className="rounded-full" onClick={onClose}>
+              Fechar
+            </Button>
+          )}
+
           <Button
             type="button"
             variant="outline"
@@ -193,8 +197,24 @@ export const ClinicReceiptDialog = ({
           >
             <Download className="h-4 w-4" /> {isExporting ? "Gerando..." : "Baixar PDF do Recibo"}
           </Button>
-        </DialogFooter>
-      </DialogContent>
-    </Dialog>
+        </div>
+      </div>
   );
 };
+
+export const ClinicReceiptDialog = ({
+  open,
+  onOpenChange,
+  appointment,
+  profile,
+}) => (
+  <Dialog open={open} onOpenChange={onOpenChange}>
+    <DialogContent className="max-w-xl max-h-[90vh] overflow-y-auto">
+      <ClinicReceiptContent
+        appointment={appointment}
+        profile={profile}
+        onClose={() => onOpenChange?.(false)}
+      />
+    </DialogContent>
+  </Dialog>
+);

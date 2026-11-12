@@ -313,13 +313,12 @@ export const generateClinicalDocumentPdf = ({
   return doc;
 };
 
-export const ClinicalDocumentsDialog = ({
-  open,
-  onOpenChange,
+export const ClinicalDocumentsContent = ({
   appointment = null,
   patient = null,
   appointments = [],
   profile = {},
+  onClose = null,
 }) => {
   const [templateId, setTemplateId] = useState("atestado_saude");
   const [vetName, setVetName] = useState("");
@@ -430,19 +429,18 @@ export const ClinicalDocumentsDialog = ({
   };
 
   return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-h-[92vh] max-w-3xl overflow-y-auto">
-        <DialogHeader>
-          <DialogTitle className="flex items-center gap-2 font-display text-xl">
-            <FileBadge className="h-5 w-5 text-primary" />
-            Emissor de Documentos Clínicos Timbrados
-          </DialogTitle>
-          <DialogDescription>
-            Selecione o modelo de documento, personalize as observações e exiba ou exporte a folha oficial timbrada.
-          </DialogDescription>
-        </DialogHeader>
+    <div className="space-y-6">
+      <div className="space-y-1">
+        <h3 className="flex items-center gap-2 font-display text-xl font-bold">
+          <FileBadge className="h-5 w-5 text-primary" />
+          Emissor de Documentos Clínicos Timbrados
+        </h3>
+        <p className="text-sm text-muted-foreground">
+          Selecione o modelo de documento, personalize as observações e exiba ou exporte a folha oficial timbrada.
+        </p>
+      </div>
 
-        {/* Seletor dos 3 Modelos de Documentos Clínicos */}
+      {/* Seletor dos 3 Modelos de Documentos Clínicos */}
         <div className="space-y-2">
           <Label className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
             Modelo de Documento Clínico
@@ -689,10 +687,12 @@ export const ClinicalDocumentsDialog = ({
           </div>
         </div>
 
-        <DialogFooter className="flex flex-wrap items-center justify-end gap-2">
-          <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>
-            Fechar
-          </Button>
+        <div className="flex flex-wrap items-center justify-end gap-2 pt-2 border-t border-border/60">
+          {onClose && (
+            <Button type="button" variant="outline" onClick={onClose}>
+              Fechar
+            </Button>
+          )}
           <Button
             type="button"
             variant="outline"
@@ -708,9 +708,29 @@ export const ClinicalDocumentsDialog = ({
           >
             <Download className="h-4 w-4" /> Baixar PDF
           </Button>
-        </DialogFooter>
-      </DialogContent>
-    </Dialog>
+        </div>
+      </div>
   );
 };
+
+export const ClinicalDocumentsDialog = ({
+  open,
+  onOpenChange,
+  appointment = null,
+  patient = null,
+  appointments = [],
+  profile = {},
+}) => (
+  <Dialog open={open} onOpenChange={onOpenChange}>
+    <DialogContent className="max-h-[92vh] max-w-3xl overflow-y-auto">
+      <ClinicalDocumentsContent
+        appointment={appointment}
+        patient={patient}
+        appointments={appointments}
+        profile={profile}
+        onClose={() => onOpenChange?.(false)}
+      />
+    </DialogContent>
+  </Dialog>
+);
 

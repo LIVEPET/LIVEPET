@@ -4,9 +4,10 @@ import { beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
 import { ClinicProvider, STORAGE_KEY } from "@/contexts/ClinicContext";
 import { stubRadixForJsdom } from "@/test/clinicTestUtils";
 import ClinicNewAppointment from "./ClinicNewAppointment";
+import ClinicEditAppointment from "./ClinicEditAppointment";
 import ClinicSchedule from "./ClinicSchedule";
 
-// Edição e exclusão de agendamentos pela agenda (#62).
+// Edição e exclusão de agendamentos pela agenda (#62 e refatoração de rotas dedicadas).
 
 vi.mock("@/services/api", () => ({
   getClinicAuthToken: () => null,
@@ -60,6 +61,7 @@ const renderSchedule = () =>
         <Routes>
           <Route path="/clinica/agenda" element={<ClinicSchedule />} />
           <Route path="/clinica/agenda/novo" element={<ClinicNewAppointment />} />
+          <Route path="/clinica/agenda/editar/:id" element={<ClinicEditAppointment />} />
         </Routes>
       </ClinicProvider>
     </MemoryRouter>,
@@ -71,23 +73,21 @@ beforeEach(() => {
   seed();
 });
 
-describe("ClinicSchedule — editar e excluir agendamento (#62)", () => {
-  it("abre o atendimento preenchido, salva o novo horário e reflete na lista", async () => {
+describe("ClinicSchedule — editar e excluir agendamento (#62 e páginas dedicadas)", () => {
+  it("abre a página de edição com dados preenchidos, salva o novo horário e reflete na lista", async () => {
     renderSchedule();
 
     fireEvent.click(screen.getByRole("button", { name: "Editar atendimento de Thor" }));
-    const dialog = await screen.findByRole("dialog");
-    expect(within(dialog).getByText("Editar atendimento")).toBeInTheDocument();
-    expect(within(dialog).getByLabelText("Pet")).toHaveValue("Thor");
-    expect(within(dialog).getByLabelText("Tutor")).toHaveValue("Ana");
+    expect(await screen.findByText("Editar atendimento: Thor")).toBeInTheDocument();
+    expect(screen.getByLabelText("Pet")).toHaveValue("Thor");
+    expect(screen.getByLabelText("Tutor")).toHaveValue("Ana");
 
-    const hora = within(dialog).getByLabelText("Horário");
+    const hora = screen.getByLabelText("Horário");
     expect(hora).toHaveValue("09:00");
     fireEvent.change(hora, { target: { value: "11:30" } });
-    fireEvent.click(within(dialog).getByRole("button", { name: "Salvar alterações" }));
+    fireEvent.click(screen.getByRole("button", { name: "Salvar alterações" }));
 
-    await waitFor(() => expect(screen.queryByRole("dialog")).not.toBeInTheDocument());
-    expect(screen.getByText("11:30")).toBeInTheDocument();
+    await waitFor(() => expect(screen.getByText("11:30")).toBeInTheDocument());
     expect(screen.queryByText("09:00")).not.toBeInTheDocument();
     expect(JSON.parse(window.localStorage.getItem(STORAGE_KEY)).appointments[0].time).toBe("11:30");
   });
@@ -96,29 +96,29 @@ describe("ClinicSchedule — editar e excluir agendamento (#62)", () => {
     renderSchedule();
 
     fireEvent.click(screen.getByRole("button", { name: "Editar atendimento de Thor" }));
-    const dialog = await screen.findByRole("dialog");
-    fireEvent.change(within(dialog).getByLabelText("Tutor"), { target: { value: "" } });
-    fireEvent.click(within(dialog).getByRole("button", { name: "Salvar alterações" }));
+    expect(await screen.findByText("Editar atendimento: Thor")).toBeInTheDocument();
 
-    expect(await within(dialog).findByText("Informe o nome do tutor.")).toBeInTheDocument();
-    expect(screen.getByRole("dialog")).toBeInTheDocument();
+    fireEvent.change(screen.getByLabelText("Tutor"), { target: { value: "" } });
+    fireEvent.click(screen.getByRole("button", { name: "Salvar alterações" }));
+
+    expect(await screen.findByText("Informe o nome do tutor.")).toBeInTheDocument();
   });
 
-  it("fechar o modal de edição e clicar em 'Novo atendimento' abre a página com formulário vazio", async () => {
+  it("voltar da página de edição e clicar em 'Novo atendimento' abre a página com formulário vazio", async () => {
     renderSchedule();
 
     fireEvent.click(screen.getByRole("button", { name: "Editar atendimento de Thor" }));
-    const dialog = await screen.findByRole("dialog");
-    fireEvent.keyDown(dialog, { key: "Escape" });
-    await waitFor(() => expect(screen.queryByRole("dialog")).not.toBeInTheDocument());
+    expect(await screen.findByText("Editar atendimento: Thor")).toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole("button", { name: "Voltar para a agenda" }));
+    expect(await screen.findByText("Atendimentos de hoje")).toBeInTheDocument();
 
     fireEvent.click(screen.getByRole("button", { name: /Novo atendimento/i }));
     expect(await screen.findByText("Agendar atendimento")).toBeInTheDocument();
-    expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
     expect(screen.getByLabelText("Pet")).toHaveValue("");
   });
 
-  it("excluir pede confirmação e só remove depois do 'Excluir'", async () => {
+  it("excluir pede confirmação inline e só remove depois do 'Excluir'", async () => {
     renderSchedule();
 
     fireEvent.click(screen.getByRole("button", { name: "Excluir atendimento de Thor" }));
