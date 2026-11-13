@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { CheckCircle2 } from "lucide-react";
+import { useNavigate } from "react-router-dom";
 import { toast } from "sonner";
 import { Tabs } from "@/components/ui/tabs";
 import { authService, petsService } from "@/services/api";
@@ -9,25 +9,20 @@ import ProfileTabsNav from "@/components/profile/ProfileTabsNav";
 import PetsGridTab from "@/components/profile/PetsGridTab";
 import PedigreesTab from "@/components/profile/PedigreesTab";
 import AboutTab from "@/components/profile/AboutTab";
-import EditProfileDialog from "@/components/profile/EditProfileDialog";
 import ProfileSkeleton from "@/components/profile/ProfileSkeleton";
 import LoadErrorAlert from "@/components/profile/LoadErrorAlert";
 import PhotoPreviewDialog from "@/components/profile/PhotoPreviewDialog";
 import { preparePhoto } from "@/components/profile/profilePhoto";
-import { buildUpdatePayload } from "@/components/profile/profileUtils";
 import { hasLineage } from "@/lib/petBadges";
 
 // Página /perfil: guarda o estado (tutor e pets) e repassa para os componentes por props.
-// O formulário de edição (React Hook Form) vive dentro do EditProfileDialog.
 const Profile = () => {
+  const navigate = useNavigate();
   const [currentUser, setCurrentUser] = useState(null);
   const [pets, setPets] = useState([]);
   const [loading, setLoading] = useState(true);
   const [userError, setUserError] = useState(false);
   const [petsError, setPetsError] = useState(false);
-  const [saving, setSaving] = useState(false);
-  const [isEditOpen, setIsEditOpen] = useState(false);
-  const [editFocus, setEditFocus] = useState(null);
   const [activeTab, setActiveTab] = useState("pets");
   const [photoPreview, setPhotoPreview] = useState(null);
   const [savingPhoto, setSavingPhoto] = useState(false);
@@ -66,13 +61,12 @@ const Profile = () => {
   const totalVaccines = useMemo(() => pets.reduce((acc, pet) => acc + (pet.vaccines?.length || 0), 0), [pets]);
   const totalPedigrees = useMemo(() => pets.filter(hasLineage).length, [pets]);
 
-  // O modal reseta o formulário para os dados salvos sempre que abre (ver EditProfileDialog).
-  // `campo` abre o modal já com o cursor nele (ex.: "telefone", pelo alerta da #158).
+  // Redireciona para a página dedicada /perfil/editar
   const openEdit = (campo = null) => {
-    setEditFocus(typeof campo === "string" ? campo : null);
-    setIsEditOpen(true);
+    navigate("/perfil/editar", {
+      state: { focusField: typeof campo === "string" ? campo : null },
+    });
   };
-  const discardEdit = () => setIsEditOpen(false);
 
   // Foto escolhida no cabeçalho: primeiro mostra a prévia; só salva em "Salvar foto".
   const handlePhotoPick = async (e) => {
@@ -95,23 +89,6 @@ const Profile = () => {
       toast.error("Não foi possível salvar a foto.", { description: "Tente de novo em instantes." });
     } finally {
       setSavingPhoto(false);
-    }
-  };
-
-  // Só é chamado com os dados já validados pelo Zod (profileSchema.js).
-  const handleSave = async (values) => {
-    setSaving(true);
-    try {
-      const updated = await authService.updateMe(buildUpdatePayload(values));
-      setCurrentUser(updated);
-      setIsEditOpen(false);
-      toast.success("Perfil salvo com sucesso!", { icon: <CheckCircle2 className="h-4 w-4" /> });
-    } catch (err) {
-      console.error("Erro ao salvar perfil:", err);
-      const msg = err instanceof Error ? err.message : "Erro ao salvar";
-      toast.error("Não foi possível salvar o perfil.", { description: msg });
-    } finally {
-      setSaving(false);
     }
   };
 
@@ -146,15 +123,6 @@ const Profile = () => {
           <AboutTab currentUser={currentUser} onEdit={() => openEdit()} />
         </Tabs>
       </div>
-
-      <EditProfileDialog
-        open={isEditOpen}
-        user={currentUser}
-        focusField={editFocus}
-        saving={saving}
-        onSave={handleSave}
-        onDiscard={discardEdit}
-      />
 
       <PhotoPreviewDialog
         photo={photoPreview}
