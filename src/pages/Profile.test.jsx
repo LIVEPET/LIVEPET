@@ -1,9 +1,10 @@
 import { render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
-import { MemoryRouter } from "react-router-dom";
+import { MemoryRouter, Route, Routes } from "react-router-dom";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { toast } from "sonner";
 import Profile from "./Profile";
+import EditProfile from "./EditProfile";
 import { authService, petsService } from "@/services/api";
 
 vi.mock("@/services/api", () => ({
@@ -47,10 +48,13 @@ const PETS = [
   { id: 11, nome: "Mia", especie: "Gato", raca: "" },
 ];
 
-const renderizar = () =>
+const renderizar = (initialEntries = ["/perfil"]) =>
   render(
-    <MemoryRouter initialEntries={["/perfil"]}>
-      <Profile />
+    <MemoryRouter initialEntries={initialEntries}>
+      <Routes>
+        <Route path="/perfil" element={<Profile />} />
+        <Route path="/perfil/editar" element={<EditProfile />} />
+      </Routes>
     </MemoryRouter>,
   );
 
@@ -202,7 +206,7 @@ describe("<Profile />", () => {
     expect(within(painel).queryByText(/emitidos junto à CBKC/i)).not.toBeInTheDocument();
   });
 
-  it("Cancelar descarta o que foi digitado e o modal reabre com os dados salvos", async () => {
+  it("Cancelar descarta o que foi digitado e reabre com os dados salvos", async () => {
     const user = userEvent.setup();
     renderizar();
 
@@ -213,60 +217,24 @@ describe("<Profile />", () => {
     await user.type(campoNome, "Nome que desisti");
     await user.click(screen.getByRole("button", { name: /^Cancelar$/i }));
 
-    expect(screen.queryByRole("alertdialog")).not.toBeInTheDocument();
     expect(screen.queryByLabelText(/Nome Completo/i)).not.toBeInTheDocument();
+    expect(await screen.findByText("Yasmim Souza")).toBeInTheDocument();
 
     await user.click(screen.getByRole("button", { name: /Editar perfil/i }));
     expect(await screen.findByLabelText(/Nome Completo/i)).toHaveValue("Yasmim Souza");
     expect(authService.updateMe).not.toHaveBeenCalled();
   });
 
-  it("fechar com alterações pede confirmação e Continuar editando mantém o texto", async () => {
+  it("botão de voltar retorna para a página de perfil sem salvar", async () => {
     const user = userEvent.setup();
     renderizar();
 
     await user.click(await screen.findByRole("button", { name: /Editar perfil/i }));
-    const campoCidade = await screen.findByLabelText(/Cidade/i);
-    await user.clear(campoCidade);
-    await user.type(campoCidade, "Palmas");
-    await user.keyboard("{Escape}");
+    expect(await screen.findByText("Editar Perfil do Tutor")).toBeInTheDocument();
 
-    const confirmacao = await screen.findByRole("alertdialog");
-    expect(within(confirmacao).getByText("Descartar alterações?")).toBeInTheDocument();
-
-    await user.click(within(confirmacao).getByRole("button", { name: /Continuar editando/i }));
-    expect(screen.queryByRole("alertdialog")).not.toBeInTheDocument();
-    expect(screen.getByLabelText(/Cidade/i)).toHaveValue("Palmas");
-  });
-
-  it("fechar com alterações e escolher Descartar volta aos dados salvos", async () => {
-    const user = userEvent.setup();
-    renderizar();
-
-    await user.click(await screen.findByRole("button", { name: /Editar perfil/i }));
-    const campoCidade = await screen.findByLabelText(/Cidade/i);
-    await user.clear(campoCidade);
-    await user.type(campoCidade, "Palmas");
-    await user.click(screen.getByRole("button", { name: /Close/i }));
-
-    const confirmacao = await screen.findByRole("alertdialog");
-    await user.click(within(confirmacao).getByRole("button", { name: /^Descartar$/i }));
-
-    expect(screen.queryByLabelText(/Cidade/i)).not.toBeInTheDocument();
-    await user.click(screen.getByRole("button", { name: /Editar perfil/i }));
-    expect(await screen.findByLabelText(/Cidade/i)).toHaveValue("Goiânia");
-  });
-
-  it("fechar sem alterações não pede confirmação", async () => {
-    const user = userEvent.setup();
-    renderizar();
-
-    await user.click(await screen.findByRole("button", { name: /Editar perfil/i }));
-    await screen.findByLabelText(/Nome Completo/i);
-    await user.keyboard("{Escape}");
-
-    expect(screen.queryByRole("alertdialog")).not.toBeInTheDocument();
-    expect(screen.queryByLabelText(/Nome Completo/i)).not.toBeInTheDocument();
+    await user.click(screen.getByRole("button", { name: /Voltar para o perfil/i }));
+    expect(await screen.findByText("Yasmim Souza")).toBeInTheDocument();
+    expect(authService.updateMe).not.toHaveBeenCalled();
   });
 
   it("não salva com nome vazio: mostra o erro no campo e desabilita Salvar", async () => {

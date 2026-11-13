@@ -19,6 +19,7 @@ import PuppiesMarketplace from "./pages/PuppiesMarketplace";
 import PetHealth from "./pages/PetHealth";
 import PetCard from "./pages/PetCard";
 import Profile from "./pages/Profile";
+import EditProfile from "./pages/EditProfile";
 import Chat from "./pages/Chat";
 import NotFound from "./pages/NotFound";
 
@@ -87,6 +88,7 @@ const App = () => (
               <Route path="/saude" element={<PetHealth />} />
               <Route path="/chat" element={<Chat />} />
               <Route path="/perfil" element={<Profile />} />
+              <Route path="/perfil/editar" element={<EditProfile />} />
             </Route>
 
             <Route path="*" element={<NotFound />} />
