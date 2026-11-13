@@ -27,17 +27,6 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { Progress } from "@/components/ui/progress";
 import { Badge } from "@/components/ui/badge";
 import { Card } from "@/components/ui/card";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
-import { Textarea } from "@/components/ui/textarea";
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-} from "@/components/ui/dialog";
 import {
   Select,
   SelectContent,
@@ -107,14 +96,6 @@ const Tasks = () => {
   const [selectedCategory, setSelectedCategory] = useState("all");
   const [statusFilter, setStatusFilter] = useState("all"); // 'all', 'pending', 'done'
 
-  // Modal New Task
-  const [isModalOpen, setIsModalOpen] = useState(false);
-  const [newTaskTitle, setNewTaskTitle] = useState("");
-  const [newTaskPet, setNewTaskPet] = useState("Todos os Pets");
-  const [newTaskCategory, setNewTaskCategory] = useState("alimentacao");
-  const [newTaskTime, setNewTaskTime] = useState("08:00");
-  const [newTaskNotes, setNewTaskNotes] = useState("");
-
   // Salva as tarefas no navegador, separadas por usuário
   useEffect(() => {
     writeUserJSON(STORAGE_KEY, tasks);
@@ -180,32 +161,6 @@ const Tasks = () => {
     toast("Tarefa removida", { description: "A tarefa foi excluída da lista." });
   };
 
-  const handleCreateTask = (e) => {
-    e.preventDefault();
-    if (!newTaskTitle.trim()) {
-      toast.error("Informe o título da tarefa");
-      return;
-    }
-
-    const newTask = {
-      id: `task-${Date.now()}`,
-      label: newTaskTitle.trim(),
-      petName: newTaskPet,
-      category: newTaskCategory,
-      time: newTaskTime || "08:00",
-      done: false,
-      notes: newTaskNotes.trim(),
-    };
-
-    setTasks((prev) => [newTask, ...prev]);
-    setIsModalOpen(false);
-    setNewTaskTitle("");
-    setNewTaskNotes("");
-    toast.success("Nova tarefa agendada!", {
-      description: `"${newTask.label}" foi adicionada à rotina.`,
-    });
-  };
-
   const clearCompleted = () => {
     setTasks((prev) => prev.filter((t) => !t.done));
     toast.info("Tarefas concluídas foram limpas.");
@@ -242,8 +197,10 @@ const Tasks = () => {
             </div>
 
             <div className="flex items-center gap-2 self-start sm:self-auto">
-              <Button onClick={() => setIsModalOpen(true)} className="gap-2 shadow-sm font-semibold">
-                <Plus className="h-4 w-4" /> Nova Tarefa
+              <Button asChild className="gap-2 shadow-sm font-semibold">
+                <Link to="/tasks/nova">
+                  <Plus className="h-4 w-4" /> Nova Tarefa
+                </Link>
               </Button>
             </div>
           </div>
@@ -275,19 +232,13 @@ const Tasks = () => {
           <div className="flex flex-wrap items-center gap-2 mt-4 pt-4 border-t border-border/50">
             <span className="text-xs font-medium text-muted-foreground mr-1">Atalhos rápidos:</span>
             {quickTemplates.map((item, idx) => (
-              <button
+              <Link
                 key={idx}
-                type="button"
-                onClick={() => {
-                  setNewTaskTitle(item.label.replace("+ ", ""));
-                  setNewTaskCategory(item.category);
-                  setNewTaskTime(item.time);
-                  setIsModalOpen(true);
-                }}
+                to={`/tasks/nova?title=${encodeURIComponent(item.label.replace("+ ", ""))}&category=${encodeURIComponent(item.category)}&time=${encodeURIComponent(item.time)}`}
                 className="text-xs px-2.5 py-1 rounded-full border border-border bg-background hover:bg-muted text-foreground/80 transition-colors"
               >
                 {item.label}
-              </button>
+              </Link>
             ))}
           </div>
         </header>
@@ -511,100 +462,6 @@ const Tasks = () => {
           </div>
         </section>
       </div>
-
-      {/* Modal Nova Tarefa */}
-      <Dialog open={isModalOpen} onOpenChange={setIsModalOpen}>
-        <DialogContent className="sm:max-w-md">
-          <DialogHeader>
-            <DialogTitle>Nova Tarefa de Rotina</DialogTitle>
-            <DialogDescription>
-              Adicione uma atividade ou cuidado diário para a rotina do seu pet.
-            </DialogDescription>
-          </DialogHeader>
-
-          <form onSubmit={handleCreateTask} className="space-y-4 pt-2">
-            <div className="space-y-1.5">
-              <Label htmlFor="taskTitle">O que precisa ser feito? *</Label>
-              <Input
-                id="taskTitle"
-                placeholder="Ex: Ração da tarde, Dar colírio, Passeio no parque..."
-                value={newTaskTitle}
-                onChange={(e) => setNewTaskTitle(e.target.value)}
-                autoFocus
-              />
-            </div>
-
-            <div className="grid grid-cols-2 gap-3">
-              <div className="space-y-1.5">
-                <Label>Pet</Label>
-                <Select value={newTaskPet} onValueChange={setNewTaskPet}>
-                  <SelectTrigger>
-                    <SelectValue placeholder="Selecione o pet" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="Todos os Pets">Todos os Pets (Geral)</SelectItem>
-                    {pets.map((p) => (
-                      <SelectItem key={p.id} value={p.nome}>
-                        {p.nome}
-                      </SelectItem>
-                    ))}
-                    {pets.length === 0 && (
-                      <>
-                        <SelectItem value="Thor">Thor</SelectItem>
-                        <SelectItem value="Mia">Mia</SelectItem>
-                      </>
-                    )}
-                  </SelectContent>
-                </Select>
-              </div>
-
-              <div className="space-y-1.5">
-                <Label>Categoria</Label>
-                <Select value={newTaskCategory} onValueChange={setNewTaskCategory}>
-                  <SelectTrigger>
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="alimentacao">Alimentação</SelectItem>
-                    <SelectItem value="passeio">Passeio</SelectItem>
-                    <SelectItem value="saude">Saúde & Remédio</SelectItem>
-                    <SelectItem value="higiene">Higiene</SelectItem>
-                    <SelectItem value="outro">Geral</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
-            </div>
-
-            <div className="space-y-1.5">
-              <Label htmlFor="taskTime">Horário Previsto</Label>
-              <Input
-                id="taskTime"
-                type="time"
-                value={newTaskTime}
-                onChange={(e) => setNewTaskTime(e.target.value)}
-              />
-            </div>
-
-            <div className="space-y-1.5">
-              <Label htmlFor="taskNotes">Observações adicionais (opcional)</Label>
-              <Textarea
-                id="taskNotes"
-                placeholder="Ex: Dosagem correta, marca do petisco, rota do passeio..."
-                rows={2}
-                value={newTaskNotes}
-                onChange={(e) => setNewTaskNotes(e.target.value)}
-              />
-            </div>
-
-            <DialogFooter className="gap-2 sm:gap-0 pt-2">
-              <Button type="button" variant="outline" onClick={() => setIsModalOpen(false)}>
-                Cancelar
-              </Button>
-              <Button type="submit">Salvar Tarefa</Button>
-            </DialogFooter>
-          </form>
-        </DialogContent>
-      </Dialog>
     </main>
   );
 };
