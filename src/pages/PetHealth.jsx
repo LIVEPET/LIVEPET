@@ -17,16 +17,6 @@ import {
 import { toast } from "sonner";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-} from "@/components/ui/dialog";
 import { calcularStatus, formatarData, textoPrazo } from "@/lib/vacinas";
 import { getStoredUser, petsService } from "@/services/api";
 import { BLANK_PET_IMAGE, getPetPhoto } from "@/lib/petPlaceholder";
@@ -85,17 +75,6 @@ const PetHealth = ({ pets: initialPets, petInicial }) => {
     petInicial ?? urlPetId ?? initialPets?.[0]?.id ?? "",
   );
 
-  // Dialog de cadastro de nova vacina
-  const [dialogOpen, setDialogOpen] = useState(false);
-  const [submitting, setSubmitting] = useState(false);
-  const [vaxForm, setVaxForm] = useState({
-    nome: "",
-    data_aplicacao: new Date().toISOString().slice(0, 10),
-    proxima_dose: "",
-    lote: "",
-    veterinario: "",
-  });
-
   // Carrega pets reais do tutor autenticado quando não fornecidos por props
   useEffect(() => {
     if (initialPets) {
@@ -141,70 +120,6 @@ const PetHealth = ({ pets: initialPets, petInicial }) => {
       dbPets.find((p) => String(p.id) === String(petId)) ?? dbPets[0] ?? null
     );
   }, [dbPets, petId]);
-
-  const handleOpenAddDialog = () => {
-    const today = new Date();
-    const nextYear = new Date();
-    nextYear.setFullYear(today.getFullYear() + 1);
-
-    setVaxForm({
-      nome: "",
-      data_aplicacao: today.toISOString().slice(0, 10),
-      proxima_dose: nextYear.toISOString().slice(0, 10),
-      lote: "",
-      veterinario: "Clínica Veterinária Parceira",
-    });
-    setDialogOpen(true);
-  };
-
-  const handleAddVaccine = async (e) => {
-    e.preventDefault();
-    if (!vaxForm.nome.trim()) {
-      toast.error("Informe o nome da vacina.");
-      return;
-    }
-    if (!pet) return;
-
-    try {
-      setSubmitting(true);
-      const payload = {
-        nome: vaxForm.nome.trim(),
-        data_aplicacao: vaxForm.data_aplicacao,
-        proxima_dose: vaxForm.proxima_dose || null,
-        lote: vaxForm.lote.trim() || null,
-        veterinario: vaxForm.veterinario.trim() || null,
-      };
-
-      const res = await petsService.addVaccine(pet.id, payload);
-
-      const novaVacina = {
-        id: res.id || Date.now(),
-        nome: res.nome || payload.nome,
-        dose: payload.lote ? `Lote ${payload.lote}` : "Dose regular",
-        dataAplicacao: payload.data_aplicacao,
-        dataReforco: payload.proxima_dose,
-        clinica: payload.veterinario || "Clínica Veterinária",
-      };
-
-      setDbPets((prev) =>
-        prev.map((p) =>
-          p.id === pet.id
-            ? { ...p, vacinas: [novaVacina, ...(p.vacinas || [])] }
-            : p,
-        ),
-      );
-
-      toast.success(`Vacina ${payload.nome} registrada com sucesso!`, {
-        description: `Reforço previsto para ${formatarData(payload.proxima_dose)}.`,
-      });
-      setDialogOpen(false);
-    } catch (err) {
-      const msg = err instanceof Error ? err.message : "Erro ao salvar vacina";
-      toast.error("Falha ao registrar vacina", { description: msg });
-    } finally {
-      setSubmitting(false);
-    }
-  };
 
   if (loading) {
     return (
@@ -301,12 +216,14 @@ const PetHealth = ({ pets: initialPets, petInicial }) => {
                 </Link>
               </Button>
               <Button
-                onClick={handleOpenAddDialog}
+                asChild
                 size="sm"
                 className="rounded-full bg-warm text-foreground shadow-soft hover:bg-warm/90"
               >
-                <Plus className="mr-1.5 h-3.5 w-3.5" />
-                Registrar Vacina
+                <Link to={`/saude/vacinas/nova${pet ? `?petId=${pet.id}` : ""}`}>
+                  <Plus className="mr-1.5 h-3.5 w-3.5" />
+                  Registrar Vacina
+                </Link>
               </Button>
             </div>
           </div>
@@ -332,12 +249,14 @@ const PetHealth = ({ pets: initialPets, petInicial }) => {
           </Link>
 
           <Button
-            onClick={handleOpenAddDialog}
+            asChild
             variant="outline"
             size="sm"
             className="rounded-full"
           >
-            <Plus className="mr-1.5 h-3.5 w-3.5" /> Adicionar Dose
+            <Link to={`/saude/vacinas/nova${pet ? `?petId=${pet.id}` : ""}`}>
+              <Plus className="mr-1.5 h-3.5 w-3.5" /> Adicionar Dose
+            </Link>
           </Button>
         </div>
 
@@ -519,12 +438,14 @@ const PetHealth = ({ pets: initialPets, petInicial }) => {
                   {comStatus.length} registros
                 </span>
                 <Button
-                  onClick={handleOpenAddDialog}
+                  asChild
                   size="sm"
                   className="rounded-full gradient-primary text-primary-foreground"
                 >
-                  <Plus className="mr-1.5 h-3.5 w-3.5" />
-                  Nova Vacina
+                  <Link to={`/saude/vacinas/nova${pet ? `?petId=${pet.id}` : ""}`}>
+                    <Plus className="mr-1.5 h-3.5 w-3.5" />
+                    Nova Vacina
+                  </Link>
                 </Button>
               </div>
             </div>
@@ -536,13 +457,15 @@ const PetHealth = ({ pets: initialPets, petInicial }) => {
                   acompanhar os reforços de {pet.apelido}.
                 </p>
                 <Button
-                  onClick={handleOpenAddDialog}
+                  asChild
                   variant="outline"
                   size="sm"
                   className="mt-4 rounded-full"
                 >
-                  <Plus className="mr-1.5 h-3.5 w-3.5" />
-                  Registrar Primeira Vacina
+                  <Link to={`/saude/vacinas/nova${pet ? `?petId=${pet.id}` : ""}`}>
+                    <Plus className="mr-1.5 h-3.5 w-3.5" />
+                    Registrar Primeira Vacina
+                  </Link>
                 </Button>
               </div>
             ) : (
@@ -629,125 +552,6 @@ const PetHealth = ({ pets: initialPets, petInicial }) => {
           </Card>
         </div>
       </section>
-
-      {/* MODAL PARA REGISTRO DE VACINA VINCULADA AO BANCO DE DADOS */}
-      <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
-        <DialogContent className="sm:max-w-md">
-          <DialogHeader>
-            <DialogTitle className="flex items-center gap-2">
-              <Syringe className="h-5 w-5 text-primary" />
-              Registrar Vacina para {pet.apelido}
-            </DialogTitle>
-            <DialogDescription>
-              A vacina será registrada na carteira de saúde do pet e aparecerá no
-              cartão digital e no QR Code de emergência.
-            </DialogDescription>
-          </DialogHeader>
-
-          <form onSubmit={handleAddVaccine} className="space-y-4 pt-2">
-            <div className="space-y-1.5">
-              <Label htmlFor="vax-nome">Nome da Vacina *</Label>
-              <Input
-                id="vax-nome"
-                placeholder="Ex.: V10, Antirrábica, Gripe Canina"
-                value={vaxForm.nome}
-                onChange={(e) =>
-                  setVaxForm((prev) => ({ ...prev, nome: e.target.value }))
-                }
-                required
-              />
-            </div>
-
-            <div className="grid grid-cols-2 gap-3">
-              <div className="space-y-1.5">
-                <Label htmlFor="vax-aplicacao">Data de Aplicação *</Label>
-                <Input
-                  id="vax-aplicacao"
-                  type="date"
-                  value={vaxForm.data_aplicacao}
-                  onChange={(e) =>
-                    setVaxForm((prev) => ({
-                      ...prev,
-                      data_aplicacao: e.target.value,
-                    }))
-                  }
-                  required
-                />
-              </div>
-
-              <div className="space-y-1.5">
-                <Label htmlFor="vax-reforco">Próximo Reforço</Label>
-                <Input
-                  id="vax-reforco"
-                  type="date"
-                  value={vaxForm.proxima_dose}
-                  onChange={(e) =>
-                    setVaxForm((prev) => ({
-                      ...prev,
-                      proxima_dose: e.target.value,
-                    }))
-                  }
-                />
-              </div>
-            </div>
-
-            <div className="grid grid-cols-2 gap-3">
-              <div className="space-y-1.5">
-                <Label htmlFor="vax-lote">Número do Lote</Label>
-                <Input
-                  id="vax-lote"
-                  placeholder="Ex.: LT-2026-A"
-                  value={vaxForm.lote}
-                  onChange={(e) =>
-                    setVaxForm((prev) => ({ ...prev, lote: e.target.value }))
-                  }
-                />
-              </div>
-
-              <div className="space-y-1.5">
-                <Label htmlFor="vax-vet">Clínica / Veterinário</Label>
-                <Input
-                  id="vax-vet"
-                  placeholder="Ex.: Clínica Vale Verde"
-                  value={vaxForm.veterinario}
-                  onChange={(e) =>
-                    setVaxForm((prev) => ({
-                      ...prev,
-                      veterinario: e.target.value,
-                    }))
-                  }
-                />
-              </div>
-            </div>
-
-            <DialogFooter className="pt-2">
-              <Button
-                type="button"
-                variant="outline"
-                onClick={() => setDialogOpen(false)}
-                disabled={submitting}
-              >
-                Cancelar
-              </Button>
-              <Button
-                type="submit"
-                className="gradient-primary text-primary-foreground"
-                disabled={submitting}
-              >
-                {submitting ? (
-                  <>
-                    <Loader2 className="mr-2 h-4 w-4 animate-spin" /> Salvando...
-                  </>
-                ) : (
-                  <>
-                    <CheckCircle2 className="mr-2 h-4 w-4" /> Salvar Vacina
-                  </>
-                )}
-              </Button>
-            </DialogFooter>
-          </form>
-        </DialogContent>
-      </Dialog>
     </div>
   );
 };
