@@ -24,24 +24,6 @@ import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
-import { Textarea } from "@/components/ui/textarea";
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-} from "@/components/ui/dialog";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
 import { getStoredUser, petsService } from "@/services/api";
 import { BLANK_PET_IMAGE, getPetPhoto } from "@/lib/petPlaceholder";
 
@@ -125,14 +107,7 @@ const MedicalHistory = () => {
   const [events, setEvents] = useState([]);
   const [selectedPets, setSelectedPets] = useState([]);
   const [weekStart, setWeekStart] = useState(() => getWeekStart(new Date()));
-
-  // Dialog para adicionar registro médico
-  const [dialogOpen, setDialogOpen] = useState(false);
   const [targetPetId, setTargetPetId] = useState("");
-  const [recordType, setRecordType] = useState("Consulta");
-  const [description, setDescription] = useState("");
-  const [weight, setWeight] = useState("");
-  const [saving, setSaving] = useState(false);
 
   // Carrega pets reais do tutor e seus históricos
   useEffect(() => {
@@ -307,61 +282,6 @@ const MedicalHistory = () => {
     const fmt = (d) =>
       d.toLocaleDateString("pt-BR", { day: "2-digit", month: "short" });
     return `${fmt(weekStart)} — ${fmt(weekEnd)}`;
-  };
-
-  const handleAddRecord = async (e) => {
-    e.preventDefault();
-    if (!targetPetId || !description.trim()) {
-      toast.error("Preencha a descrição do atendimento.");
-      return;
-    }
-
-    try {
-      setSaving(true);
-      const petIdNum = Number(targetPetId);
-      const res = await petsService.addMedicalRecord(petIdNum, {
-        tipo: recordType,
-        descricao: description.trim(),
-        peso_registrado: weight ? Number(weight.replace(",", ".")) : null,
-      });
-
-      const today = new Date().toISOString().slice(0, 10);
-      let tipoCategoria = "consulta";
-      const t = recordType.toLowerCase();
-      if (t.includes("exame")) tipoCategoria = "exame";
-      else if (t.includes("medic")) tipoCategoria = "medicacao";
-      else if (t.includes("proced") || t.includes("cirurg"))
-        tipoCategoria = "procedimento";
-
-      const newEv = {
-        id: `mr-${res.id || Date.now()}`,
-        petId: petIdNum,
-        date: today,
-        time: new Date().toLocaleTimeString("pt-BR", {
-          hour: "2-digit",
-          minute: "2-digit",
-        }),
-        type: tipoCategoria,
-        title: recordType,
-        vet: "Clínica Veterinária Parceira",
-        notes: description.trim(),
-        status: "Concluído",
-      };
-
-      setEvents((prev) => [newEv, ...prev]);
-      toast.success("Registro clínico adicionado com sucesso!", {
-        description: `Vinculado ao prontuário do pet.`,
-      });
-
-      setDescription("");
-      setWeight("");
-      setDialogOpen(false);
-    } catch (err) {
-      const msg = err instanceof Error ? err.message : "Erro ao salvar";
-      toast.error("Erro ao registrar no prontuário", { description: msg });
-    } finally {
-      setSaving(false);
-    }
   };
 
   const downloadCarteirinha = (pet) => {
@@ -554,12 +474,14 @@ const MedicalHistory = () => {
               </Link>
             </Button>
             <Button
-              onClick={() => setDialogOpen(true)}
+              asChild
               size="sm"
               className="rounded-full gradient-primary text-primary-foreground shadow-soft"
             >
-              <Plus className="mr-1.5 h-3.5 w-3.5" />
-              Novo Atendimento
+              <Link to={`/historico-medico/novo${targetPetId ? `?petId=${targetPetId}` : ""}`}>
+                <Plus className="mr-1.5 h-3.5 w-3.5" />
+                Novo Atendimento
+              </Link>
             </Button>
           </div>
         </div>
@@ -803,129 +725,6 @@ const MedicalHistory = () => {
           </div>
         )}
       </main>
-
-      {/* DIALOG DE NOVO REGISTRO CLÍNICO VINCULADO AO BANCO */}
-      <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
-        <DialogContent className="sm:max-w-md">
-          <DialogHeader>
-            <DialogTitle className="flex items-center gap-2">
-              <Stethoscope className="h-5 w-5 text-primary" />
-              Novo Registro no Prontuário
-            </DialogTitle>
-            <DialogDescription>
-              Adicione uma consulta, exame ou procedimento veterinário ao
-              prontuário médico do animal.
-            </DialogDescription>
-          </DialogHeader>
-
-          <form onSubmit={handleAddRecord} className="space-y-4 pt-2">
-            <div className="space-y-1.5">
-              <Label htmlFor="rec-pet">Pet *</Label>
-              <Select
-                value={targetPetId}
-                onValueChange={(val) => setTargetPetId(val)}
-              >
-                <SelectTrigger id="rec-pet">
-                  <SelectValue placeholder="Selecione o pet" />
-                </SelectTrigger>
-                <SelectContent>
-                  {pets.map((p) => (
-                    <SelectItem key={p.id} value={String(p.id)}>
-                      {p.name} ({p.species} · {p.breed})
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-
-            <div className="grid grid-cols-2 gap-3">
-              <div className="space-y-1.5">
-                <Label htmlFor="rec-tipo">Tipo de Atendimento *</Label>
-                <Select
-                  value={recordType}
-                  onValueChange={(val) => setRecordType(val)}
-                >
-                  <SelectTrigger id="rec-tipo">
-                    <SelectValue placeholder="Selecione o tipo" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="Consulta de Rotina">
-                      Consulta de Rotina
-                    </SelectItem>
-                    <SelectItem value="Exame de Sangue">
-                      Exame de Sangue
-                    </SelectItem>
-                    <SelectItem value="Medicação Prescrita">
-                      Medicação Prescrita
-                    </SelectItem>
-                    <SelectItem value="Procedimento Cirúrgico">
-                      Procedimento Cirúrgico
-                    </SelectItem>
-                    <SelectItem value="Limpeza de Tártaro">
-                      Limpeza de Tártaro
-                    </SelectItem>
-                    <SelectItem value="Alergia Identificada">
-                      Alergia Identificada
-                    </SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
-
-              <div className="space-y-1.5">
-                <Label htmlFor="rec-peso">Peso Aferido (kg)</Label>
-                <Input
-                  id="rec-peso"
-                  placeholder="Ex: 12.5"
-                  value={weight}
-                  onChange={(e) => setWeight(e.target.value)}
-                />
-              </div>
-            </div>
-
-            <div className="space-y-1.5">
-              <div className="flex items-center justify-between">
-                <Label htmlFor="rec-desc">Descrição / Laudo Clínico *</Label>
-                <span className="text-[11px] text-muted-foreground">{description.length}/1500</span>
-              </div>
-              <Textarea
-                id="rec-desc"
-                rows={3}
-                placeholder="Detalhes da consulta, prescrições, cuidados ou orientações..."
-                value={description}
-                maxLength={1500}
-                onChange={(e) => setDescription(e.target.value.slice(0, 1500))}
-                required
-              />
-            </div>
-
-            <DialogFooter className="pt-2">
-              <Button
-                type="button"
-                variant="outline"
-                onClick={() => setDialogOpen(false)}
-                disabled={saving}
-              >
-                Cancelar
-              </Button>
-              <Button
-                type="submit"
-                className="gradient-primary text-primary-foreground"
-                disabled={saving}
-              >
-                {saving ? (
-                  <>
-                    <Loader2 className="mr-2 h-4 w-4 animate-spin" /> Salvando...
-                  </>
-                ) : (
-                  <>
-                    <CheckCircle2 className="mr-2 h-4 w-4" /> Salvar no Histórico
-                  </>
-                )}
-              </Button>
-            </DialogFooter>
-          </form>
-        </DialogContent>
-      </Dialog>
     </div>
   );
 };

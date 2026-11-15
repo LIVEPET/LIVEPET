@@ -11,12 +11,15 @@ import Login from "./pages/Login";
 import Pets from "./pages/Pets";
 import Pedigree from "./pages/Pedigree";
 import Tasks from "./pages/Tasks";
+import NewTask from "./pages/NewTask";
 import Partnerships from "./pages/Partnerships";
 import MedicalHistory from "./pages/MedicalHistory";
+import NewMedicalRecord from "./pages/NewMedicalRecord";
 import PetRegister from "./pages/PetRegister";
 import MatchPet from "./pages/MatchPet";
 import PuppiesMarketplace from "./pages/PuppiesMarketplace";
 import PetHealth from "./pages/PetHealth";
+import NewVaccine from "./pages/NewVaccine";
 import PetCard from "./pages/PetCard";
 import Profile from "./pages/Profile";
 import EditProfile from "./pages/EditProfile";
@@ -83,9 +86,12 @@ const App = () => (
               <Route path="/pets/:id/editar" element={<PetRegister />} />
               <Route path="/pedigree" element={<Pedigree />} />
               <Route path="/tasks" element={<Tasks />} />
+              <Route path="/tasks/nova" element={<NewTask />} />
               <Route path="/historico-medico" element={<MedicalHistory />} />
+              <Route path="/historico-medico/novo" element={<NewMedicalRecord />} />
               <Route path="/matchpet" element={<MatchPet />} />
               <Route path="/saude" element={<PetHealth />} />
+              <Route path="/saude/vacinas/nova" element={<NewVaccine />} />
               <Route path="/chat" element={<Chat />} />
               <Route path="/perfil" element={<Profile />} />
               <Route path="/perfil/editar" element={<EditProfile />} />

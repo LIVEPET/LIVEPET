@@ -189,4 +189,12 @@ describe("<PetHealth />", () => {
     expect(screen.getByText(/Nenhuma vacina registrada ainda/)).toBeInTheDocument();
     expect(screen.queryByRole("table")).not.toBeInTheDocument();
   });
+
+  it("oferece link para página dedicada de cadastro de vacina sem modais", () => {
+    renderizar();
+
+    const linkNovaVacina = screen.getByRole("link", { name: /Nova Vacina/i });
+    expect(linkNovaVacina).toHaveAttribute("href", "/saude/vacinas/nova?petId=thor");
+    expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
+  });
 });
