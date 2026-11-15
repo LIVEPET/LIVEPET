@@ -16,7 +16,12 @@ const ClinicReceiptPage = () => {
   const { appointments, profile } = useClinic();
 
   const appointment = useMemo(
-    () => appointments.find((a) => String(a.id) === String(id)),
+    () =>
+      appointments.find(
+        (a) =>
+          String(a.id) === String(id) ||
+          (a.localId !== undefined && String(a.localId) === String(id)),
+      ),
     [appointments, id],
   );
 
