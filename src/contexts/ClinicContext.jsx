@@ -80,19 +80,42 @@ const sincronizar = (acao, mensagem) => {
 const AVISO_SEM_SERVIDOR = "Este registro ainda não está salvo no servidor.";
 
 // Campos do atendimento na tela -> campos da API.
-const appointmentToApi = (a) => ({
-  pet_name: a.petName,
-  species: a.species,
-  breed: a.breed,
-  tutor: a.tutor,
-  phone: a.phone,
-  service: a.service,
-  vet: a.vet,
-  date: a.date,
-  time: a.time,
-  status: a.status,
-  priority: a.priority,
-  notes: a.notes,
+const appointmentToApi = (a) => {
+  const payload = {
+    pet_name: a.petName,
+    species: a.species,
+    breed: a.breed,
+    tutor: a.tutor,
+    phone: a.phone,
+    service: a.service,
+    vet: a.vet,
+    date: a.date,
+    time: a.time,
+    status: a.status,
+    priority: a.priority,
+    notes: a.notes,
+  };
+  return Object.fromEntries(Object.entries(payload).filter(([, v]) => v !== undefined));
+};
+
+const conclusionToApi = (c = {}) => ({
+  queixa_principal: c.queixa_principal ?? null,
+  temperatura: c.temperatura !== "" && c.temperatura != null ? Number(c.temperatura) : null,
+  peso: c.peso !== "" && c.peso != null ? Number(c.peso) : null,
+  frequencia_cardiaca:
+    c.frequencia_cardiaca !== "" && c.frequencia_cardiaca != null
+      ? Number(c.frequencia_cardiaca)
+      : null,
+  frequencia_respiratoria:
+    c.frequencia_respiratoria !== "" && c.frequencia_respiratoria != null
+      ? Number(c.frequencia_respiratoria)
+      : null,
+  mucosas: c.mucosas ?? null,
+  diagnostico: c.diagnostico ?? null,
+  prescricao: c.prescricao ?? null,
+  vacina_aplicada: c.vacina_aplicada ?? null,
+  vacina_lote: c.vacina_lote ?? null,
+  vacina_proxima_dose: c.vacina_proxima_dose || null,
 });
 
 const sanitizeProfile = (raw) => {
@@ -136,7 +159,9 @@ const getStorageKey = () => {
 const loadData = () => {
   try {
     const key = getStorageKey();
-    const raw = window.localStorage.getItem(key);
+    const raw =
+      window.localStorage.getItem(key) ||
+      (key !== STORAGE_KEY ? window.localStorage.getItem(STORAGE_KEY) : null);
     if (!raw) return createEmptyData();
     const parsed = JSON.parse(raw);
     if (!isObject(parsed)) return createEmptyData();
@@ -169,6 +194,166 @@ const isSamePatient = (patient, appointment) =>
   normalize(patient.name) === normalize(appointment.petName) &&
   normalize(patient.tutor) === normalize(appointment.tutor);
 
+// Mapeia todos os campos clínicos vindos da API e preserva enriquecimentos locais (#213)
+export const mapAndMergeAppointment = (a, localAppointments = []) => {
+  const localApp =
+    asArray(localAppointments).find(
+      (loc) =>
+        String(loc.id) === String(a.id) ||
+        (loc.localId && String(loc.localId) === String(a.id)),
+    ) ||
+    asArray(localAppointments).find(
+      (loc) =>
+        normalize(loc.petName) === normalize(a.pet_name ?? a.petName) &&
+        normalize(loc.tutor) === normalize(a.tutor) &&
+        String(loc.date ?? "") === String(a.date ?? "") &&
+        String(loc.time ?? "") === String(a.time ?? "") &&
+        normalize(loc.service) === normalize(a.service),
+    );
+
+  const merged = {
+    ...(localApp || {}),
+    id: a.id,
+    patientId: a.pet_id ?? a.patientId ?? localApp?.patientId ?? null,
+    petName: a.pet_name ?? a.petName ?? localApp?.petName ?? "",
+    species: a.species ?? localApp?.species ?? "Cão",
+    breed: a.breed ?? localApp?.breed ?? "—",
+    tutor: a.tutor ?? localApp?.tutor ?? "",
+    phone: a.phone ?? localApp?.phone ?? "",
+    service: a.service ?? localApp?.service ?? "",
+    vet: a.vet ?? localApp?.vet ?? "",
+    date: a.date ?? localApp?.date ?? "",
+    time: a.time ?? localApp?.time ?? "",
+    status: a.status ?? localApp?.status ?? "Confirmado",
+    priority: a.priority || localApp?.priority || "Rotina",
+    notes: a.notes ?? localApp?.notes ?? "",
+    queixa_principal: a.queixa_principal ?? localApp?.queixa_principal ?? null,
+    temperatura: a.temperatura ?? localApp?.temperatura ?? null,
+    peso: a.peso ?? localApp?.peso ?? null,
+    frequencia_cardiaca: a.frequencia_cardiaca ?? localApp?.frequencia_cardiaca ?? null,
+    frequencia_respiratoria:
+      a.frequencia_respiratoria ?? localApp?.frequencia_respiratoria ?? null,
+    mucosas: a.mucosas ?? localApp?.mucosas ?? null,
+    diagnostico: a.diagnostico ?? localApp?.diagnostico ?? null,
+    prescricao: a.prescricao ?? localApp?.prescricao ?? null,
+    vacina_aplicada: a.vacina_aplicada ?? localApp?.vacina_aplicada ?? null,
+    vacina_lote: a.vacina_lote ?? localApp?.vacina_lote ?? null,
+    vacina_proxima_dose: a.vacina_proxima_dose ?? localApp?.vacina_proxima_dose ?? null,
+    prescricao_itens: Array.isArray(a.prescricao_itens)
+      ? a.prescricao_itens
+      : Array.isArray(localApp?.prescricao_itens)
+        ? localApp.prescricao_itens
+        : [],
+    exames_complementares: Array.isArray(a.exames_complementares)
+      ? a.exames_complementares
+      : Array.isArray(localApp?.exames_complementares)
+        ? localApp.exames_complementares
+        : [],
+    itens_adicionais: Array.isArray(a.itens_adicionais)
+      ? a.itens_adicionais
+      : Array.isArray(localApp?.itens_adicionais)
+        ? localApp.itens_adicionais
+        : [],
+  };
+
+  if (a.valor_servico !== undefined || localApp?.valor_servico !== undefined) {
+    merged.valor_servico = a.valor_servico ?? localApp?.valor_servico;
+  }
+  if (a.desconto !== undefined || localApp?.desconto !== undefined) {
+    merged.desconto = a.desconto ?? localApp?.desconto;
+  }
+  if (a.valor_total !== undefined || localApp?.valor_total !== undefined) {
+    merged.valor_total = a.valor_total ?? localApp?.valor_total;
+  }
+  if (a.status_pagamento !== undefined || localApp?.status_pagamento !== undefined) {
+    merged.status_pagamento = a.status_pagamento ?? localApp?.status_pagamento;
+  }
+  if (a.forma_pagamento !== undefined || localApp?.forma_pagamento !== undefined) {
+    merged.forma_pagamento = a.forma_pagamento ?? localApp?.forma_pagamento;
+  }
+  if (a.isReturn !== undefined || localApp?.isReturn !== undefined) {
+    merged.isReturn = Boolean(a.isReturn ?? localApp?.isReturn);
+  }
+
+  return merged;
+};
+
+// Mescla pacientes vindos da API com os dados clínicos enriquecidos localmente (#213)
+export const mergePatientWithLocal = (apiPatient, localPatients = []) => {
+  const localPatient = asArray(localPatients).find(
+    (lp) =>
+      String(lp.id) === String(apiPatient.id) ||
+      (normalize(lp.name) === normalize(apiPatient.name) &&
+        normalize(lp.tutor) === normalize(apiPatient.tutor)),
+  );
+
+  if (!localPatient) {
+    return sanitizePatient(apiPatient);
+  }
+
+  // Mescla alertas sem duplicar
+  const mergedAlerts = Array.from(
+    new Set([
+      ...asArray(apiPatient.alerts).filter(Boolean),
+      ...asArray(localPatient.alerts).filter(Boolean),
+    ]),
+  );
+
+  // Mescla vacinas (pregressas e de atendimentos) sem duplicar
+  const seenVaccines = new Set();
+  const mergedVaccines = [];
+  [...asArray(apiPatient.vaccines), ...asArray(localPatient.vaccines)].forEach((v) => {
+    if (!v || !(v.nome || v.name)) return;
+    const key = `${normalize(v.nome || v.name)}|${v.data_aplicacao || ""}|${normalize(v.lote || v.lot)}`;
+    if (!seenVaccines.has(key)) {
+      seenVaccines.add(key);
+      mergedVaccines.push(v);
+    }
+  });
+
+  // Mescla histórico clínico preservando altas hospitalares e resumos detalhados locais
+  const apiHistory = asArray(apiPatient.history);
+  const localHistory = asArray(localPatient.history);
+  const mergedHistory = [...apiHistory];
+
+  localHistory.forEach((locH) => {
+    if (!locH) return;
+    const existingIdx = mergedHistory.findIndex(
+      (h) => normalize(h.date) === normalize(locH.date) && normalize(h.type) === normalize(locH.type),
+    );
+    if (existingIdx === -1) {
+      mergedHistory.unshift(locH);
+    } else if (
+      locH.summary &&
+      (!mergedHistory[existingIdx].summary ||
+        /^atendimento\s/i.test(mergedHistory[existingIdx].summary))
+    ) {
+      mergedHistory[existingIdx] = { ...mergedHistory[existingIdx], ...locH };
+    }
+  });
+
+  return sanitizePatient({
+    ...localPatient,
+    ...apiPatient,
+    age:
+      apiPatient.age && apiPatient.age !== "—"
+        ? apiPatient.age
+        : localPatient.age || "—",
+    weight:
+      apiPatient.weight && apiPatient.weight !== "—"
+        ? apiPatient.weight
+        : localPatient.weight || "—",
+    ecc: apiPatient.ecc ?? localPatient.ecc ?? null,
+    alerts: mergedAlerts,
+    vaccines: mergedVaccines,
+    vaccinesUpToDate:
+      apiPatient.vaccinesUpToDate ??
+      localPatient.vaccinesUpToDate ??
+      (mergedVaccines.length > 0 ? true : null),
+    history: mergedHistory,
+  });
+};
+
 const patientFromAppointment = (appointment) => ({
   id: newId(),
   name: appointment.petName,
@@ -192,12 +377,23 @@ export const ClinicProvider = ({ children }) => {
   const [data, setData] = useState(loadData);
   const isFetchingRef = useRef(false);
   const activeClinicIdRef = useRef(clinicService.getCurrentClinic()?.id || null);
+  const pendingCreationsRef = useRef(new Map());
+  const resolvedIdsRef = useRef(new Map());
   const [loading, setLoading] = useState(() => clinicService.isAuthenticated());
   const [error, setError] = useState(null);
 
   useEffect(() => {
     saveData(data);
   }, [data]);
+
+  const matchesAppointmentTarget = useCallback((a, targetId) => {
+    const resolved = resolvedIdsRef.current.get(String(targetId));
+    return (
+      String(a.id) === String(targetId) ||
+      (resolved !== undefined && String(a.id) === String(resolved)) ||
+      (a.localId !== undefined && String(a.localId) === String(targetId))
+    );
+  }, []);
 
   const loadClinicData = useCallback(async () => {
     if (!clinicService.isAuthenticated()) return;
@@ -263,42 +459,38 @@ export const ClinicProvider = ({ children }) => {
         } catch {}
       }
 
-      const mappedAppointments = appointments.map((a) => ({
-        id: a.id,
-        petName: a.pet_name,
-        species: a.species,
-        breed: a.breed,
-        tutor: a.tutor,
-        phone: a.phone,
-        service: a.service,
-        vet: a.vet,
-        date: a.date,
-        time: a.time,
-        status: a.status,
-        priority: a.priority || "Rotina",
-        notes: a.notes || "",
-      }));
+      setData((current) => {
+        const mappedAppointments =
+          apptsRes.status === "fulfilled"
+            ? appointments.map((a) => mapAndMergeAppointment(a, current.appointments))
+            : current.appointments;
 
-      setData((current) => ({
-        ...current,
-        profile: {
-          ...current.profile,
-          name: clinic?.nome || currentClinic?.nome || "",
-          crmv: clinic?.crmv || currentClinic?.crmv || "",
-          email: clinic?.email || currentClinic?.email || "",
-          phone: clinic?.telefone || currentClinic?.telefone || "",
-          whatsapp: clinic?.whatsapp || currentClinic?.whatsapp || "",
-          address: clinic?.endereco || currentClinic?.endereco || "",
-          about: clinic?.sobre || currentClinic?.sobre || "",
-          photo: clinic?.foto_url || currentClinic?.foto_url || "",
-          services: servicesList,
-          hours: hoursList,
-          team: teamList,
-        },
-        appointments: mappedAppointments,
-        // Lista vinda da API vale mesmo vazia: paciente apagado não volta do localStorage.
-        patients: patientsRes.status === "fulfilled" ? patients : current.patients,
-      }));
+        const mergedPatients =
+          patientsRes.status === "fulfilled"
+            ? patients.map((p) => mergePatientWithLocal(p, current.patients))
+            : current.patients;
+
+        return {
+          ...current,
+          profile: {
+            ...current.profile,
+            name: clinic?.nome || currentClinic?.nome || "",
+            crmv: clinic?.crmv || currentClinic?.crmv || "",
+            email: clinic?.email || currentClinic?.email || "",
+            phone: clinic?.telefone || currentClinic?.telefone || "",
+            whatsapp: clinic?.whatsapp || currentClinic?.whatsapp || "",
+            address: clinic?.endereco || currentClinic?.endereco || "",
+            about: clinic?.sobre || currentClinic?.sobre || "",
+            photo: clinic?.foto_url || currentClinic?.foto_url || "",
+            services: servicesList,
+            hours: hoursList,
+            team: teamList,
+          },
+          appointments: mappedAppointments,
+          // Lista vinda da API vale mesmo vazia: paciente apagado não volta do localStorage.
+          patients: mergedPatients,
+        };
+      });
     } finally {
       isFetchingRef.current = false;
       setLoading(false);
@@ -312,10 +504,14 @@ export const ClinicProvider = ({ children }) => {
       const clinic = e.detail?.clinic;
       if (!clinic) {
         activeClinicIdRef.current = null;
+        pendingCreationsRef.current.clear();
+        resolvedIdsRef.current.clear();
         setData(createEmptyData());
       } else if (clinic.id !== activeClinicIdRef.current) {
         activeClinicIdRef.current = clinic.id;
-        setData(createEmptyData());
+        pendingCreationsRef.current.clear();
+        resolvedIdsRef.current.clear();
+        setData(loadData());
         loadClinicData();
       }
     };
@@ -359,9 +555,24 @@ export const ClinicProvider = ({ children }) => {
     }
   }, []);
 
+  const resolveOrAwaitServerId = useCallback((id) => {
+    if (isServerId(id)) return Promise.resolve(id);
+    const key = String(id);
+    if (resolvedIdsRef.current.has(key)) {
+      return Promise.resolve(resolvedIdsRef.current.get(key));
+    }
+    if (pendingCreationsRef.current.has(key)) {
+      return pendingCreationsRef.current.get(key).then((salvo) =>
+        salvo?.id && isServerId(salvo.id) ? salvo.id : null,
+      );
+    }
+    return Promise.resolve(null);
+  }, []);
+
   const addAppointment = useCallback((input) => {
+    const tempId = newId();
     const appointment = {
-      id: newId(),
+      id: tempId,
       status: "Confirmado",
       priority: input.priority || "Rotina",
       date: input.date || getToday(),
@@ -400,109 +611,156 @@ export const ClinicProvider = ({ children }) => {
     });
 
     // Envia ao servidor e troca o id temporário pelo id real que ele devolveu.
-    // Sem isso, mudar status ou excluir este atendimento depois cairia em 404.
-    sincronizar(
+    // Preserva localId para que rotas ou chamadas em andamento não percam a referência (#213).
+    const creationPromise = sincronizar(
       () => clinicService.createAppointment(appointmentToApi(appointment)),
       "O atendimento ficou só neste navegador: não foi salvo no servidor.",
     ).then((salvo) => {
-      if (!salvo?.id || salvo.id === appointment.id) return;
+      pendingCreationsRef.current.delete(String(appointment.id));
+      if (!salvo?.id || salvo.id === appointment.id) return salvo;
+      resolvedIdsRef.current.set(String(appointment.id), salvo.id);
       setData((current) => ({
         ...current,
-        appointments: current.appointments.map((a) => (a.id === appointment.id ? { ...a, id: salvo.id } : a)),
+        appointments: current.appointments.map((a) =>
+          a.id === appointment.id || a.localId === appointment.id
+            ? { ...a, id: salvo.id, localId: appointment.id }
+            : a,
+        ),
       }));
+      return salvo;
     });
+
+    if (clinicService.isAuthenticated()) {
+      pendingCreationsRef.current.set(String(appointment.id), creationPromise);
+    }
 
     return appointment;
   }, []);
 
-  const updateAppointment = useCallback((id, fields) => {
-    setData((current) => ({
-      ...current,
-      appointments: current.appointments
-        .map((a) => (a.id === id ? { ...a, ...fields } : a))
-        .sort((a, b) => {
-          const dateCmp = String(a.date ?? "").localeCompare(String(b.date ?? ""));
-          if (dateCmp !== 0) return dateCmp;
-          return String(a.time ?? "").localeCompare(String(b.time ?? ""));
-        }),
-    }));
-    if (!isServerId(id)) {
-      if (clinicService.isAuthenticated()) toast.error(AVISO_SEM_SERVIDOR);
-      return Promise.resolve(null);
-    }
-    return sincronizar(
-      () => clinicService.updateAppointment(id, appointmentToApi(fields)),
-      "Não foi possível salvar as alterações do atendimento.",
-    );
-  }, []);
+  const updateAppointment = useCallback(
+    (id, fields) => {
+      setData((current) => ({
+        ...current,
+        appointments: current.appointments
+          .map((a) => (matchesAppointmentTarget(a, id) ? { ...a, ...fields } : a))
+          .sort((a, b) => {
+            const dateCmp = String(a.date ?? "").localeCompare(String(b.date ?? ""));
+            if (dateCmp !== 0) return dateCmp;
+            return String(a.time ?? "").localeCompare(String(b.time ?? ""));
+          }),
+      }));
 
-  const deleteAppointment = useCallback((id) => {
-    setData((current) => ({
-      ...current,
-      appointments: current.appointments.filter((a) => a.id !== id),
-    }));
-    if (!isServerId(id)) return Promise.resolve(null);
-    return sincronizar(() => clinicService.deleteAppointment(id), "Não foi possível excluir o atendimento no servidor.");
-  }, []);
+      return resolveOrAwaitServerId(id).then((serverId) => {
+        if (!serverId) {
+          if (clinicService.isAuthenticated()) toast.error(AVISO_SEM_SERVIDOR);
+          return null;
+        }
+        return sincronizar(
+          () => clinicService.updateAppointment(serverId, appointmentToApi(fields)),
+          "Não foi possível salvar as alterações do atendimento.",
+        );
+      });
+    },
+    [matchesAppointmentTarget, resolveOrAwaitServerId],
+  );
 
-  const updateAppointmentStatus = useCallback((id, status) => {
-    setData((current) => ({
-      ...current,
-      appointments: current.appointments.map((a) => (a.id === id ? { ...a, status } : a)),
-    }));
-    if (!isServerId(id)) {
-      if (clinicService.isAuthenticated()) toast.error(AVISO_SEM_SERVIDOR);
-      return;
-    }
-    sincronizar(() => clinicService.updateAppointmentStatus(id, status), "Não foi possível atualizar o status do atendimento.");
-  }, []);
+  const deleteAppointment = useCallback(
+    (id) => {
+      setData((current) => ({
+        ...current,
+        appointments: current.appointments.filter((a) => !matchesAppointmentTarget(a, id)),
+      }));
+      return resolveOrAwaitServerId(id).then((serverId) => {
+        if (!serverId) return null;
+        return sincronizar(
+          () => clinicService.deleteAppointment(serverId),
+          "Não foi possível excluir o atendimento no servidor.",
+        );
+      });
+    },
+    [matchesAppointmentTarget, resolveOrAwaitServerId],
+  );
 
-  const updateAppointmentExam = useCallback((appointmentId, examId, fields) => {
-    setData((current) => ({
-      ...current,
-      appointments: current.appointments.map((a) => {
-        if (a.id !== appointmentId) return a;
-        const exams = asArray(a.exames_complementares).map((ex, idx) => {
-          const item =
-            typeof ex === "string"
-              ? {
-                  id: `exam-${idx}-${ex.toLowerCase().replace(/[^a-z0-9]+/g, "-")}`,
-                  nome: ex,
-                  status: "Solicitado",
-                  resultado: "",
-                }
-              : ex;
-          if (!item) return ex;
-          const matchesId = item.id === examId || item.nome === examId;
-          if (!matchesId) return item;
+  const updateAppointmentStatus = useCallback(
+    (id, status) => {
+      setData((current) => ({
+        ...current,
+        appointments: current.appointments.map((a) =>
+          matchesAppointmentTarget(a, id) ? { ...a, status } : a,
+        ),
+      }));
+
+      resolveOrAwaitServerId(id).then((serverId) => {
+        if (!serverId) {
+          if (clinicService.isAuthenticated()) toast.error(AVISO_SEM_SERVIDOR);
+          return;
+        }
+        sincronizar(
+          () => clinicService.updateAppointmentStatus(serverId, status),
+          "Não foi possível atualizar o status do atendimento.",
+        );
+      });
+    },
+    [matchesAppointmentTarget, resolveOrAwaitServerId],
+  );
+
+  const updateAppointmentExam = useCallback(
+    (appointmentId, examId, fields) => {
+      setData((current) => ({
+        ...current,
+        appointments: current.appointments.map((a) => {
+          if (!matchesAppointmentTarget(a, appointmentId)) return a;
+          const exams = asArray(a.exames_complementares).map((ex, idx) => {
+            const item =
+              typeof ex === "string"
+                ? {
+                    id: `exam-${idx}-${ex.toLowerCase().replace(/[^a-z0-9]+/g, "-")}`,
+                    nome: ex,
+                    status: "Solicitado",
+                    resultado: "",
+                  }
+                : ex;
+            if (!item) return ex;
+            const matchesId = item.id === examId || item.nome === examId;
+            if (!matchesId) return item;
+            return {
+              ...item,
+              ...fields,
+            };
+          });
           return {
-            ...item,
-            ...fields,
+            ...a,
+            exames_complementares: exams,
           };
-        });
-        return {
-          ...a,
-          exames_complementares: exams,
-        };
-      }),
-    }));
-  }, []);
+        }),
+      }));
+    },
+    [matchesAppointmentTarget],
+  );
 
-  const updateAppointmentPriority = useCallback((id, priority) => {
-    setData((current) => ({
-      ...current,
-      appointments: current.appointments.map((a) => (a.id === id ? { ...a, priority } : a)),
-    }));
-  }, []);
+  const updateAppointmentPriority = useCallback(
+    (id, priority) => {
+      setData((current) => ({
+        ...current,
+        appointments: current.appointments.map((a) =>
+          matchesAppointmentTarget(a, id) ? { ...a, priority } : a,
+        ),
+      }));
+    },
+    [matchesAppointmentTarget],
+  );
 
-  const updateAppointmentPayment = useCallback((id, paymentData) => {
-    setData((current) => ({
-      ...current,
-      appointments: current.appointments.map((a) =>
-        a.id === id ? { ...a, ...paymentData } : a,
-      ),
-    }));
-  }, []);
+  const updateAppointmentPayment = useCallback(
+    (id, paymentData) => {
+      setData((current) => ({
+        ...current,
+        appointments: current.appointments.map((a) =>
+          matchesAppointmentTarget(a, id) ? { ...a, ...paymentData } : a,
+        ),
+      }));
+    },
+    [matchesAppointmentTarget],
+  );
 
   const updatePatient = useCallback((patientId, fields) => {
     setData((current) => {
@@ -559,72 +817,82 @@ export const ClinicProvider = ({ children }) => {
     sincronizar(() => clinicService.deletePatient(patientId), "Não foi possível excluir o paciente no servidor.");
   }, []);
 
-  const concludeAppointment = useCallback((appointmentId, conclusion) => {
-    setData((current) => {
-      const app = current.appointments.find((a) => a.id === appointmentId);
-      if (!app) return current;
+  const concludeAppointment = useCallback(
+    (appointmentId, conclusion) => {
+      setData((current) => {
+        const app = current.appointments.find((a) => matchesAppointmentTarget(a, appointmentId));
+        if (!app) return current;
 
-      const updatedApp = {
-        ...app,
-        status: "Concluído",
-        ...conclusion,
-      };
+        const updatedApp = {
+          ...app,
+          status: "Concluído",
+          ...conclusion,
+        };
 
-      const historyItem = {
-        date: app.date,
-        type: app.service,
-        vet: app.vet,
-        summary:
-          conclusion.diagnostico ||
-          conclusion.queixa_principal ||
-          app.notes ||
-          "Atendimento concluído",
-      };
+        const historyItem = {
+          date: app.date,
+          type: app.service,
+          vet: app.vet,
+          summary:
+            conclusion.diagnostico ||
+            conclusion.queixa_principal ||
+            app.notes ||
+            "Atendimento concluído",
+        };
 
-      const appliedVaccineEntry = conclusion.vacina_aplicada
-        ? {
-            id: newId(),
-            nome: conclusion.vacina_aplicada,
-            lote: conclusion.vacina_lote || "—",
-            data_aplicacao: app.date || getToday(),
-            proxima_dose: conclusion.vacina_proxima_dose || null,
-            veterinario: app.vet || "Clínica",
-            tipo: "atendimento",
+        const appliedVaccineEntry = conclusion.vacina_aplicada
+          ? {
+              id: newId(),
+              nome: conclusion.vacina_aplicada,
+              lote: conclusion.vacina_lote || "—",
+              data_aplicacao: app.date || getToday(),
+              proxima_dose: conclusion.vacina_proxima_dose || null,
+              veterinario: app.vet || "Clínica",
+              tipo: "atendimento",
+            }
+          : null;
+
+        const updatedPatients = current.patients.map((p) => {
+          if (isSamePatient(p, app)) {
+            const existingVaccines = asArray(p.vaccines);
+            return {
+              ...p,
+              weight: conclusion.peso ? `${conclusion.peso} kg` : p.weight,
+              vaccinesUpToDate: conclusion.vacina_aplicada ? true : p.vaccinesUpToDate,
+              vaccines: appliedVaccineEntry
+                ? [appliedVaccineEntry, ...existingVaccines]
+                : existingVaccines,
+              history: [
+                historyItem,
+                ...p.history.filter((h) => !(h.date === app.date && h.type === app.service)),
+              ],
+            };
           }
-        : null;
+          return p;
+        });
 
-      const updatedPatients = current.patients.map((p) => {
-        if (isSamePatient(p, app)) {
-          const existingVaccines = asArray(p.vaccines);
-          return {
-            ...p,
-            weight: conclusion.peso ? `${conclusion.peso} kg` : p.weight,
-            vaccinesUpToDate: conclusion.vacina_aplicada ? true : p.vaccinesUpToDate,
-            vaccines: appliedVaccineEntry ? [appliedVaccineEntry, ...existingVaccines] : existingVaccines,
-            history: [historyItem, ...p.history.filter((h) => !(h.date === app.date && h.type === app.service))],
-          };
-        }
-        return p;
+        return {
+          ...current,
+          appointments: current.appointments.map((a) =>
+            matchesAppointmentTarget(a, appointmentId) ? updatedApp : a,
+          ),
+          patients: updatedPatients,
+        };
       });
 
-      return {
-        ...current,
-        appointments: current.appointments.map((a) =>
-          a.id === appointmentId ? updatedApp : a,
-        ),
-        patients: updatedPatients,
-      };
-    });
-
-    if (!isServerId(appointmentId)) {
-      if (clinicService.isAuthenticated()) toast.error(AVISO_SEM_SERVIDOR);
-      return;
-    }
-    sincronizar(
-      () => clinicService.concludeAppointment(appointmentId, conclusion),
-      "O atendimento foi concluído aqui, mas não foi salvo no servidor.",
-    );
-  }, []);
+      resolveOrAwaitServerId(appointmentId).then((serverId) => {
+        if (!serverId) {
+          if (clinicService.isAuthenticated()) toast.error(AVISO_SEM_SERVIDOR);
+          return;
+        }
+        sincronizar(
+          () => clinicService.concludeAppointment(serverId, conclusionToApi(conclusion)),
+          "O atendimento foi concluído aqui, mas não foi salvo no servidor.",
+        );
+      });
+    },
+    [matchesAppointmentTarget, resolveOrAwaitServerId],
+  );
 
   const addPatientVaccine = useCallback((patientId, vaccine) => {
     setData((current) => {

@@ -1,9 +1,10 @@
 import { describe, it, expect, beforeEach, vi } from "vitest";
 import { render, screen, fireEvent, within } from "@testing-library/react";
-import { MemoryRouter } from "react-router-dom";
+import { MemoryRouter, Route, Routes } from "react-router-dom";
 import { ClinicProvider, STORAGE_KEY } from "@/contexts/ClinicContext";
 import { stubRadixForJsdom } from "@/test/clinicTestUtils";
 import ClinicSchedule from "./ClinicSchedule";
+import ClinicConsultation from "./ClinicConsultation";
 import { addDaysToIsoDate, buildWhatsAppUrl } from "./ClinicReturnAndWhatsapp";
 
 vi.mock("@/services/api", () => ({
@@ -91,7 +92,10 @@ describe("Issue #181 — Agendamento Rápido de Retorno Clínico e WhatsApp na A
     render(
       <MemoryRouter initialEntries={["/clinica/agenda"]}>
         <ClinicProvider>
-          <ClinicSchedule />
+          <Routes>
+            <Route path="/clinica/agenda" element={<ClinicSchedule />} />
+            <Route path="/clinica/atendimento/:id" element={<ClinicConsultation />} />
+          </Routes>
         </ClinicProvider>
       </MemoryRouter>,
     );
@@ -122,7 +126,10 @@ describe("Issue #181 — Agendamento Rápido de Retorno Clínico e WhatsApp na A
     render(
       <MemoryRouter initialEntries={["/clinica/agenda"]}>
         <ClinicProvider>
-          <ClinicSchedule />
+          <Routes>
+            <Route path="/clinica/agenda" element={<ClinicSchedule />} />
+            <Route path="/clinica/atendimento/:id" element={<ClinicConsultation />} />
+          </Routes>
         </ClinicProvider>
       </MemoryRouter>,
     );

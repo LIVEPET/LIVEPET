@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import {
   Activity,
@@ -31,7 +31,6 @@ import { Textarea } from "@/components/ui/textarea";
 import { useClinic } from "@/contexts/ClinicContext";
 import { getPriorityMeta, statusStyles } from "@/data/clinicDemo";
 import { PAYMENT_STATUS, calculateAppointmentTotal, findServicePrice } from "@/lib/clinicBilling";
-import { addDaysToIsoDate, formatIsoDateBR } from "@/lib/clinicReturn";
 import { AppointmentBillingSection } from "./AppointmentBillingSection";
 import {
   DEFAULT_VET,
@@ -41,7 +40,11 @@ import {
 } from "./AppointmentForm";
 import { ComplementaryExamsSelector } from "./ClinicExams";
 import { PrescriptionBuilder } from "./ClinicPrescription";
-import { ReturnSchedulingSection } from "./ClinicReturnAndWhatsapp";
+import {
+  addDaysToIsoDate,
+  formatIsoDateBR,
+  ReturnSchedulingSection,
+} from "./ClinicReturnAndWhatsapp";
 
 /**
  * Página dedicada para Atendimento Clínico & Anamnese (/clinica/atendimento/:id).
@@ -60,9 +63,15 @@ const ClinicConsultation = () => {
   } = useClinic();
 
   const appointment = useMemo(
-    () => appointments.find((a) => String(a.id) === String(id)),
+    () =>
+      appointments.find(
+        (a) =>
+          String(a.id) === String(id) ||
+          (a.localId !== undefined && String(a.localId) === String(id)),
+      ),
     [appointments, id],
   );
+  const initializedRouteRef = useRef(null);
 
   const [examForm, setExamForm] = useState({
     priority: "Rotina",
@@ -93,6 +102,9 @@ const ClinicConsultation = () => {
 
   useEffect(() => {
     if (!appointment) return;
+    const routeKey = String(id);
+    if (initializedRouteRef.current === routeKey) return;
+    initializedRouteRef.current = routeKey;
 
     setExamForm({
       priority: getPriorityMeta(appointment.priority).value,
