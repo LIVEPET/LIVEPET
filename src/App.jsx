@@ -39,6 +39,7 @@ import ClinicDocumentsPage from "./pages/Clinic/ClinicDocumentsPage";
 import ClinicPrescriptionPage from "./pages/Clinic/ClinicPrescriptionPage";
 import ClinicReceiptPage from "./pages/Clinic/ClinicReceiptPage";
 import ClinicInpatient from "./pages/Clinic/ClinicInpatient";
+import ClinicEditPatient from "./pages/Clinic/ClinicEditPatient";
 import ProtectedClinicRoute from "./components/ProtectedClinicRoute";
 import { ClinicProvider } from "@/contexts/ClinicContext";
 import { ClinicAuthProvider } from "@/contexts/ClinicAuthProvider";
@@ -68,6 +69,7 @@ const App = () => (
               <Route path="recibo/:id" element={<ClinicReceiptPage />} />
               <Route path="internacao" element={<ClinicInpatient />} />
               <Route path="pacientes" element={<ClinicPatients />} />
+              <Route path="pacientes/:id/editar" element={<ClinicEditPatient />} />
               <Route path="perfil" element={<ClinicProfile />} />
               <Route path="*" element={<NotFound />} />
             </Route>

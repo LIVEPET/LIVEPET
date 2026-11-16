@@ -6,12 +6,14 @@ import { STORAGE_KEY, ClinicProvider } from "@/contexts/ClinicContext";
 import { chooseOption, stubRadixForJsdom } from "@/test/clinicTestUtils";
 import ClinicLayout from "./ClinicLayout";
 import ClinicPatients from "./ClinicPatients";
+import ClinicEditPatient from "./ClinicEditPatient";
 
 const app = () => (
   <ClinicProvider><MemoryRouter initialEntries={["/clinica/pacientes"]}>
     <Routes>
       <Route path="/clinica" element={<ClinicLayout />}>
         <Route path="pacientes" element={<ClinicPatients />} />
+        <Route path="pacientes/:id/editar" element={<ClinicEditPatient />} />
       </Route>
     </Routes>
   </MemoryRouter></ClinicProvider>

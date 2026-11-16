@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
-import { useNavigate } from "react-router-dom";
+import { useLocation, useNavigate } from "react-router-dom";
 import {
   AlertTriangle,
   CheckCircle2,
@@ -78,12 +78,33 @@ const PatientPhoto = ({ patient, className, iconClassName }) =>
 
 const ClinicPatients = () => {
   const navigate = useNavigate();
+  const location = useLocation();
   const { patients, appointments, profile, updatePatient, deletePatient, linkPatientWithLivePet, updateAppointmentExam, addPatientVaccine } = useClinic();
   const [documentPatient, setDocumentPatient] = useState(null);
   const [query, setQuery] = useState("");
   const [species, setSpecies] = useState("Todos");
   const [breed, setBreed] = useState("Todas");
   const [selected, setSelected] = useState(null);
+
+  // Reabre o painel do paciente caso tenha retornado da tela de edição
+  useEffect(() => {
+    if (location.state?.selectedPatientId) {
+      const found = patients.find(
+        (p) => String(p.id) === String(location.state.selectedPatientId),
+      );
+      if (found) setSelected(found);
+    }
+  }, [location.state, patients]);
+
+  // Mantém os dados da gaveta atualizados quando a lista de pacientes for alterada
+  useEffect(() => {
+    if (selected) {
+      const updated = patients.find((p) => p.id === selected.id);
+      if (updated && updated !== selected) {
+        setSelected(updated);
+      }
+    }
+  }, [patients, selected]);
   const vitals = useMemo(
     () => (selected ? buildVitals(selected, appointments) : null),
     [selected, appointments],
@@ -97,22 +118,7 @@ const ClinicPatients = () => {
   const [dbSpecies, setDbSpecies] = useState(["Cão", "Gato", "Ave", "Roedor", "Réptil", "Outro"]);
 
   // Estados de Exclusão de Paciente
-  const [deletePatientModalOpen, setDeletePatientModalOpen] = useState(false);
   const [patientToDelete, setPatientToDelete] = useState(null);
-
-  // Estados de Edição do Paciente e Tutor
-  const [editOpen, setEditOpen] = useState(false);
-  const [editForm, setEditForm] = useState({
-    name: "",
-    species: "",
-    breed: "",
-    age: "",
-    weight: "",
-    tutor: "",
-    phone: "",
-    alertsText: "",
-    ecc: "none",
-  });
 
   // Estados do Vínculo com Pet Oficial do Tutor
   const [linkOpen, setLinkOpen] = useState(false);
@@ -135,13 +141,6 @@ const ClinicPatients = () => {
       isMounted = false;
     };
   }, []);
-
-  // Opções completas de espécies para o modal de edição (banco + atual)
-  const allEditSpeciesOptions = useMemo(() => {
-    const set = new Set(dbSpecies);
-    if (editForm.species) set.add(editForm.species);
-    return Array.from(set);
-  }, [dbSpecies, editForm.species]);
 
   // Espécies e raças dinâmicas extraídas estritamente dos pets cadastrados
   const availableSpecies = useMemo(() => {
@@ -170,57 +169,6 @@ const ClinicPatients = () => {
       }),
     [patients, query, species, breed],
   );
-
-  const handleOpenEdit = () => {
-    if (!selected) return;
-    setEditForm({
-      name: selected.name || "",
-      species: selected.species || "Cão",
-      breed: selected.breed && selected.breed !== "—" ? selected.breed : "",
-      age: selected.age && selected.age !== "—" ? selected.age : "",
-      weight: selected.weight && selected.weight !== "—" ? selected.weight : "",
-      tutor: selected.tutor || "",
-      phone: selected.phone && selected.phone !== "—" ? selected.phone : "",
-      alertsText: Array.isArray(selected.alerts) ? selected.alerts.join(", ") : "",
-      ecc: normalizeEcc(selected.ecc) ? String(normalizeEcc(selected.ecc)) : "none",
-    });
-    setEditOpen(true);
-  };
-
-  const handleSaveEdit = (e) => {
-    e.preventDefault();
-    if (!selected) return;
-    if (!editForm.name.trim()) {
-      toast.error("Informe o nome do pet.");
-      return;
-    }
-    if (!editForm.tutor.trim()) {
-      toast.error("Informe o nome do tutor.");
-      return;
-    }
-
-    const parsedAlerts = editForm.alertsText
-      .split(",")
-      .map((a) => a.trim())
-      .filter(Boolean);
-
-    const updatedData = {
-      name: editForm.name.trim(),
-      species: editForm.species.trim(),
-      breed: editForm.breed.trim() || "—",
-      age: editForm.age.trim() || "—",
-      weight: editForm.weight.trim() || "—",
-      tutor: editForm.tutor.trim(),
-      phone: editForm.phone.trim() || "—",
-      alerts: parsedAlerts,
-      ecc: editForm.ecc === "none" ? null : Number(editForm.ecc),
-    };
-
-    updatePatient(selected.id, updatedData);
-    setSelected((prev) => (prev ? { ...prev, ...updatedData } : null));
-    setEditOpen(false);
-    toast.success("Dados do paciente e tutor atualizados com sucesso!");
-  };
 
   const handleOpenLink = () => {
     setLinkPetId("");
@@ -371,7 +319,6 @@ const ClinicPatients = () => {
                   onClick={(e) => {
                     e.stopPropagation();
                     setPatientToDelete(p);
-                    setDeletePatientModalOpen(true);
                   }}
                 >
                   <Trash2 className="h-3.5 w-3.5" />
@@ -395,7 +342,7 @@ const ClinicPatients = () => {
                       variant="outline"
                       size="sm"
                       className="h-8 gap-1.5 rounded-full text-xs"
-                      onClick={handleOpenEdit}
+                      onClick={() => navigate(`/clinica/pacientes/${selected.id}/editar`)}
                     >
                       <Edit3 className="h-3.5 w-3.5" /> Editar
                     </Button>
@@ -403,10 +350,7 @@ const ClinicPatients = () => {
                       variant="outline"
                       size="sm"
                       className="h-8 gap-1.5 rounded-full text-xs text-destructive hover:bg-destructive/10 hover:text-destructive border-destructive/30"
-                      onClick={() => {
-                        setPatientToDelete(selected);
-                        setDeletePatientModalOpen(true);
-                      }}
+                      onClick={() => setPatientToDelete(selected)}
                     >
                       <Trash2 className="h-3.5 w-3.5" /> Excluir
                     </Button>
@@ -601,128 +545,6 @@ const ClinicPatients = () => {
         appointments={appointments}
         profile={profile}
       />
-      <Dialog open={editOpen} onOpenChange={setEditOpen}>
-        <DialogContent className="max-h-[90vh] max-w-lg overflow-y-auto">
-          <DialogHeader>
-            <DialogTitle className="font-display">Editar dados do paciente</DialogTitle>
-            <DialogDescription>
-              Atualize as informações cadastrais do pet ou do tutor responsável.
-            </DialogDescription>
-          </DialogHeader>
-          <form onSubmit={handleSaveEdit} className="space-y-4">
-            <div className="grid gap-3 sm:grid-cols-2">
-              <div className="space-y-1.5">
-                <Label htmlFor="editName">Nome do pet</Label>
-                <Input
-                  id="editName"
-                  value={editForm.name}
-                  onChange={(e) => setEditForm((f) => ({ ...f, name: e.target.value }))}
-                />
-              </div>
-              <div className="space-y-1.5">
-                <Label htmlFor="editSpecies">Espécie</Label>
-                <Select
-                  value={editForm.species}
-                  onValueChange={(val) => setEditForm((f) => ({ ...f, species: val }))}
-                >
-                  <SelectTrigger id="editSpecies">
-                    <SelectValue placeholder="Selecione a espécie" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {allEditSpeciesOptions.map((s) => (
-                      <SelectItem key={s} value={s}>
-                        {s}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
-              <div className="space-y-1.5">
-                <Label htmlFor="editBreed">Raça</Label>
-                <Input
-                  id="editBreed"
-                  value={editForm.breed}
-                  onChange={(e) => setEditForm((f) => ({ ...f, breed: e.target.value }))}
-                />
-              </div>
-              <div className="space-y-1.5">
-                <Label htmlFor="editAge">Idade</Label>
-                <Input
-                  id="editAge"
-                  placeholder="Ex: 2 anos"
-                  value={editForm.age}
-                  onChange={(e) => setEditForm((f) => ({ ...f, age: e.target.value }))}
-                />
-              </div>
-              <div className="space-y-1.5">
-                <Label htmlFor="editWeight">Peso</Label>
-                <Input
-                  id="editWeight"
-                  placeholder="Ex: 12.5 kg"
-                  value={editForm.weight}
-                  onChange={(e) => setEditForm((f) => ({ ...f, weight: e.target.value }))}
-                />
-              </div>
-              <div className="space-y-1.5">
-                <Label htmlFor="editPhone">Telefone do tutor</Label>
-                <Input
-                  id="editPhone"
-                  value={editForm.phone}
-                  onChange={(e) => setEditForm((f) => ({ ...f, phone: e.target.value }))}
-                />
-              </div>
-            </div>
-
-            <div className="space-y-1.5">
-              <Label htmlFor="editTutor">Nome do tutor</Label>
-              <Input
-                id="editTutor"
-                value={editForm.tutor}
-                onChange={(e) => setEditForm((f) => ({ ...f, tutor: e.target.value }))}
-              />
-            </div>
-
-            <div className="space-y-1.5">
-              <Label htmlFor="editEcc">Escore de condição corporal (ECC)</Label>
-              <Select
-                value={editForm.ecc}
-                onValueChange={(val) => setEditForm((f) => ({ ...f, ecc: val }))}
-              >
-                <SelectTrigger id="editEcc">
-                  <SelectValue placeholder="Não avaliado" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="none">Não avaliado</SelectItem>
-                  {ECC_OPTIONS.map((option) => (
-                    <SelectItem key={option.value} value={option.value}>
-                      {option.label}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-
-            <div className="space-y-1.5">
-              <Label htmlFor="editAlerts">Alertas clínicos (separados por vírgula)</Label>
-              <Input
-                id="editAlerts"
-                placeholder="Ex: Alérgico a dipirona, Cardiopata"
-                value={editForm.alertsText}
-                onChange={(e) => setEditForm((f) => ({ ...f, alertsText: e.target.value }))}
-              />
-            </div>
-
-            <DialogFooter>
-              <Button type="button" variant="outline" onClick={() => setEditOpen(false)}>
-                Cancelar
-              </Button>
-              <Button type="submit" className="gradient-primary text-primary-foreground">
-                Salvar alterações
-              </Button>
-            </DialogFooter>
-          </form>
-        </DialogContent>
-      </Dialog>
 
       {/* Modal de Solicitação de Vínculo com LivePet */}
       <Dialog open={linkOpen} onOpenChange={setLinkOpen}>
@@ -766,44 +588,53 @@ const ClinicPatients = () => {
         </DialogContent>
       </Dialog>
 
-      {/* Modal de Confirmação de Exclusão de Paciente */}
-      <Dialog open={deletePatientModalOpen} onOpenChange={setDeletePatientModalOpen}>
-        <DialogContent className="max-w-md">
-          <DialogHeader>
-            <DialogTitle className="flex items-center gap-2 text-destructive font-display">
-              <Trash2 className="h-5 w-5" /> Excluir paciente {patientToDelete?.name}?
-            </DialogTitle>
-            <DialogDescription>
-              Tem certeza de que deseja remover o paciente <strong>{patientToDelete?.name}</strong> (Tutor: {patientToDelete?.tutor}) dos registros da clínica?
-              Os atendimentos e histórico deste animal serão excluídos da clínica.
-            </DialogDescription>
-          </DialogHeader>
-          <DialogFooter className="gap-2 sm:gap-0">
+      {/* Confirmação Inline de Exclusão de Paciente (Sem modais flutuantes) */}
+      {patientToDelete && (
+        <div
+          role="alertdialog"
+          aria-labelledby="confirm-delete-patient-title"
+          aria-describedby="confirm-delete-patient-desc"
+          className="fixed bottom-6 right-6 z-50 max-w-md rounded-2xl border border-destructive/40 bg-card p-5 shadow-lg space-y-3"
+        >
+          <div className="flex items-start gap-3">
+            <Trash2 className="h-5 w-5 text-destructive shrink-0 mt-0.5" />
+            <div className="space-y-1">
+              <h4 id="confirm-delete-patient-title" className="text-sm font-semibold text-destructive">
+                Excluir paciente {patientToDelete.name}?
+              </h4>
+              <p id="confirm-delete-patient-desc" className="text-xs text-muted-foreground">
+                Tem certeza de que deseja remover o paciente <strong>{patientToDelete.name}</strong> (Tutor: {patientToDelete.tutor})? Os atendimentos e histórico serão removidos.
+              </p>
+            </div>
+          </div>
+          <div className="flex justify-end gap-2 pt-1">
             <Button
               type="button"
+              size="sm"
               variant="outline"
-              onClick={() => setDeletePatientModalOpen(false)}
+              onClick={() => setPatientToDelete(null)}
             >
               Cancelar
             </Button>
             <Button
               type="button"
+              size="sm"
               variant="destructive"
               onClick={() => {
-                if (!patientToDelete) return;
                 deletePatient(patientToDelete.id);
                 if (selected?.id === patientToDelete.id) {
                   setSelected(null);
                 }
-                setDeletePatientModalOpen(false);
-                toast.success(`Paciente ${patientToDelete.name} excluído com sucesso.`);
+                const name = patientToDelete.name;
+                setPatientToDelete(null);
+                toast.success(`Paciente ${name} excluído com sucesso.`);
               }}
             >
               Excluir paciente
             </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
+          </div>
+        </div>
+      )}
     </div>
   );
 };
