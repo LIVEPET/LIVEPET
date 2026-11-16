@@ -10,40 +10,30 @@ const testimonials = [
       "Nunca mais esqueci uma vacina da Mel. O app me avisa com antecedência e ainda salva tudo certinho. Mudou a forma como cuido dela no dia a dia.",
     name: "Camila Reis",
     pet: "Tutora da Mel",
-    avatar:
-      "https://images.unsplash.com/photo-1494790108377-be9c29b29330?auto=format&fit=crop&w=256&q=80",
   },
   {
     quote:
       "A carteira digital salvou minha vida na viagem. Mostrei tudo do Tom no aeroporto direto pelo celular, sem papelada nenhuma.",
     name: "Rodrigo Almeida",
     pet: "Tutor do Tom",
-    avatar:
-      "https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?auto=format&fit=crop&w=256&q=80",
   },
   {
     quote:
       "Validei o pedigree do meu Golden em minutos. Toda a árvore genealógica disponível, sem precisar correr atrás de papel velho.",
     name: "Beatriz Santos",
     pet: "Tutora da Luna",
-    avatar:
-      "https://images.unsplash.com/photo-1438761681033-6461ffad8d80?auto=format&fit=crop&w=256&q=80",
   },
   {
     quote:
       "O Match foi sucesso! Encontrei um parceiro saudável e validado para a minha cachorrinha. Processo seguro e super transparente.",
     name: "Lucas Pereira",
     pet: "Tutor da Bella",
-    avatar:
-      "https://images.unsplash.com/photo-1531123897727-8f129e1688ce?auto=format&fit=crop&w=256&q=80",
   },
   {
     quote:
       "As parcerias com petshops me deram descontos reais. Já economizei mais do que paguei no plano em um mês só.",
     name: "Mariana Costa",
     pet: "Tutora do Thor",
-    avatar:
-      "https://images.unsplash.com/photo-1544005313-94ddf0286df2?auto=format&fit=crop&w=256&q=80",
   },
 ];
 
@@ -148,14 +138,13 @@ const Testimonials = () => {
                             isActive ? "gradient-primary" : "bg-border"
                           }`}
                         >
-                          <img
-                            src={t.avatar}
-                            alt={t.name}
-                            width={48}
-                            height={48}
-                            loading="lazy"
-                            className="h-12 w-12 rounded-full border-2 border-card object-cover"
-                          />
+                          <div className="flex h-12 w-12 items-center justify-center rounded-full border-2 border-card bg-primary text-sm font-bold text-primary-foreground">
+                            {t.name
+                              .split(" ")
+                              .map((name) => name[0])
+                              .slice(0, 2)
+                              .join("")}
+                          </div>
                         </div>
                         <div>
                           <p className="text-sm font-bold text-foreground">
