@@ -39,6 +39,9 @@ import ClinicDocumentsPage from "./pages/Clinic/ClinicDocumentsPage";
 import ClinicPrescriptionPage from "./pages/Clinic/ClinicPrescriptionPage";
 import ClinicReceiptPage from "./pages/Clinic/ClinicReceiptPage";
 import ClinicInpatient from "./pages/Clinic/ClinicInpatient";
+import ClinicInpatientAdmitPage from "./pages/Clinic/ClinicInpatientAdmitPage";
+import ClinicInpatientBedPage from "./pages/Clinic/ClinicInpatientBedPage";
+import ClinicInpatientDischargePage from "./pages/Clinic/ClinicInpatientDischargePage";
 import ProtectedClinicRoute from "./components/ProtectedClinicRoute";
 import { ClinicProvider } from "@/contexts/ClinicContext";
 import { ClinicAuthProvider } from "@/contexts/ClinicAuthProvider";
@@ -67,6 +70,10 @@ const App = () => (
               <Route path="prescricao/:id" element={<ClinicPrescriptionPage />} />
               <Route path="recibo/:id" element={<ClinicReceiptPage />} />
               <Route path="internacao" element={<ClinicInpatient />} />
+              <Route path="internacao/admitir/:bedId" element={<ClinicInpatientAdmitPage />} />
+              <Route path="internacao/admitir" element={<ClinicInpatientAdmitPage />} />
+              <Route path="internacao/leito/:bedId" element={<ClinicInpatientBedPage />} />
+              <Route path="internacao/alta/:bedId" element={<ClinicInpatientDischargePage />} />
               <Route path="pacientes" element={<ClinicPatients />} />
               <Route path="perfil" element={<ClinicProfile />} />
               <Route path="*" element={<NotFound />} />
