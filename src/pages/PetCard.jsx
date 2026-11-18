@@ -932,7 +932,7 @@ const PetCard = () => {
                   <button
                     key={p.id}
                     onClick={() => setSelectedPetId(p.id)}
-                    className={`flex items-center gap-3 rounded-xl border px-3.5 py-2 text-left transition-all ${
+                    className={`flex shrink-0 min-w-[165px] items-center gap-3 rounded-xl border px-3.5 py-2 text-left transition-all ${
                       isActive
                         ? "border-primary bg-primary/10 shadow-sm ring-1 ring-primary"
                         : "border-border/70 bg-background hover:bg-muted/40"
@@ -2332,5 +2332,4 @@ const Section = ({ title, icon, children }) => (
     {children}
   </div>
 );
-
 export default PetCard;
