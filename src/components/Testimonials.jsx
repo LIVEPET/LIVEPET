@@ -1,4 +1,5 @@
 
+
 import { useCallback, useEffect, useState } from "react";
 import { Quote, ChevronLeft, ChevronRight, RefreshCw } from "lucide-react";
 
@@ -10,6 +11,10 @@ import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { testimonialsService } from "@/services/api";
 
 const getInitials = (name) => {
+  if (typeof name !== "string" || !name.trim()) {
+    return "?";
+  }
+
   return name
     .trim()
     .split(/\s+/)
@@ -22,6 +27,8 @@ const Testimonials = () => {
   const [testimonials, setTestimonials] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
+  const [selected, setSelected] = useState(0);
+  const [snaps, setSnaps] = useState([]);
 
   const [autoplay] = useState(() =>
     Autoplay({
@@ -41,9 +48,6 @@ const Testimonials = () => {
     [autoplay]
   );
 
-  const [selected, setSelected] = useState(0);
-  const [snaps, setSnaps] = useState([]);
-
   const loadTestimonials = useCallback(async () => {
     setLoading(true);
     setError(null);
@@ -52,7 +56,7 @@ const Testimonials = () => {
       const data = await testimonialsService.list();
 
       if (!Array.isArray(data)) {
-        throw new Error("A API retornou um formato de depoimentos inválido.");
+        throw new Error("Formato de depoimentos inválido.");
       }
 
       const validTestimonials = data.map((item) => {
@@ -64,7 +68,7 @@ const Testimonials = () => {
           typeof item.texto !== "string" ||
           !item.texto.trim()
         ) {
-          throw new Error("A API retornou um depoimento com dados inválidos.");
+          throw new Error("Depoimento com dados inválidos.");
         }
 
         return {
@@ -93,6 +97,7 @@ const Testimonials = () => {
 
   const onSelect = useCallback(() => {
     if (!emblaApi) return;
+
     setSelected(emblaApi.selectedScrollSnap());
   }, [emblaApi]);
 
@@ -110,7 +115,7 @@ const Testimonials = () => {
       emblaApi.off("select", onSelect);
       emblaApi.off("reInit", onSelect);
     };
-  }, [emblaApi, onSelect, testimonials]);
+  }, [emblaApi, onSelect, testimonials.length]);
 
   const hasMultipleSlides = snaps.length > 1;
 
@@ -123,9 +128,6 @@ const Testimonials = () => {
 
   return (
     <section className="relative overflow-hidden py-16">
-      <div className="blob h-[320px] w-[320px] -left-20 top-10 bg-warm/20" />
-      <div className="blob h-[360px] w-[360px] -right-24 bottom-0 bg-primary/20" />
-
       <div className="container relative">
         <div className="mx-auto mb-10 max-w-2xl text-center">
           <h2 className="font-display text-3xl font-bold leading-tight text-foreground text-balance sm:text-4xl">
@@ -152,6 +154,7 @@ const Testimonials = () => {
                     <div className="h-3 w-20 animate-pulse rounded bg-muted" />
                   </div>
                 </div>
+
                 <div className="mt-6 space-y-3">
                   <div className="h-3 w-full animate-pulse rounded bg-muted" />
                   <div className="h-3 w-full animate-pulse rounded bg-muted" />
@@ -168,6 +171,7 @@ const Testimonials = () => {
             role="alert"
           >
             <p className="text-sm text-muted-foreground">{error}</p>
+
             <button
               type="button"
               onClick={loadTestimonials}
@@ -193,6 +197,7 @@ const Testimonials = () => {
             {hasMultipleSlides && (
               <>
                 <div className="pointer-events-none absolute inset-y-0 left-0 z-10 w-12 bg-gradient-to-r from-background to-transparent sm:w-24" />
+
                 <div className="pointer-events-none absolute inset-y-0 right-0 z-10 w-12 bg-gradient-to-l from-background to-transparent sm:w-24" />
 
                 <button
@@ -232,10 +237,22 @@ const Testimonials = () => {
                             : "translate-y-3 scale-[0.92] border-border/50 opacity-50 blur-[1px] shadow-card"
                         }`}
                       >
+                        <div
+                          className={`pointer-events-none absolute inset-0 transition-opacity duration-500 ${
+                            isActive ? "opacity-100" : "opacity-0"
+                          }`}
+                          style={{
+                            background:
+                              "radial-gradient(120% 80% at 0% 0%, hsl(var(--primary) / 0.10), transparent 60%), radial-gradient(120% 80% at 100% 100%, hsl(var(--warm) / 0.12), transparent 60%)",
+                          }}
+                        />
+
                         <Quote
                           aria-hidden="true"
                           className={`absolute right-5 top-5 h-10 w-10 rotate-180 transition-all duration-500 ${
-                            isActive ? "text-primary/25" : "text-primary/10"
+                            isActive
+                              ? "text-primary/25"
+                              : "text-primary/10"
                           }`}
                           strokeWidth={1.5}
                         />
