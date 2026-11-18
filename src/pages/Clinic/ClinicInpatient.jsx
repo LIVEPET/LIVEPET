@@ -1,110 +1,37 @@
 import { useMemo, useState } from "react";
+import { useNavigate } from "react-router-dom";
 import {
   Activity,
   BedDouble,
   CheckCircle2,
   ClipboardList,
   Clock,
-  FileCheck2,
-  HeartPulse,
   PawPrint,
   Pill,
   Plus,
   Sparkles,
   Stethoscope,
-  Thermometer,
   Utensils,
 } from "lucide-react";
 import { toast } from "sonner";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
-import { Textarea } from "@/components/ui/textarea";
 import { Progress } from "@/components/ui/progress";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogHeader,
-  DialogTitle,
-} from "@/components/ui/dialog";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
 import { BED_SECTORS, bedStatusStyles } from "@/data/clinicDemo";
 import { useClinic } from "@/contexts/ClinicContext";
-import {
-  BedMedicationScheduleSection,
-  computeMedicationStats,
-  InpatientDischargeDialog,
-} from "./InpatientDischargeBulletin";
-
-const DEFAULT_SPECIES = ["Cão", "Gato", "Ave", "Roedor", "Réptil", "Outro"];
-const DEFAULT_VET = "Equipe da clínica";
-
-const emptyAdmissionForm = {
-  patientId: "",
-  petName: "",
-  species: "Cão",
-  breed: "",
-  tutor: "",
-  vet: "",
-  reason: "",
-  prescription: "",
-  diet: "",
-  nextMedicationTime: "14:00",
-};
-
-const emptyEvolutionForm = {
-  note: "",
-  temperature: "",
-  vet: "",
-  prescription: "",
-  diet: "",
-  nextMedicationTime: "",
-  dischargeNote: "",
-};
-
-const toName = (item) => (typeof item === "string" ? item : item?.name);
-const uniqueNames = (items) => [...new Set((items || []).map(toName).filter(Boolean))];
+import { computeMedicationStats } from "./InpatientDischargeBulletin";
 
 const ClinicInpatient = () => {
+  const navigate = useNavigate();
   const {
     beds = [],
-    patients = [],
-    profile,
-    admitPatientToBed,
-    addBedEvolution,
-    addBedMedicationItem,
-    toggleBedMedicationStatus,
-    removeBedMedicationItem,
-    dischargePatientFromBed,
     releaseBedFromCleaning,
     setBedCleaning,
   } = useClinic();
 
   const [sectorFilter, setSectorFilter] = useState("Todos");
-  const [selectedBedId, setSelectedBedId] = useState(null);
-  const [admitOpen, setAdmitOpen] = useState(false);
-  const [manageOpen, setManageOpen] = useState(false);
-  const [bulletinSnapshot, setBulletinSnapshot] = useState(null);
-  const [admitForm, setAdmitForm] = useState(emptyAdmissionForm);
-  const [admitError, setAdmitError] = useState("");
-  const [evolutionForm, setEvolutionForm] = useState(emptyEvolutionForm);
-
-  const team = useMemo(() => uniqueNames(profile?.team), [profile?.team]);
-
-  const selectedBed = useMemo(
-    () => beds.find((b) => b.id === selectedBedId) || null,
-    [beds, selectedBedId],
-  );
 
   const counts = useMemo(() => {
     const total = beds.length;
@@ -121,122 +48,6 @@ const ClinicInpatient = () => {
     [beds, sectorFilter],
   );
 
-  const handleOpenAdmit = (bed) => {
-    setSelectedBedId(bed.id);
-    setAdmitError("");
-    setAdmitForm({
-      ...emptyAdmissionForm,
-      species: bed.sector === "Gatil" ? "Gato" : "Cão",
-      vet: team[0] || DEFAULT_VET,
-    });
-    setAdmitOpen(true);
-  };
-
-  const handleSelectExistingPatient = (patientId) => {
-    const found = patients.find((p) => String(p.id) === String(patientId));
-    if (!found) {
-      setAdmitForm((f) => ({ ...f, patientId: "" }));
-      return;
-    }
-    setAdmitForm((f) => ({
-      ...f,
-      patientId: String(found.id),
-      petName: found.name || f.petName,
-      species: found.species || f.species,
-      breed: found.breed || f.breed,
-      tutor: found.tutor || f.tutor,
-    }));
-  };
-
-  const handleConfirmAdmission = (e) => {
-    e.preventDefault();
-    if (!selectedBed) return;
-    if (!admitForm.petName.trim()) {
-      setAdmitError("Informe o nome do paciente para admitir na baia.");
-      return;
-    }
-    if (!admitForm.reason.trim()) {
-      setAdmitError("Informe o motivo da internação.");
-      return;
-    }
-
-    admitPatientToBed(selectedBed.id, {
-      patientId: admitForm.patientId || null,
-      petName: admitForm.petName.trim(),
-      species: admitForm.species || "Cão",
-      breed: admitForm.breed.trim() || "—",
-      tutor: admitForm.tutor.trim() || "Tutor cadastrado",
-      vet: admitForm.vet.trim() || team[0] || DEFAULT_VET,
-      reason: admitForm.reason.trim(),
-      prescription: admitForm.prescription.trim() || "Fluidoterapia e monitoramento",
-      diet: admitForm.diet.trim() || "Dieta hospitalar fracionada",
-      nextMedicationTime: admitForm.nextMedicationTime || "14:00",
-    });
-
-    setAdmitOpen(false);
-    toast.success(`${admitForm.petName} admitido(a) em ${selectedBed.name}!`);
-  };
-
-  const handleOpenManage = (bed) => {
-    setSelectedBedId(bed.id);
-    setEvolutionForm({
-      note: "",
-      temperature: "",
-      vet: bed.occupant?.vet || team[0] || DEFAULT_VET,
-      prescription: bed.occupant?.prescription || "",
-      diet: bed.occupant?.diet || "",
-      nextMedicationTime: bed.occupant?.nextMedicationTime || "",
-      dischargeNote: "",
-    });
-    setManageOpen(true);
-  };
-
-  const handleSaveEvolution = (e) => {
-    e.preventDefault();
-    if (!selectedBed || !selectedBed.occupant) return;
-    if (!evolutionForm.note.trim()) {
-      toast.error("Descreva a evolução clínica do paciente.");
-      return;
-    }
-
-    addBedEvolution(selectedBed.id, {
-      note: evolutionForm.note,
-      temperature: evolutionForm.temperature,
-      vet: evolutionForm.vet || selectedBed.occupant.vet,
-      prescription: evolutionForm.prescription,
-      diet: evolutionForm.diet,
-      nextMedicationTime: evolutionForm.nextMedicationTime,
-    });
-
-    setEvolutionForm((f) => ({ ...f, note: "", temperature: "" }));
-    toast.success(`Evolução clínica registrada para ${selectedBed.occupant.petName}.`);
-  };
-
-  const handleDischarge = (customNote) => {
-    const targetBed = selectedBed || bulletinSnapshot?.bed;
-    const targetOcc = selectedBed?.occupant || bulletinSnapshot?.occupant;
-    if (!targetBed || !targetOcc) return;
-
-    const noteToSave =
-      typeof customNote === "string" ? customNote : evolutionForm.dischargeNote;
-    const petName = targetOcc.petName;
-    const bedName = targetBed.name;
-    dischargePatientFromBed(targetBed.id, noteToSave);
-    setManageOpen(false);
-    toast.success(`Alta médica registrada para ${petName}!`, {
-      description: `${bedName} agora está Em Higienização.`,
-    });
-  };
-
-  const handleOpenDischargeBulletin = () => {
-    if (!selectedBed || !selectedBed.occupant) return;
-    setBulletinSnapshot({
-      bed: selectedBed,
-      occupant: selectedBed.occupant,
-      dischargeNote: evolutionForm.dischargeNote,
-    });
-  };
-
   const handleReleaseCleaning = (bed) => {
     releaseBedFromCleaning(bed.id);
     toast.success(`${bed.name} liberada e pronta para novo paciente!`);
@@ -244,9 +55,9 @@ const ClinicInpatient = () => {
 
   const handleBedCardClick = (bed) => {
     if (bed.status === "Livre") {
-      handleOpenAdmit(bed);
+      navigate(`/clinica/internacao/admitir/${bed.id}`);
     } else if (bed.status === "Ocupada") {
-      handleOpenManage(bed);
+      navigate(`/clinica/internacao/leito/${bed.id}`);
     }
   };
 
@@ -476,7 +287,7 @@ const ClinicInpatient = () => {
                         className="w-full rounded-full gap-1.5 text-xs"
                         onClick={(e) => {
                           e.stopPropagation();
-                          handleOpenManage(bed);
+                          navigate(`/clinica/internacao/leito/${bed.id}`);
                         }}
                       >
                         <ClipboardList className="h-3.5 w-3.5" />
@@ -500,7 +311,7 @@ const ClinicInpatient = () => {
                         className="w-full rounded-full gap-1.5 text-xs gradient-primary text-primary-foreground"
                         onClick={(e) => {
                           e.stopPropagation();
-                          handleOpenAdmit(bed);
+                          navigate(`/clinica/internacao/admitir/${bed.id}`);
                         }}
                       >
                         <Plus className="h-3.5 w-3.5" /> Admitir paciente
@@ -552,444 +363,6 @@ const ClinicInpatient = () => {
         })}
       </div>
 
-      {/* Modal 1: Admitir Paciente em Baia Livre */}
-      <Dialog open={admitOpen} onOpenChange={setAdmitOpen}>
-        <DialogContent className="max-h-[90vh] max-w-lg overflow-y-auto">
-          {selectedBed && (
-            <>
-              <DialogHeader>
-                <DialogTitle className="font-display text-xl">
-                  Internar Paciente — {selectedBed.name} ({selectedBed.sector})
-                </DialogTitle>
-                <DialogDescription>
-                  Registre os dados clínicos da admissão hospitalar, dieta e medicação.
-                </DialogDescription>
-              </DialogHeader>
-
-              <form onSubmit={handleConfirmAdmission} className="space-y-4">
-                {patients.length > 0 && (
-                  <div className="space-y-1.5">
-                    <Label htmlFor="admit-patient-select">Selecionar paciente cadastrado (opcional)</Label>
-                    <Select
-                      value={admitForm.patientId}
-                      onValueChange={handleSelectExistingPatient}
-                    >
-                      <SelectTrigger id="admit-patient-select">
-                        <SelectValue placeholder="Escolher da lista da clínica..." />
-                      </SelectTrigger>
-                      <SelectContent>
-                        {patients.map((p) => (
-                          <SelectItem key={p.id} value={String(p.id)}>
-                            {p.name} ({p.species} · Tutor: {p.tutor})
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                  </div>
-                )}
-
-                <div className="grid gap-3 sm:grid-cols-2">
-                  <div className="space-y-1.5">
-                    <Label htmlFor="admit-petName">Nome do Pet *</Label>
-                    <Input
-                      id="admit-petName"
-                      placeholder="Ex.: Thor"
-                      value={admitForm.petName}
-                      onChange={(e) =>
-                        setAdmitForm((f) => ({ ...f, petName: e.target.value }))
-                      }
-                    />
-                  </div>
-
-                  <div className="space-y-1.5">
-                    <Label htmlFor="admit-species">Espécie</Label>
-                    <Select
-                      value={admitForm.species}
-                      onValueChange={(v) => setAdmitForm((f) => ({ ...f, species: v }))}
-                    >
-                      <SelectTrigger id="admit-species">
-                        <SelectValue />
-                      </SelectTrigger>
-                      <SelectContent>
-                        {DEFAULT_SPECIES.map((s) => (
-                          <SelectItem key={s} value={s}>
-                            {s}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                  </div>
-
-                  <div className="space-y-1.5">
-                    <Label htmlFor="admit-breed">Raça</Label>
-                    <Input
-                      id="admit-breed"
-                      placeholder="Ex.: Golden Retriever"
-                      value={admitForm.breed}
-                      onChange={(e) =>
-                        setAdmitForm((f) => ({ ...f, breed: e.target.value }))
-                      }
-                    />
-                  </div>
-
-                  <div className="space-y-1.5">
-                    <Label htmlFor="admit-tutor">Tutor</Label>
-                    <Input
-                      id="admit-tutor"
-                      placeholder="Nome do responsável"
-                      value={admitForm.tutor}
-                      onChange={(e) =>
-                        setAdmitForm((f) => ({ ...f, tutor: e.target.value }))
-                      }
-                    />
-                  </div>
-
-                  <div className="space-y-1.5">
-                    <Label htmlFor="admit-vet">Veterinário Responsável</Label>
-                    <Input
-                      id="admit-vet"
-                      placeholder="Ex.: Dra. Sofia"
-                      value={admitForm.vet}
-                      onChange={(e) =>
-                        setAdmitForm((f) => ({ ...f, vet: e.target.value }))
-                      }
-                    />
-                  </div>
-
-                  <div className="space-y-1.5">
-                    <Label htmlFor="admit-nextMed">Horário da Próxima Medicação</Label>
-                    <Input
-                      id="admit-nextMed"
-                      type="time"
-                      value={admitForm.nextMedicationTime}
-                      onChange={(e) =>
-                        setAdmitForm((f) => ({
-                          ...f,
-                          nextMedicationTime: e.target.value,
-                        }))
-                      }
-                    />
-                  </div>
-                </div>
-
-                <div className="space-y-1.5">
-                  <Label htmlFor="admit-reason">Motivo da Internação *</Label>
-                  <Input
-                    id="admit-reason"
-                    placeholder="Ex.: Gastroenterite hemorrágica, observação pós-operatória..."
-                    value={admitForm.reason}
-                    onChange={(e) =>
-                      setAdmitForm((f) => ({ ...f, reason: e.target.value }))
-                    }
-                  />
-                </div>
-
-                <div className="space-y-1.5">
-                  <Label htmlFor="admit-diet">Dieta Hospitalar</Label>
-                  <Input
-                    id="admit-diet"
-                    placeholder="Ex.: Ração pastosa gastrointestinal a cada 6h"
-                    value={admitForm.diet}
-                    onChange={(e) =>
-                      setAdmitForm((f) => ({ ...f, diet: e.target.value }))
-                    }
-                  />
-                </div>
-
-                <div className="space-y-1.5">
-                  <Label htmlFor="admit-prescription">Prescrição Hospitalar</Label>
-                  <Textarea
-                    id="admit-prescription"
-                    rows={2}
-                    placeholder="Ex.: Ringer Lactato 30 ml/h IV + Ondansetrona 0,5 mg/kg..."
-                    value={admitForm.prescription}
-                    onChange={(e) =>
-                      setAdmitForm((f) => ({ ...f, prescription: e.target.value }))
-                    }
-                  />
-                </div>
-
-                {admitError && (
-                  <p role="alert" className="text-xs font-medium text-destructive">
-                    {admitError}
-                  </p>
-                )}
-
-                <div className="flex justify-end gap-2 pt-2">
-                  <Button type="button" variant="outline" onClick={() => setAdmitOpen(false)}>
-                    Cancelar
-                  </Button>
-                  <Button type="submit" className="gradient-primary text-primary-foreground">
-                    Confirmar Internação
-                  </Button>
-                </div>
-              </form>
-            </>
-          )}
-        </DialogContent>
-      </Dialog>
-
-      {/* Modal 2: Gerenciar Baia Ocupada (Aprazamento, Evolução Clínica e Alta Médica) */}
-      <Dialog open={manageOpen} onOpenChange={setManageOpen}>
-        <DialogContent className="max-h-[92vh] max-w-2xl overflow-y-auto">
-          {selectedBed && selectedBed.occupant && (
-            <>
-              <DialogHeader>
-                <div className="flex flex-wrap items-center justify-between gap-2">
-                  <div>
-                    <DialogTitle className="font-display text-2xl">
-                      Prontuário de Internação — {selectedBed.name}
-                    </DialogTitle>
-                    <DialogDescription>
-                      {selectedBed.occupant.petName} ({selectedBed.occupant.species} ·{" "}
-                      {selectedBed.occupant.breed}) · Tutor: {selectedBed.occupant.tutor}
-                    </DialogDescription>
-                  </div>
-                  <Badge className="border-rose-500/30 bg-rose-500/15 text-rose-700">
-                    Ocupada · {selectedBed.sector}
-                  </Badge>
-                </div>
-              </DialogHeader>
-
-              <div className="space-y-5 pt-2">
-                {/* Resumo da Internação */}
-                <div className="grid gap-3 rounded-2xl border border-border/80 bg-muted/30 p-4 sm:grid-cols-2">
-                  <div>
-                    <p className="text-xs text-muted-foreground">Motivo da internação</p>
-                    <p className="text-sm font-semibold">{selectedBed.occupant.reason}</p>
-                  </div>
-                  <div>
-                    <p className="text-xs text-muted-foreground">Veterinário responsável</p>
-                    <p className="text-sm font-semibold">{selectedBed.occupant.vet}</p>
-                  </div>
-                  <div>
-                    <p className="text-xs text-muted-foreground">Dieta prescrita</p>
-                    <p className="text-sm font-medium">{selectedBed.occupant.diet}</p>
-                  </div>
-                  <div>
-                    <p className="text-xs text-muted-foreground">Próxima medicação</p>
-                    <p className="text-sm font-bold text-amber-700 dark:text-amber-400">
-                      {selectedBed.occupant.nextMedicationTime}
-                    </p>
-                  </div>
-                </div>
-
-                {/* Mapa de Aprazamento de Medicações e Cuidados no Leito */}
-                <BedMedicationScheduleSection
-                  bedId={selectedBed.id}
-                  occupant={selectedBed.occupant}
-                  onAddMedication={addBedMedicationItem}
-                  onToggleMedication={toggleBedMedicationStatus}
-                  onRemoveMedication={removeBedMedicationItem}
-                />
-
-                {/* Formulário de Nova Evolução */}
-                <form
-                  onSubmit={handleSaveEvolution}
-                  className="space-y-3 rounded-2xl border border-border/80 bg-card p-4"
-                >
-                  <p className="flex items-center gap-1.5 text-sm font-semibold">
-                    <Activity className="h-4 w-4 text-primary" /> Registrar Evolução Hospitalar
-                  </p>
-
-                  <div className="grid gap-3 sm:grid-cols-3">
-                    <div className="space-y-1">
-                      <Label htmlFor="evo-temp" className="text-xs">
-                        Temperatura (°C)
-                      </Label>
-                      <Input
-                        id="evo-temp"
-                        type="number"
-                        step="0.1"
-                        placeholder="Ex.: 38.5"
-                        value={evolutionForm.temperature}
-                        onChange={(e) =>
-                          setEvolutionForm((f) => ({ ...f, temperature: e.target.value }))
-                        }
-                      />
-                    </div>
-                    <div className="space-y-1">
-                      <Label htmlFor="evo-nextMed" className="text-xs">
-                        Próx. Medicação
-                      </Label>
-                      <Input
-                        id="evo-nextMed"
-                        type="time"
-                        value={evolutionForm.nextMedicationTime}
-                        onChange={(e) =>
-                          setEvolutionForm((f) => ({
-                            ...f,
-                            nextMedicationTime: e.target.value,
-                          }))
-                        }
-                      />
-                    </div>
-                    <div className="space-y-1">
-                      <Label htmlFor="evo-vet" className="text-xs">
-                        Plantonista
-                      </Label>
-                      <Input
-                        id="evo-vet"
-                        value={evolutionForm.vet}
-                        onChange={(e) =>
-                          setEvolutionForm((f) => ({ ...f, vet: e.target.value }))
-                        }
-                      />
-                    </div>
-                  </div>
-
-                  <div className="grid gap-3 sm:grid-cols-2">
-                    <div className="space-y-1">
-                      <Label htmlFor="evo-diet" className="text-xs">
-                        Atualizar Dieta
-                      </Label>
-                      <Input
-                        id="evo-diet"
-                        value={evolutionForm.diet}
-                        onChange={(e) =>
-                          setEvolutionForm((f) => ({ ...f, diet: e.target.value }))
-                        }
-                      />
-                    </div>
-                    <div className="space-y-1">
-                      <Label htmlFor="evo-presc" className="text-xs">
-                        Atualizar Prescrição
-                      </Label>
-                      <Input
-                        id="evo-presc"
-                        value={evolutionForm.prescription}
-                        onChange={(e) =>
-                          setEvolutionForm((f) => ({ ...f, prescription: e.target.value }))
-                        }
-                      />
-                    </div>
-                  </div>
-
-                  <div className="space-y-1">
-                    <Label htmlFor="evo-note" className="text-xs">
-                      Observações da Evolução Clínica *
-                    </Label>
-                    <Textarea
-                      id="evo-note"
-                      rows={2}
-                      placeholder="Relate parâmetros vitais, aceitação de dieta, administração de fármacos e resposta clínica..."
-                      value={evolutionForm.note}
-                      onChange={(e) =>
-                        setEvolutionForm((f) => ({ ...f, note: e.target.value }))
-                      }
-                    />
-                  </div>
-
-                  <div className="flex justify-end">
-                    <Button type="submit" size="sm" className="rounded-full">
-                      Salvar Evolução
-                    </Button>
-                  </div>
-                </form>
-
-                {/* Histórico de Evoluções */}
-                <div className="space-y-2">
-                  <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
-                    Histórico de Evoluções no Leito ({(selectedBed.occupant.evolutions || []).length})
-                  </p>
-                  {(selectedBed.occupant.evolutions || []).length > 0 ? (
-                    <div className="max-h-40 space-y-2 overflow-y-auto pr-1">
-                      {selectedBed.occupant.evolutions.map((ev) => (
-                        <div
-                          key={ev.id}
-                          className="rounded-xl border border-border/70 bg-muted/20 p-3 text-xs"
-                        >
-                          <div className="flex items-center justify-between font-semibold text-foreground">
-                            <span>
-                              {ev.time} — {ev.vet}
-                            </span>
-                            {ev.temperature && (
-                              <span className="inline-flex items-center gap-1 text-primary">
-                                <Thermometer className="h-3 w-3" /> {ev.temperature} °C
-                              </span>
-                            )}
-                          </div>
-                          <p className="mt-1 text-muted-foreground">{ev.note}</p>
-                        </div>
-                      ))}
-                    </div>
-                  ) : (
-                    <p className="text-xs text-muted-foreground">
-                      Nenhuma evolução registrada ainda neste turno.
-                    </p>
-                  )}
-                </div>
-
-                {/* Recomendações de Alta Médica (Opcional) */}
-                <div className="space-y-1.5 rounded-2xl border border-border/80 bg-muted/20 p-4">
-                  <Label htmlFor="evo-dischargeNote" className="text-xs font-semibold">
-                    Recomendações de Alta Hospitalar <span className="font-normal text-muted-foreground">(registradas no prontuário e no Boletim de Alta)</span>
-                  </Label>
-                  <Textarea
-                    id="evo-dischargeNote"
-                    rows={2}
-                    placeholder="Ex.: Manter dipirona oral por 3 dias, dieta gastrointestinal e retorno em 7 dias..."
-                    value={evolutionForm.dischargeNote}
-                    onChange={(e) =>
-                      setEvolutionForm((f) => ({ ...f, dischargeNote: e.target.value }))
-                    }
-                  />
-                </div>
-
-                {/* Rodapé com Boletim de Alta e botão de Alta Médica */}
-                <div className="flex flex-col-reverse items-center justify-between gap-3 border-t border-border pt-4 sm:flex-row">
-                  <Button
-                    type="button"
-                    variant="outline"
-                    onClick={() => setManageOpen(false)}
-                  >
-                    Fechar
-                  </Button>
-                  <div className="flex w-full flex-col gap-2 sm:w-auto sm:flex-row">
-                    <Button
-                      type="button"
-                      variant="outline"
-                      data-testid="btn-open-discharge-bulletin"
-                      className="w-full rounded-full gap-1.5 border-primary/40 text-primary hover:bg-primary-soft sm:w-auto"
-                      onClick={handleOpenDischargeBulletin}
-                    >
-                      <FileCheck2 className="h-4 w-4" />
-                      Boletim de Alta Hospitalar
-                    </Button>
-                    <Button
-                      type="button"
-                      data-testid="btn-discharge-patient"
-                      className="w-full rounded-full bg-emerald-600 text-white hover:bg-emerald-700 sm:w-auto"
-                      onClick={() => handleDischarge(evolutionForm.dischargeNote)}
-                    >
-                      <CheckCircle2 className="mr-1.5 h-4 w-4" />
-                      Dar Alta Médica
-                    </Button>
-                  </div>
-                </div>
-              </div>
-            </>
-          )}
-        </DialogContent>
-      </Dialog>
-
-      {/* Modal 3: Boletim de Alta Hospitalar Timbrado */}
-      <InpatientDischargeDialog
-        open={Boolean(bulletinSnapshot)}
-        onOpenChange={(o) => !o && setBulletinSnapshot(null)}
-        bed={bulletinSnapshot?.bed}
-        occupant={
-          selectedBed && selectedBed.id === bulletinSnapshot?.bed?.id && selectedBed.occupant
-            ? selectedBed.occupant
-            : bulletinSnapshot?.occupant
-        }
-        profile={profile}
-        initialDischargeNote={bulletinSnapshot?.dischargeNote || evolutionForm.dischargeNote}
-        onConfirmDischarge={(finalNote) => {
-          handleDischarge(finalNote);
-          setBulletinSnapshot(null);
-        }}
-      />
     </div>
   );
 };

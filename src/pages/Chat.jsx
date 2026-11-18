@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { Link, useNavigate, useSearchParams } from "react-router-dom";
+import livepetLogo from "@/assets/livepet-logo.png";
 import {
   MessageCircle,
   Send,
@@ -157,7 +158,7 @@ const Chat = () => {
           id: "assistente_livepet_bot",
           title: "Assistente LivePet — Confirmações de Anúncios",
           petName: "Assistente Oficial",
-          petPhoto: "https://images.unsplash.com/photo-1543466835-00a7907e9de1?auto=format&fit=crop&w=400&q=80",
+          petPhoto: livepetLogo,
           sellerName: "Assistente LivePet",
           sellerPhone: "",
           source: "sistema",
@@ -166,8 +167,14 @@ const Chat = () => {
         };
         currentConvs.unshift(systemConv);
       }
-
+      
       let modified = false;
+
+      if (systemConv.petPhoto !== livepetLogo) {
+        systemConv.petPhoto = livepetLogo;
+        modified = true;
+      }
+
 
       for (const listing of myListings) {
         // Se necessita confirmação (ou status pending_confirmation)

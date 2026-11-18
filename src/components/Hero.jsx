@@ -101,7 +101,7 @@ const Hero = ({ stats, loading, error }) => {
               style={{ animationDelay: "1.1s" }}
             />
 
-            {/* foto Unsplash em moldura circular */}
+            {/* foto do pet em moldura circular */}
             <div className="relative h-full w-full overflow-hidden rounded-[2.5rem] shadow-glow ring-4 ring-card/70">
               <img
                 src={heroPets}
