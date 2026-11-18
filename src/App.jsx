@@ -42,6 +42,7 @@ import ClinicInpatient from "./pages/Clinic/ClinicInpatient";
 import ClinicInpatientAdmitPage from "./pages/Clinic/ClinicInpatientAdmitPage";
 import ClinicInpatientBedPage from "./pages/Clinic/ClinicInpatientBedPage";
 import ClinicInpatientDischargePage from "./pages/Clinic/ClinicInpatientDischargePage";
+import ClinicEditPatient from "./pages/Clinic/ClinicEditPatient";
 import ProtectedClinicRoute from "./components/ProtectedClinicRoute";
 import { ClinicProvider } from "@/contexts/ClinicContext";
 import { ClinicAuthProvider } from "@/contexts/ClinicAuthProvider";
@@ -75,6 +76,7 @@ const App = () => (
               <Route path="internacao/leito/:bedId" element={<ClinicInpatientBedPage />} />
               <Route path="internacao/alta/:bedId" element={<ClinicInpatientDischargePage />} />
               <Route path="pacientes" element={<ClinicPatients />} />
+              <Route path="pacientes/:id/editar" element={<ClinicEditPatient />} />
               <Route path="perfil" element={<ClinicProfile />} />
               <Route path="*" element={<NotFound />} />
             </Route>
