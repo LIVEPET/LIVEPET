@@ -1,9 +1,12 @@
 import { render, screen, within, fireEvent } from "@testing-library/react";
-import { MemoryRouter } from "react-router-dom";
+import { MemoryRouter, Route, Routes } from "react-router-dom";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { ClinicProvider, STORAGE_KEY } from "@/contexts/ClinicContext";
 import { stubRadixForJsdom } from "@/test/clinicTestUtils";
 import ClinicInpatient from "./ClinicInpatient";
+import ClinicInpatientAdmitPage from "./ClinicInpatientAdmitPage";
+import ClinicInpatientBedPage from "./ClinicInpatientBedPage";
+import ClinicInpatientDischargePage from "./ClinicInpatientDischargePage";
 import ClinicPatients from "./ClinicPatients";
 
 const savePdfMock = vi.fn();
@@ -51,7 +54,25 @@ const renderInpatient = () =>
   render(
     <MemoryRouter initialEntries={["/clinica/internacao"]}>
       <ClinicProvider>
-        <ClinicInpatient />
+        <Routes>
+          <Route path="/clinica/internacao" element={<ClinicInpatient />} />
+          <Route
+            path="/clinica/internacao/admitir/:bedId"
+            element={<ClinicInpatientAdmitPage />}
+          />
+          <Route
+            path="/clinica/internacao/admitir"
+            element={<ClinicInpatientAdmitPage />}
+          />
+          <Route
+            path="/clinica/internacao/leito/:bedId"
+            element={<ClinicInpatientBedPage />}
+          />
+          <Route
+            path="/clinica/internacao/alta/:bedId"
+            element={<ClinicInpatientDischargePage />}
+          />
+        </Routes>
       </ClinicProvider>
     </MemoryRouter>,
   );
@@ -169,8 +190,26 @@ describe("ClinicInpatient — Mapa de Leitos, Aprazamento e Boletim de Alta (Iss
     render(
       <MemoryRouter initialEntries={["/clinica/internacao"]}>
         <ClinicProvider>
-          <ClinicInpatient />
-          <ClinicPatients />
+          <Routes>
+            <Route path="/clinica/internacao" element={<ClinicInpatient />} />
+            <Route
+              path="/clinica/internacao/admitir/:bedId"
+              element={<ClinicInpatientAdmitPage />}
+            />
+            <Route
+              path="/clinica/internacao/admitir"
+              element={<ClinicInpatientAdmitPage />}
+            />
+            <Route
+              path="/clinica/internacao/leito/:bedId"
+              element={<ClinicInpatientBedPage />}
+            />
+            <Route
+              path="/clinica/internacao/alta/:bedId"
+              element={<ClinicInpatientDischargePage />}
+            />
+            <Route path="/clinica/pacientes" element={<ClinicPatients />} />
+          </Routes>
         </ClinicProvider>
       </MemoryRouter>,
     );
