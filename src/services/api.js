@@ -952,7 +952,6 @@ export const clinicService = {
   },
 };
 
-
 /**
  * Estatísticas públicas da plataforma.
  */
@@ -962,10 +961,21 @@ export const statsService = {
   },
 };
 
+/**
+ * Serviço de depoimentos públicos da landing page.
+ */
+export const testimonialsService = {
+  async list() {
+    return apiFetch("/api/v1/depoimentos");
+  },
+};
+
 export default {
   auth: authService,
   pets: petsService,
   lineages: lineageService,
   marketplace: marketplaceService,
   clinic: clinicService,
+  stats: statsService,
+  testimonials: testimonialsService,
 };
