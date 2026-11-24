@@ -16,11 +16,22 @@ export const addDaysToIsoDate = (baseIsoDate, days) => {
 };
 
 export const formatIsoDateBR = (isoDate) => {
-  if (!isoDate || typeof isoDate !== "string") return "—";
-  const parts = isoDate.split("-");
+  if (!isoDate || typeof isoDate !== "string") return "-";
+  const clean = isoDate.split("T")[0];
+  const parts = clean.split("-");
   if (parts.length !== 3) return isoDate;
   return `${parts[2]}/${parts[1]}/${parts[0]}`;
 };
+
+// Remove emojis, seletores de variação, ZWJ e travessões especiais Unicode
+// para evitar caracteres de substituição ("") no redirecionamento do WhatsApp.
+export const sanitizeWhatsAppText = (text) =>
+  String(text ?? "")
+    .replace(/[\u2013\u2014]/g, "-")
+    .replace(/[\uD800-\uDBFF][\uDC00-\uDFFF]/g, "")
+    .replace(/[\u2600-\u27BF\uFE00-\uFE0F\u200D\uFFFD]/g, "")
+    .replace(/[ \t]{2,}/g, " ")
+    .trim();
 
 export const isReturnAppointmentItem = (appointment) => {
   if (!appointment) return false;
@@ -36,17 +47,18 @@ export const buildWhatsAppUrl = (appointment, profile = {}) => {
       ? `55${rawPhone}`
       : rawPhone || "5511999999999";
 
-  const clinicName = profile?.name || "Clínica Veterinária LivePet";
-  const clinicCrmv = profile?.crmv ? ` (${profile.crmv})` : "";
-  const tutor = appointment?.tutor || "Tutor(a)";
-  const petName = appointment?.petName || "seu pet";
-  const service = appointment?.service || "Atendimento veterinário";
+  const clinicName = sanitizeWhatsAppText(profile?.name) || "Clínica Veterinária LivePet";
+  const clinicCrmv = profile?.crmv ? ` (${sanitizeWhatsAppText(profile.crmv)})` : "";
+  const tutor = sanitizeWhatsAppText(appointment?.tutor) || "Tutor(a)";
+  const petName = sanitizeWhatsAppText(appointment?.petName) || "seu pet";
+  const service = sanitizeWhatsAppText(appointment?.service) || "Atendimento veterinário";
   const dateBR = formatIsoDateBR(appointment?.date);
-  const time = appointment?.time || "horário agendado";
-  const vet = appointment?.vet || "Equipe da clínica";
+  const time = sanitizeWhatsAppText(appointment?.time) || "horário agendado";
+  const vet = sanitizeWhatsAppText(appointment?.vet) || "Equipe da clínica";
+  const cleanNotes = sanitizeWhatsAppText(appointment?.notes);
 
-  const extraNote = appointment?.notes
-    ? `\n- *Observações / Orientações:* ${appointment.notes}`
+  const extraNote = cleanNotes
+    ? `\n- *Observações / Orientações:* ${cleanNotes}`
     : "";
 
   const message =
