@@ -107,6 +107,10 @@ describe("ClinicInpatient — Mapa de Leitos, Aprazamento e Boletim de Alta (Iss
     fireEvent.click(canil01);
 
     fireEvent.change(screen.getByLabelText(/Nome do Pet/i), { target: { value: "Max" } });
+    fireEvent.change(screen.getByLabelText(/^Tutor$/i), { target: { value: "Roberto Silva" } });
+    fireEvent.change(screen.getByLabelText(/Telefone de Contato/i), {
+      target: { value: "(11) 91234-5678" },
+    });
     fireEvent.change(screen.getByLabelText(/Veterinário Responsável/i), {
       target: { value: "Dr. Ricardo" },
     });
@@ -129,6 +133,13 @@ describe("ClinicInpatient — Mapa de Leitos, Aprazamento e Boletim de Alta (Iss
     expect(within(occupiedCanil01).getByText(/Desidratação severa/)).toBeInTheDocument();
     expect(within(occupiedCanil01).getByText(/Dieta líquida assistida/)).toBeInTheDocument();
     expect(within(occupiedCanil01).getByText("16:30")).toBeInTheDocument();
+
+    // Issue #214: O paciente admitido já deve estar sincronizado imediatamente na lista de patients (com o telefone do tutor) antes mesmo da alta
+    const savedOnAdmit = JSON.parse(window.localStorage.getItem(STORAGE_KEY));
+    const maxPatientOnAdmit = savedOnAdmit.patients.find((p) => p.name === "Max");
+    expect(maxPatientOnAdmit).toBeDefined();
+    expect(maxPatientOnAdmit.tutor).toBe("Roberto Silva");
+    expect(maxPatientOnAdmit.phone).toBe("(11) 91234-5678");
 
     // 2. Clica na baia Ocupada (Canil 01) para registrar evolução e dar Alta Médica
     fireEvent.click(occupiedCanil01);

@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import { Link, useNavigate, useParams } from "react-router-dom";
-import { ArrowLeft, CheckCircle2, PawPrint, Save } from "lucide-react";
+import { ArrowLeft, PawPrint, Save } from "lucide-react";
 import { toast } from "sonner";
 
 import { Button } from "@/components/ui/button";
@@ -325,8 +325,8 @@ const ClinicEditPatient = () => {
                   <SelectContent>
                     <SelectItem value="none">Não avaliado</SelectItem>
                     {ECC_OPTIONS.map((opt) => (
-                      <SelectItem key={opt.score} value={String(opt.score)}>
-                        {opt.score} · {opt.label} ({opt.description})
+                      <SelectItem key={opt.value} value={opt.value}>
+                        {opt.label}
                       </SelectItem>
                     ))}
                   </SelectContent>

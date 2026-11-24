@@ -96,6 +96,14 @@ const SERVICE_CATEGORIES = [
 const getTodayIso = () => new Date().toISOString().split("T")[0];
 const getCurrentYearMonth = () => getTodayIso().slice(0, 7);
 
+const formatAppointmentDateBR = (isoDate) => {
+  if (!isoDate || typeof isoDate !== "string") return "";
+  const clean = isoDate.split("T")[0];
+  const parts = clean.split("-");
+  if (parts.length !== 3) return isoDate;
+  return `${parts[2]}/${parts[1]}/${parts[0]}`;
+};
+
 const isVaccineAppointment = (a) => {
   const text = `${a.service || ""} ${a.notes || ""}`;
   return Boolean(a.vacina_aplicada) || /vacin|imuniz|v8|v10|raiva/i.test(text);
@@ -111,7 +119,6 @@ export const computeDashboardMetrics = (appointments = [], patients = []) => {
   const currentYM = getCurrentYearMonth();
 
   const todayAppointments = appointments.filter((a) => !a.date || a.date === todayIso);
-  const activeAppointments = appointments.filter((a) => a.status !== "Cancelado");
   const activeToday = todayAppointments.filter((a) => a.status !== "Cancelado");
   const doneAll = appointments.filter((a) => a.status === "Concluído");
   const doneToday = todayAppointments.filter((a) => a.status === "Concluído");
@@ -125,8 +132,8 @@ export const computeDashboardMetrics = (appointments = [], patients = []) => {
   const immunizedPatientsCount = patients.filter((p) => p.vaccinesUpToDate === true).length;
   const vaccinesMonthCount = Math.max(monthVaccineApps, immunizedPatientsCount);
 
-  // Ocupação da agenda: baseada nos horários ocupados hoje (ou total ativo se não houver hoje) vs capacidade diária
-  const baseForOccupancy = activeToday.length > 0 ? activeToday.length : activeAppointments.length;
+  // Ocupação da agenda: baseada nos horários ocupados hoje vs capacidade diária
+  const baseForOccupancy = activeToday.length;
   const occupancyRate = Math.min(
     100,
     Math.round((baseForOccupancy / DAILY_SLOT_CAPACITY) * 100),
@@ -239,8 +246,8 @@ export const computeDashboardMetrics = (appointments = [], patients = []) => {
   });
 
   return {
-    todayCount: todayAppointments.length || appointments.length,
-    doneTodayCount: doneToday.length || doneAll.length,
+    todayCount: todayAppointments.length,
+    doneTodayCount: doneToday.length,
     vaccinesMonthCount,
     occupancyRate,
     activeCount: baseForOccupancy,
@@ -259,6 +266,7 @@ const ClinicDashboard = () => {
   const navigate = useNavigate();
   const { profile, appointments, patients } = useClinic();
   const [chartMode, setChartMode] = useState("status");
+  const todayIso = getTodayIso();
 
   const metrics = useMemo(
     () => computeDashboardMetrics(appointments, patients),
@@ -276,9 +284,9 @@ const ClinicDashboard = () => {
     {
       testId: "kpi-appointments",
       label: "Atendimentos hoje",
-      value: appointments.length,
+      value: metrics.todayCount,
       icon: CalendarDays,
-      hint: appointments.length
+      hint: metrics.todayCount
         ? `${metrics.doneTodayCount} concluído(s)`
         : "Nenhum agendado",
     },
@@ -606,28 +614,35 @@ const ClinicDashboard = () => {
             </Button>
           </CardHeader>
           <CardContent className="space-y-3">
-            {next.map((a) => (
-              <div
-                key={a.id}
-                className="flex flex-wrap items-center gap-3 rounded-2xl border border-border p-4 transition-colors hover:border-primary/40"
-              >
-                <span className="flex items-center gap-1.5 rounded-xl bg-muted px-3 py-1.5 text-sm font-semibold">
-                  <Clock className="h-3.5 w-3.5" /> {a.time}
-                </span>
-                <div className="min-w-0 flex-1">
-                  <p className="truncate font-semibold">
-                    {a.petName}{" "}
-                    <span className="font-normal text-muted-foreground">· {a.breed}</span>
-                  </p>
-                  <p className="truncate text-sm text-muted-foreground">
-                    {a.service} — {a.vet}
-                  </p>
+            {next.map((a) => {
+              const isFutureOrOtherDate = Boolean(a.date && a.date !== todayIso);
+              return (
+                <div
+                  key={a.id}
+                  data-testid={`next-appointment-${a.id}`}
+                  className="flex flex-wrap items-center gap-3 rounded-2xl border border-border p-4 transition-colors hover:border-primary/40"
+                >
+                  <span className="flex items-center gap-1.5 rounded-xl bg-muted px-3 py-1.5 text-sm font-semibold">
+                    <Clock className="h-3.5 w-3.5" />
+                    {isFutureOrOtherDate
+                      ? `${formatAppointmentDateBR(a.date)} · ${a.time}`
+                      : a.time}
+                  </span>
+                  <div className="min-w-0 flex-1">
+                    <p className="truncate font-semibold">
+                      {a.petName}{" "}
+                      <span className="font-normal text-muted-foreground">· {a.breed}</span>
+                    </p>
+                    <p className="truncate text-sm text-muted-foreground">
+                      {a.service} — {a.vet}
+                    </p>
+                  </div>
+                  <Badge className={`${statusStyles[a.status]} hover:opacity-90`}>
+                    {a.status}
+                  </Badge>
                 </div>
-                <Badge className={`${statusStyles[a.status]} hover:opacity-90`}>
-                  {a.status}
-                </Badge>
-              </div>
-            ))}
+              );
+            })}
             {next.length === 0 && (
               <EmptyState
                 icon={<CalendarDays className="h-8 w-8" />}
@@ -651,11 +666,26 @@ const ClinicDashboard = () => {
               {attentionItems.map((p) => (
                 <div
                   key={p.id}
+                  role="button"
+                  tabIndex={0}
                   data-testid={`attention-item-${p.patientId || p.id}`}
-                  className={`rounded-2xl p-3 border transition-colors ${
+                  onClick={() =>
+                    navigate("/clinica/pacientes", {
+                      state: { selectedPatientId: p.patientId || p.id },
+                    })
+                  }
+                  onKeyDown={(e) => {
+                    if (e.key === "Enter" || e.key === " ") {
+                      e.preventDefault();
+                      navigate("/clinica/pacientes", {
+                        state: { selectedPatientId: p.patientId || p.id },
+                      });
+                    }
+                  }}
+                  className={`cursor-pointer rounded-2xl p-3 border transition-colors ${
                     p.isOverdue
-                      ? "bg-red-500/10 border-red-500/30"
-                      : "bg-warm-soft/70 border-warm/30"
+                      ? "bg-red-500/10 border-red-500/30 hover:bg-red-500/15"
+                      : "bg-warm-soft/70 border-warm/30 hover:bg-warm-soft"
                   }`}
                 >
                   <div className="flex items-center justify-between gap-2">

@@ -79,32 +79,48 @@ const PatientPhoto = ({ patient, className, iconClassName }) =>
 const ClinicPatients = () => {
   const navigate = useNavigate();
   const location = useLocation();
-  const { patients, appointments, profile, updatePatient, deletePatient, linkPatientWithLivePet, updateAppointmentExam, addPatientVaccine } = useClinic();
-  const [documentPatient, setDocumentPatient] = useState(null);
+  const {
+    patients,
+    appointments,
+    profile,
+    updatePatient,
+    deletePatient,
+    linkPatientWithLivePet,
+    updateAppointmentExam,
+    addPatientVaccine,
+  } = useClinic();
+  const [documentPatientId, setDocumentPatientId] = useState(null);
   const [query, setQuery] = useState("");
   const [species, setSpecies] = useState("Todos");
   const [breed, setBreed] = useState("Todas");
-  const [selected, setSelected] = useState(null);
+  const [selectedId, setSelectedId] = useState(
+    () => location.state?.selectedPatientId ?? null,
+  );
 
-  // Reabre o painel do paciente caso tenha retornado da tela de edição
+  // Reabre ou abre diretamente o painel do paciente ao navegar do Dashboard ou da edição
   useEffect(() => {
-    if (location.state?.selectedPatientId) {
-      const found = patients.find(
-        (p) => String(p.id) === String(location.state.selectedPatientId),
-      );
-      if (found) setSelected(found);
+    if (location.state?.selectedPatientId != null) {
+      setSelectedId(location.state.selectedPatientId);
     }
-  }, [location.state, patients]);
+  }, [location.state]);
 
-  // Mantém os dados da gaveta atualizados quando a lista de pacientes for alterada
-  useEffect(() => {
-    if (selected) {
-      const updated = patients.find((p) => p.id === selected.id);
-      if (updated && updated !== selected) {
-        setSelected(updated);
-      }
-    }
-  }, [patients, selected]);
+  // Deriva o paciente selecionado diretamente da lista reativa do contexto (sem stale state)
+  const selected = useMemo(
+    () =>
+      selectedId != null
+        ? patients.find((p) => String(p.id) === String(selectedId)) || null
+        : null,
+    [patients, selectedId],
+  );
+
+  const documentPatient = useMemo(
+    () =>
+      documentPatientId != null
+        ? patients.find((p) => String(p.id) === String(documentPatientId)) || null
+        : null,
+    [patients, documentPatientId],
+  );
+
   const vitals = useMemo(
     () => (selected ? buildVitals(selected, appointments) : null),
     [selected, appointments],
@@ -281,8 +297,9 @@ const ClinicPatients = () => {
         {visible.map((p) => (
           <Card
             key={p.id}
+            data-testid={`patient-card-${p.id}`}
             className="cursor-pointer overflow-hidden border-border/70 shadow-card transition-all hover:-translate-y-1 hover:shadow-soft"
-            onClick={() => setSelected(p)}
+            onClick={() => setSelectedId(p.id)}
           >
             <div className="relative h-40 overflow-hidden">
               <PatientPhoto patient={p} className="h-full w-full object-cover" iconClassName="h-12 w-12" />
@@ -330,7 +347,7 @@ const ClinicPatients = () => {
       </div>
 
       {/* Painel lateral de detalhes do Paciente selecionado */}
-      <Sheet open={!!selected} onOpenChange={(o) => !o && setSelected(null)}>
+      <Sheet open={!!selected} onOpenChange={(o) => !o && setSelectedId(null)}>
         <SheetContent className="w-full overflow-y-auto sm:max-w-xl">
           {selected && (
             <>
@@ -506,7 +523,7 @@ const ClinicPatients = () => {
                   type="button"
                   variant="outline"
                   data-testid="open-patient-documents-btn"
-                  onClick={() => setDocumentPatient(selected)}
+                  onClick={() => setDocumentPatientId(selected.id)}
                   className="w-full rounded-full gap-2 border-primary/40 text-primary hover:bg-primary-soft"
                 >
                   <FileBadge className="h-4 w-4" /> Emitir Atestado / Termo / Declaração
@@ -537,10 +554,10 @@ const ClinicPatients = () => {
         </SheetContent>
       </Sheet>
 
-      {/* Modal de Edição de Dados do Paciente e Tutor */}
+      {/* Modal de Documentos Clínicos */}
       <ClinicalDocumentsDialog
         open={Boolean(documentPatient)}
-        onOpenChange={(o) => !o && setDocumentPatient(null)}
+        onOpenChange={(o) => !o && setDocumentPatientId(null)}
         patient={documentPatient}
         appointments={appointments}
         profile={profile}
@@ -622,8 +639,8 @@ const ClinicPatients = () => {
               variant="destructive"
               onClick={() => {
                 deletePatient(patientToDelete.id);
-                if (selected?.id === patientToDelete.id) {
-                  setSelected(null);
+                if (String(selectedId) === String(patientToDelete.id)) {
+                  setSelectedId(null);
                 }
                 const name = patientToDelete.name;
                 setPatientToDelete(null);

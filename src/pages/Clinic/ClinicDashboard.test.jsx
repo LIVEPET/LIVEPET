@@ -1,8 +1,10 @@
 import { describe, it, expect, beforeEach } from "vitest";
 import { render, screen, within, fireEvent } from "@testing-library/react";
-import { MemoryRouter } from "react-router-dom";
-import { ClinicProvider } from "@/contexts/ClinicContext";
+import { MemoryRouter, Route, Routes } from "react-router-dom";
+import { ClinicProvider, STORAGE_KEY } from "@/contexts/ClinicContext";
+import { stubRadixForJsdom } from "@/test/clinicTestUtils";
 import ClinicDashboard, { computeDashboardMetrics } from "./ClinicDashboard";
+import ClinicPatients from "./ClinicPatients";
 
 const renderDashboard = () =>
   render(
@@ -13,8 +15,9 @@ const renderDashboard = () =>
     </MemoryRouter>,
   );
 
-describe("ClinicDashboard — Gráficos, Espécies e Metas Reais (Issue #83)", () => {
+describe("ClinicDashboard — Gráficos, Espécies e Metas Reais (Issues #83 e #214)", () => {
   beforeEach(() => {
+    stubRadixForJsdom();
     localStorage.clear();
   });
 
@@ -132,5 +135,86 @@ describe("ClinicDashboard — Gráficos, Espécies e Metas Reais (Issue #83)", (
     expect(srvRetornos.count).toBe(1);
     expect(srvExames.count).toBe(1);
   });
-});
 
+  it("Issue #214: diferencia Atendimentos hoje de retornos futuros, exibe data em Próximos atendimentos futuros e abre prontuário ao clicar em alerta", () => {
+    const todayIso = new Date().toISOString().split("T")[0];
+    const futureDate = "2099-12-15";
+
+    localStorage.setItem(
+      STORAGE_KEY,
+      JSON.stringify({
+        version: 1,
+        profile: { name: "Clínica Central" },
+        appointments: [
+          {
+            id: "today-1",
+            petName: "Rex",
+            species: "Cão",
+            breed: "Pastor",
+            tutor: "Carlos",
+            service: "Consulta clínica",
+            vet: "Dr. Paulo",
+            date: todayIso,
+            time: "10:00",
+            status: "Confirmado",
+          },
+          {
+            id: "future-1",
+            petName: "Mimi",
+            species: "Gato",
+            breed: "Siamês",
+            tutor: "Beatriz",
+            service: "Retorno Clínico",
+            vet: "Dra. Marina",
+            date: futureDate,
+            time: "15:30",
+            status: "Confirmado",
+          },
+        ],
+        patients: [
+          {
+            id: "pat-alert-1",
+            name: "Rex",
+            species: "Cão",
+            breed: "Pastor",
+            age: "5 anos",
+            weight: "30 kg",
+            tutor: "Carlos",
+            phone: "(11) 98888-1111",
+            alerts: ["Alérgico a anti-inflamatórios"],
+            vaccines: [],
+            history: [],
+          },
+        ],
+        beds: [],
+      }),
+    );
+
+    render(
+      <MemoryRouter initialEntries={["/clinica"]}>
+        <ClinicProvider>
+          <Routes>
+            <Route path="/clinica" element={<ClinicDashboard />} />
+            <Route path="/clinica/pacientes" element={<ClinicPatients />} />
+          </Routes>
+        </ClinicProvider>
+      </MemoryRouter>,
+    );
+
+    // 1. O KPI "Atendimentos hoje" deve mostrar 1 (apenas o de hoje) e não 2 (total global com retorno futuro)
+    const kpiAppointments = screen.getByTestId("kpi-appointments");
+    expect(within(kpiAppointments).getByText("1")).toBeInTheDocument();
+
+    // 2. Em "Próximos atendimentos", o agendamento futuro deve exibir a data formatada (15/12/2099 · 15:30)
+    const futureCard = screen.getByTestId("next-appointment-future-1");
+    expect(within(futureCard).getByText(/15\/12\/2099 · 15:30/)).toBeInTheDocument();
+
+    // 3. Ao clicar no alerta de "Precisam de atenção", navega para /clinica/pacientes com o prontuário do paciente aberto
+    const alertItem = screen.getByTestId("attention-item-pat-alert-1");
+    fireEvent.click(alertItem);
+
+    const sheet = screen.getByRole("dialog");
+    expect(within(sheet).getByText("Rex")).toBeInTheDocument();
+    expect(within(sheet).getByText("Alérgico a anti-inflamatórios")).toBeInTheDocument();
+  });
+});

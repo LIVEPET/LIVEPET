@@ -208,4 +208,19 @@ describe("prontuário do paciente", () => {
     expect(within(sheet).getByText("Situação vacinal")).toBeTruthy();
     expect(within(sheet).getByRole("button", { name: "Registrar novo atendimento" })).toBeTruthy();
   });
+
+  it("Issue #214: atualiza o painel lateral instantaneamente ao registrar nova vacina pregressa sem precisar fechar a gaveta", async () => {
+    seed({ patients: [patient({ vaccinesUpToDate: null, vaccines: [] })] });
+    const sheet = await openRecord();
+
+    await userEvent.click(within(sheet).getByRole("tab", { name: "Vacinas" }));
+    await userEvent.click(within(sheet).getByTestId("btn-add-vaccine"));
+
+    await userEvent.type(await screen.findByLabelText(/Nome da vacina/i), "Antirrábica");
+    await userEvent.type(screen.getByLabelText(/Lote/i), "LT-990");
+    await userEvent.click(screen.getByTestId("submit-vaccine-btn"));
+
+    expect(await within(sheet).findByText("Antirrábica")).toBeTruthy();
+    expect(within(sheet).getByText("LT-990")).toBeTruthy();
+  });
 });
