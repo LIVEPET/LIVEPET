@@ -6,6 +6,7 @@ import {
   CheckCircle2,
   ClipboardList,
   Clock,
+  HeartPulse,
   PawPrint,
   Pill,
   Plus,

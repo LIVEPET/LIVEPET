@@ -409,7 +409,7 @@ const ClinicInpatientBedPage = () => {
             <div className="grid gap-3 sm:grid-cols-2">
               <div className="space-y-1.5">
                 <Label htmlFor="ev-temp" className="text-xs">
-                  Temperatura Corporal (°C)
+                  Temperatura (°C)
                 </Label>
                 <Input
                   id="ev-temp"
