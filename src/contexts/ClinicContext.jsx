@@ -948,7 +948,9 @@ export const ClinicProvider = ({ children }) => {
       petName: occupantInput.petName?.trim() || "Paciente",
       species: occupantInput.species || "Cão",
       breed: occupantInput.breed?.trim() || "—",
+      age: occupantInput.age?.trim() || "—",
       tutor: occupantInput.tutor?.trim() || "—",
+      phone: occupantInput.phone?.trim() || "—",
       vet: occupantInput.vet?.trim() || "Equipe da clínica",
       reason: occupantInput.reason?.trim() || "Observação clínica",
       diet: occupantInput.diet?.trim() || "Dieta hospitalar padrão",
@@ -964,6 +966,69 @@ export const ClinicProvider = ({ children }) => {
       beds: asArray(current.beds).map((b) =>
         b.id === bedId ? { ...b, status: "Ocupada", occupant } : b,
       ),
+      patients: (() => {
+        const cleanPhone =
+          occupant.phone && occupant.phone !== "Não informado" && occupant.phone !== "—"
+            ? occupant.phone
+            : null;
+        const cleanAge =
+          occupant.age && occupant.age !== "Não informada" && occupant.age !== "—"
+            ? occupant.age
+            : null;
+        const cleanBreed =
+          occupant.breed && occupant.breed !== "—" && occupant.breed !== "SRD"
+            ? occupant.breed
+            : null;
+
+        let matchedAny = false;
+        const updated = current.patients.map((p) => {
+          const matchesId =
+            occupant.patientId && String(p.id) === String(occupant.patientId);
+          const matchesExact = isSamePatient(p, {
+            petName: occupant.petName,
+            tutor: occupant.tutor,
+          });
+          const matchesNameWhenDefaultTutor =
+            normalize(p.name) === normalize(occupant.petName) &&
+            (occupant.tutor === "Tutor cadastrado" ||
+              occupant.tutor === "Não informado" ||
+              occupant.tutor === "—");
+
+          if (matchesId || matchesExact || matchesNameWhenDefaultTutor) {
+            matchedAny = true;
+            occupant.patientId = p.id;
+            return {
+              ...p,
+              phone: cleanPhone || p.phone || "—",
+              age: cleanAge || p.age || "—",
+              breed: cleanBreed || p.breed || "—",
+              lastVisit: getToday(),
+            };
+          }
+          return p;
+        });
+
+        if (!matchedAny) {
+          const createdId = occupant.patientId || newId();
+          occupant.patientId = createdId;
+          const createdPatient = {
+            ...patientFromAppointment({
+              petName: occupant.petName,
+              species: occupant.species,
+              breed: occupant.breed,
+              tutor: occupant.tutor,
+              phone: cleanPhone || "—",
+            }),
+            id: createdId,
+            age: cleanAge || "—",
+            phone: cleanPhone || "—",
+            lastVisit: getToday(),
+          };
+          return [...updated, createdPatient];
+        }
+
+        return updated;
+      })(),
     }));
   }, []);
 
